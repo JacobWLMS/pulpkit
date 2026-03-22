@@ -68,6 +68,21 @@ pub fn run(
                         break;
                     }
                 }
+                // Backdrop surfaces — commit transparent buffer on configure.
+                for popup in popups.iter_mut() {
+                    if let Some(ref mut bd) = popup.backdrop {
+                        if bd.surface_id() == configure.surface_id {
+                            if configure.width > 0 && configure.height > 0 {
+                                bd.resize(configure.width, configure.height);
+                            }
+                            // Fill with transparent pixels and commit.
+                            let buf = bd.get_buffer();
+                            for b in buf.iter_mut() { *b = 0; }
+                            bd.commit();
+                            break;
+                        }
+                    }
+                }
             }
         }
 

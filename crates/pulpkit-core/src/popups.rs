@@ -152,9 +152,9 @@ impl ManagedPopup {
                         format!("pulpkit-backdrop-{}", self.name),
                         self.config.output.as_ref().map(|o| &o.wl_output),
                     ) {
-                        Ok(mut backdrop) => {
-                            // Commit a transparent buffer so the surface is live.
-                            backdrop.commit();
+                        Ok(backdrop) => {
+                            // Don't commit yet — wait for configure.
+                            // The event loop will handle the configure and commit.
                             self.backdrop = Some(backdrop);
                         }
                         Err(e) => {
