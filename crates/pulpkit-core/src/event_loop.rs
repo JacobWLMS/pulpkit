@@ -89,6 +89,15 @@ pub fn run(
                     InputEvent::PointerLeave { surface_id, .. } => {
                         events::dispatch_leave(surfaces, surface_id);
                         client.state.set_cursor("default");
+                        // Dismiss popups when pointer leaves their surface.
+                        for popup in popups.iter_mut() {
+                            if popup.surface_id().as_ref() == Some(surface_id) {
+                                if popup.config.dismiss_on_outside {
+                                    popup.dismiss();
+                                    any_handler_fired = true;
+                                }
+                            }
+                        }
                     }
                     InputEvent::PointerButton {
                         surface_id,

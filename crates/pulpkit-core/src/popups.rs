@@ -105,29 +105,29 @@ impl ManagedPopup {
         };
 
         // Position based on anchor type.
-        let (anchor, margins) = if self.config.anchor == PopupAnchor::Center {
-            // Center on screen.
-            let screen_h = parent_width; // approximate — use output height if available
-            let margin_top = self.config.offset.1; // offset.y shifts from center
-            (PopupAnchor::Center, SurfaceMargins {
-                top: margin_top,
-                left: 0,
-                right: 0,
-                bottom: 0,
-            })
+        let margins = if self.config.anchor == PopupAnchor::Center {
+            // Center on screen using output dimensions.
+            let (screen_w, screen_h) = self.config.output
+                .as_ref()
+                .map(|o| (o.width as i32, o.height as i32))
+                .unwrap_or((parent_width as i32, 1080));
+            let left = ((screen_w - popup_width as i32) / 2 + self.config.offset.0).max(0);
+            let top = ((screen_h - popup_height as i32) / 2 + self.config.offset.1).max(0);
+            SurfaceMargins { top, left, right: 0, bottom: 0 }
         } else {
             // Position below click point, flush against bar.
             let popup_left = (click_x as i32 - popup_width as i32 / 2)
                 .max(0)
                 .min(parent_width as i32 - popup_width as i32);
-            (PopupAnchor::TopLeft, SurfaceMargins {
+            SurfaceMargins {
                 top: parent_height as i32,
                 left: popup_left,
                 right: 0,
                 bottom: 0,
-            })
+            }
         };
-        let anchor = anchor;
+        // Always use TopLeft — we position via margins.
+        let anchor = PopupAnchor::TopLeft;
         match LayerSurface::new_popup_with_keyboard(
             app_state,
             anchor,
