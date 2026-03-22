@@ -39,7 +39,7 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
 
 /// Inner runtime logic, executed inside the reactive context.
 fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
-    let _ipc = IpcServer::new();
+    let ipc = IpcServer::new();
 
     // 0. File watcher disabled — causes spurious events from Lua I/O (Wave 2 fix).
     // let watcher = watcher::FileWatcher::new(shell_dir)?;
@@ -124,12 +124,16 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     let mut timers = setup::create_timers(&timer_registry.borrow(), lua)?;
 
     // 8. Enter the event loop.
+    let ipc_commands = ipc.as_ref().map(|i| i.commands.clone());
+
     event_loop::run(
         &mut client,
         &mut surfaces,
         &mut popups,
         &mut timers,
         &cancelled_timers,
+        ipc.as_ref(),
+        &ipc_commands,
         lua,
         &text_renderer,
         &theme,

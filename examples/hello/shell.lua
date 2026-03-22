@@ -211,7 +211,7 @@ set_interval(function()
   end
 end, 530)
 
-local function close_all_popups()
+function close_all_popups()
   show_audio:set(false)
   show_power:set(false)
   show_launcher:set(false)
@@ -219,11 +219,16 @@ local function close_all_popups()
   selected_index:set(1)
 end
 
-local function toggle_popup(sig)
+function toggle_popup(sig)
   local was = sig:get()
   close_all_popups()
   sig:set(not was)
 end
+
+-- Global IPC handlers (called by: pulpkit-core msg "toggle_launcher()")
+function toggle_launcher() toggle_popup(show_launcher) end
+function toggle_power() toggle_popup(show_power) end
+function toggle_audio() toggle_popup(show_audio) end
 
 -- ============================================================================
 -- Bar
