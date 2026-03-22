@@ -8,7 +8,7 @@ pub mod window;
 pub use signals::{DynValue, LuaComputed, LuaSignal, register_signal_api};
 pub use vm::LuaVm;
 pub use widgets::{LuaNode, register_widgets};
-pub use window::{MonitorTarget, WindowDef, WindowRegistry, register_window_fn};
+pub use window::{MonitorTarget, PopupDef, PopupRegistry, WindowDef, WindowRegistry, register_popup_fn, register_window_fn};
 
 #[cfg(test)]
 mod tests {
@@ -275,6 +275,105 @@ mod tests {
                 }
                 _ => panic!("expected Button"),
             }
+        });
+    }
+
+    #[test]
+    fn lua_popup_registration() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            let theme = Arc::new(Theme::default_slate());
+            register_widgets(vm.lua(), theme).unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            let popup_reg: PopupRegistry = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+            register_popup_fn(vm.lua(), popup_reg.clone()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local show = signal(false)
+                popup("test-popup", {
+                    parent = "bar",
+                    anchor = "top right",
+                    offset = { x = -8, y = 4 },
+                    dismiss_on_outside = true,
+                    visible = show,
+                    width = 280,
+                    height = 200,
+                }, function()
+                    return col("bg-surface rounded-lg p-4 w-full h-full", {
+                        text("text-sm text-fg", "Popup content"),
+                    })
+                end)
+            "#,
+                )
+                .exec()
+                .unwrap();
+
+            let defs = popup_reg.borrow();
+            assert_eq!(defs.len(), 1);
+            assert_eq!(defs[0].name, "test-popup");
+            assert_eq!(defs[0].parent, "bar");
+            assert_eq!(defs[0].anchor, "top right");
+            assert_eq!(defs[0].offset, (-8, 4));
+            assert!(defs[0].dismiss_on_outside);
+            assert!(defs[0].visible_signal.is_some());
+            assert_eq!(defs[0].width, Some(280));
+            assert_eq!(defs[0].height, Some(200));
+        });
+    }
+
+    #[test]
+    fn lua_popup_visible_signal_controls_visibility() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            let theme = Arc::new(Theme::default_slate());
+            register_widgets(vm.lua(), theme).unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            let popup_reg: PopupRegistry = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+            register_popup_fn(vm.lua(), popup_reg.clone()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                show_popup = signal(false)
+                popup("vis-test", {
+                    parent = "bar",
+                    anchor = "top left",
+                    visible = show_popup,
+                    width = 100,
+                    height = 100,
+                }, function()
+                    return text("text-sm", "Hello")
+                end)
+            "#,
+                )
+                .exec()
+                .unwrap();
+
+            let defs = popup_reg.borrow();
+            let sig = defs[0].visible_signal.as_ref().unwrap();
+
+            // Initially false
+            assert_eq!(sig.get(), signals::DynValue::Bool(false));
+
+            // Set to true from Lua
+            vm.lua()
+                .load(r#"show_popup:set(true)"#)
+                .exec()
+                .unwrap();
+            assert_eq!(sig.get(), signals::DynValue::Bool(true));
+
+            // Set back to false
+            vm.lua()
+                .load(r#"show_popup:set(false)"#)
+                .exec()
+                .unwrap();
+            assert_eq!(sig.get(), signals::DynValue::Bool(false));
         });
     }
 }

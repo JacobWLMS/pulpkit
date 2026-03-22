@@ -13,7 +13,11 @@ use smithay_client_toolkit::{
     },
     shm::slot::SlotPool,
 };
-use wayland_client::protocol::{wl_output, wl_shm};
+use wayland_client::{
+    backend::ObjectId,
+    protocol::{wl_output, wl_shm},
+    Proxy,
+};
 
 use crate::client::AppState;
 
@@ -62,6 +66,36 @@ impl Layer {
     }
 }
 
+/// Anchor for popup surfaces — allows corner and edge anchoring without
+/// spanning the full width/height.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PopupAnchor {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl PopupAnchor {
+    fn to_sctk(self) -> SctkAnchor {
+        match self {
+            PopupAnchor::TopLeft => SctkAnchor::TOP | SctkAnchor::LEFT,
+            PopupAnchor::TopRight => SctkAnchor::TOP | SctkAnchor::RIGHT,
+            PopupAnchor::BottomLeft => SctkAnchor::BOTTOM | SctkAnchor::LEFT,
+            PopupAnchor::BottomRight => SctkAnchor::BOTTOM | SctkAnchor::RIGHT,
+        }
+    }
+}
+
+/// Margins for a layer surface (top, right, bottom, left).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SurfaceMargins {
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+    pub left: i32,
+}
+
 /// Configuration for creating a layer surface.
 #[derive(Debug, Clone)]
 pub struct SurfaceConfig {
@@ -80,6 +114,8 @@ pub struct SurfaceConfig {
     pub namespace: String,
     /// Target a specific output, or `None` for the compositor's default.
     pub output: Option<wl_output::WlOutput>,
+    /// Margins (for popup positioning). Defaults to zero on all sides.
+    pub margins: SurfaceMargins,
 }
 
 /// A layer-shell surface with an associated shared-memory buffer for CPU rendering.
@@ -112,6 +148,12 @@ impl LayerSurface {
         layer.set_anchor(config.anchor.to_sctk());
         layer.set_exclusive_zone(config.exclusive_zone);
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
+        layer.set_margin(
+            config.margins.top,
+            config.margins.right,
+            config.margins.bottom,
+            config.margins.left,
+        );
 
         // Set size based on anchor direction.
         match config.anchor {
@@ -138,6 +180,51 @@ impl LayerSurface {
             pool,
             width: config.width,
             height: config.height,
+            buffer_data: vec![0u8; buf_size],
+        })
+    }
+
+    /// Create a popup-style layer surface with corner anchoring and explicit size.
+    ///
+    /// Unlike `new`, this uses a `PopupAnchor` (corner-based) and sets an explicit
+    /// size (no stretching). The surface is placed on the overlay layer with no
+    /// exclusive zone.
+    pub fn new_popup(
+        state: &mut AppState,
+        popup_anchor: PopupAnchor,
+        width: u32,
+        height: u32,
+        margins: SurfaceMargins,
+        namespace: String,
+        output: Option<&wl_output::WlOutput>,
+    ) -> anyhow::Result<Self> {
+        let surface = state.compositor_state.create_surface(&state.qh);
+
+        let layer = state.layer_shell.create_layer_surface(
+            &state.qh,
+            surface,
+            SctkLayer::Overlay,
+            Some(namespace),
+            output,
+        );
+
+        layer.set_anchor(popup_anchor.to_sctk());
+        layer.set_exclusive_zone(-1);
+        layer.set_keyboard_interactivity(KeyboardInteractivity::None);
+        layer.set_margin(margins.top, margins.right, margins.bottom, margins.left);
+        layer.set_size(width, height);
+
+        layer.commit();
+
+        let buf_size = (width as usize) * (height as usize) * 4;
+        let pool_size = buf_size.max(256);
+        let pool = SlotPool::new(pool_size, &state.shm)?;
+
+        Ok(LayerSurface {
+            layer,
+            pool,
+            width,
+            height,
             buffer_data: vec![0u8; buf_size],
         })
     }
@@ -209,6 +296,14 @@ impl LayerSurface {
         // Tell the compositor the new desired size.
         self.layer.set_size(width, height);
         self.layer.commit();
+    }
+
+    /// Return the Wayland `ObjectId` of this surface's `wl_surface`.
+    ///
+    /// This is used to match input events (which carry a surface `ObjectId`)
+    /// to the correct managed surface.
+    pub fn surface_id(&self) -> ObjectId {
+        self.layer.wl_surface().id()
     }
 
     /// Access the underlying sctk LayerSurface (for advanced usage).

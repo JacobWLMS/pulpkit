@@ -13,4 +13,4 @@ pub mod surface;
 pub use client::{AppState, WaylandClient};
 pub use input::InputEvent;
 pub use output::OutputInfo;
-pub use surface::{Anchor, Layer, LayerSurface, SurfaceConfig};
+pub use surface::{Anchor, Layer, LayerSurface, PopupAnchor, SurfaceConfig, SurfaceMargins};

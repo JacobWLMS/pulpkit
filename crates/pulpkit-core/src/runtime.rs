@@ -8,10 +8,11 @@ use std::time::Duration;
 
 use mlua::prelude::*;
 use pulpkit_layout::{Theme, Node, compute_layout, paint_tree};
-use pulpkit_lua::{LuaNode, LuaVm, register_signal_api, register_widgets, register_window_fn};
-use pulpkit_reactive::ReactiveRuntime;
+use pulpkit_lua::{LuaNode, LuaVm, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
+use pulpkit_lua::signals::DynValue;
+use pulpkit_reactive::{ReactiveRuntime, Signal};
 use pulpkit_render::{Canvas, Color, TextRenderer};
-use pulpkit_wayland::{Anchor, InputEvent, Layer, LayerSurface, OutputInfo, SurfaceConfig, WaylandClient};
+use pulpkit_wayland::{Anchor, InputEvent, Layer, LayerSurface, OutputInfo, PopupAnchor, SurfaceConfig, SurfaceMargins, WaylandClient};
 
 use crate::ipc::IpcServer;
 
@@ -56,6 +57,11 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     let registry = pulpkit_lua::WindowRegistry::default();
     register_window_fn(lua, registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register window fn: {e}"))?;
+
+    // 4b. Register the popup() function — collects PopupDefs during shell.lua execution.
+    let popup_registry = pulpkit_lua::PopupRegistry::default();
+    register_popup_fn(lua, popup_registry.clone())
+        .map_err(|e| anyhow::anyhow!("Failed to register popup fn: {e}"))?;
 
     // 5. Execute shell.lua — this calls window() to register window definitions.
     let shell_path = shell_dir.join("shell.lua");
@@ -210,6 +216,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 exclusive_zone,
                 namespace: window_def.namespace.clone(),
                 output: maybe_output.as_ref().map(|o| o.wl_output.clone()),
+                margins: SurfaceMargins::default(),
             };
 
             let mut surface = LayerSurface::new(&mut client.state, config)?;
@@ -248,6 +255,80 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     // Drop the borrow on window_defs before entering the event loop.
     drop(window_defs);
 
+    // 8b. For each PopupDef, create a ManagedPopup (starts hidden — no surface yet).
+    struct ManagedPopup {
+        name: String,
+        _parent_name: String,
+        layer_surface: Option<LayerSurface>,
+        root_node: pulpkit_layout::Node,
+        layout: Option<pulpkit_layout::LayoutResult>,
+        visible: bool,
+        visible_signal: Option<Signal<DynValue>>,
+        dismiss_on_outside: bool,
+        offset: (i32, i32),
+        popup_anchor: PopupAnchor,
+        width: u32,
+        height: u32,
+        output: Option<pulpkit_wayland::output::OutputInfo>,
+    }
+
+    let mut popups: Vec<ManagedPopup> = Vec::new();
+    {
+        let popup_defs = popup_registry.borrow();
+        for popup_def in popup_defs.iter() {
+            log::info!(
+                "Registering popup '{}' (parent={}, anchor={})",
+                popup_def.name,
+                popup_def.parent,
+                popup_def.anchor
+            );
+
+            // Call the widget function to build the node tree (called once).
+            let widget_fn: LuaFunction = lua
+                .registry_value(&popup_def.widget_fn_key)
+                .map_err(|e| anyhow::anyhow!("Failed to get popup widget function: {e}"))?;
+            let result: LuaAnyUserData = widget_fn
+                .call(())
+                .map_err(|e| anyhow::anyhow!("Popup widget function failed: {e}"))?;
+            let lua_node = result
+                .borrow::<LuaNode>()
+                .map_err(|e| anyhow::anyhow!("Popup widget function did not return a LuaNode: {e}"))?;
+            let root_node = lua_node.0.clone();
+
+            // Parse anchor string to PopupAnchor.
+            let popup_anchor = match popup_def.anchor.as_str() {
+                "top right" => PopupAnchor::TopRight,
+                "bottom left" => PopupAnchor::BottomLeft,
+                "bottom right" => PopupAnchor::BottomRight,
+                _ => PopupAnchor::TopLeft,
+            };
+
+            let width = popup_def.width.unwrap_or(280);
+            let height = popup_def.height.unwrap_or(200);
+
+            // Use the first output for now (or None).
+            let output = client.state.outputs.first().cloned();
+
+            popups.push(ManagedPopup {
+                name: popup_def.name.clone(),
+                _parent_name: popup_def.parent.clone(),
+                layer_surface: None, // starts hidden
+                root_node,
+                layout: None,
+                visible: false,
+                visible_signal: popup_def.visible_signal.clone(),
+                dismiss_on_outside: popup_def.dismiss_on_outside,
+                offset: popup_def.offset,
+                popup_anchor,
+                width,
+                height,
+                output,
+            });
+
+            log::info!("Popup '{}' registered (starts hidden)", popup_def.name);
+        }
+    }
+
     // 9. Event loop — dispatch Wayland events.
     log::info!("Entering event loop");
     loop {
@@ -270,6 +351,73 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                         &theme,
                         managed.hovered_node,
                     ));
+                }
+            }
+        }
+
+        // 9b. Check popup visibility signals — show/hide popups as needed.
+        for popup in &mut popups {
+            if let Some(ref sig) = popup.visible_signal {
+                let should_be_visible = matches!(sig.get(), DynValue::Bool(true));
+                if should_be_visible && !popup.visible {
+                    // Show popup: create the layer surface.
+                    log::info!("Showing popup '{}'", popup.name);
+
+                    // Compute margins based on parent bar height and offset.
+                    // For now, use a simple approach: look at the first bar surface
+                    // to get its height for margin-top calculation.
+                    let parent_height = surfaces.first().map(|s| s.surface.height()).unwrap_or(36);
+                    let margins = compute_popup_margins(
+                        popup.popup_anchor,
+                        parent_height,
+                        popup.offset,
+                    );
+
+                    match LayerSurface::new_popup(
+                        &mut client.state,
+                        popup.popup_anchor,
+                        popup.width,
+                        popup.height,
+                        margins,
+                        format!("pulpkit-popup-{}", popup.name),
+                        popup.output.as_ref().map(|o| &o.wl_output),
+                    ) {
+                        Ok(mut surface) => {
+                            // Do a roundtrip to get the configure event.
+                            if let Err(e) = client.event_loop.dispatch(
+                                Duration::from_millis(50),
+                                &mut client.state,
+                            ) {
+                                log::error!("Failed to dispatch for popup configure: {e}");
+                            }
+                            // Handle any pending configures for the popup.
+                            for configure in client.state.pending_configures.drain(..) {
+                                if configure.width > 0 && configure.height > 0 {
+                                    surface.resize(configure.width, configure.height);
+                                }
+                            }
+                            // Render the popup.
+                            let layout = render_surface(
+                                &mut surface,
+                                &popup.root_node,
+                                &text_renderer,
+                                &theme,
+                                None,
+                            );
+                            popup.layout = Some(layout);
+                            popup.layer_surface = Some(surface);
+                        }
+                        Err(e) => {
+                            log::error!("Failed to create popup surface '{}': {e}", popup.name);
+                        }
+                    }
+                    popup.visible = true;
+                } else if !should_be_visible && popup.visible {
+                    // Hide popup: destroy the layer surface.
+                    log::info!("Hiding popup '{}'", popup.name);
+                    popup.layer_surface = None;
+                    popup.layout = None;
+                    popup.visible = false;
                 }
             }
         }
@@ -300,9 +448,41 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                             }
                         }
                     }
-                    InputEvent::PointerButton { x, y, button, pressed: true, .. } => {
+                    InputEvent::PointerButton { surface_id, x, y, button, pressed: true } => {
+                        // Dismiss-on-outside-click: if the click is NOT on a
+                        // popup's surface, hide any dismiss_on_outside popups.
+                        for popup in &mut popups {
+                            if popup.visible && popup.dismiss_on_outside {
+                                let is_on_popup = popup
+                                    .layer_surface
+                                    .as_ref()
+                                    .map(|s| s.surface_id() == *surface_id)
+                                    .unwrap_or(false);
+                                if !is_on_popup {
+                                    if let Some(ref sig) = popup.visible_signal {
+                                        sig.set(DynValue::Bool(false));
+                                    }
+                                }
+                            }
+                        }
+
                         // Left mouse button = 0x110 (BTN_LEFT)
                         if *button == 0x110 {
+                            // Check popup surfaces first for button handlers.
+                            for popup in &popups {
+                                if popup.visible {
+                                    if let Some(ref layout) = popup.layout {
+                                        if let Some(cb) = find_button_handler(
+                                            layout, *x as f32, *y as f32,
+                                            |h| h.on_click.clone(),
+                                        ) {
+                                            cb();
+                                            handler_fired = true;
+                                        }
+                                    }
+                                }
+                            }
+                            // Then check bar surfaces.
                             for managed in &surfaces {
                                 if let Some(ref layout) = managed.layout {
                                     if let Some(cb) = find_button_handler(
@@ -352,6 +532,18 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     &theme,
                     managed.hovered_node,
                 ));
+            }
+            // Re-render visible popups too.
+            for popup in &mut popups {
+                if let Some(ref mut surface) = popup.layer_surface {
+                    popup.layout = Some(render_surface(
+                        surface,
+                        &popup.root_node,
+                        &text_renderer,
+                        &theme,
+                        None,
+                    ));
+                }
             }
         }
 
@@ -440,6 +632,44 @@ fn find_button_handler(
         }
     }
     None
+}
+
+/// Compute margins for a popup surface based on anchor, parent height, and offset.
+///
+/// This positions the popup below (or above) the parent bar using layer-shell margins.
+/// For Plan 2 this uses a simplified approach — exact parent-relative positioning
+/// can be refined in later plans.
+fn compute_popup_margins(
+    anchor: PopupAnchor,
+    parent_height: u32,
+    offset: (i32, i32),
+) -> SurfaceMargins {
+    match anchor {
+        PopupAnchor::TopLeft => SurfaceMargins {
+            top: parent_height as i32 + offset.1,
+            left: offset.0.max(0),
+            right: 0,
+            bottom: 0,
+        },
+        PopupAnchor::TopRight => SurfaceMargins {
+            top: parent_height as i32 + offset.1,
+            right: offset.0.abs(),
+            left: 0,
+            bottom: 0,
+        },
+        PopupAnchor::BottomLeft => SurfaceMargins {
+            bottom: parent_height as i32 + offset.1,
+            left: offset.0.max(0),
+            right: 0,
+            top: 0,
+        },
+        PopupAnchor::BottomRight => SurfaceMargins {
+            bottom: parent_height as i32 + offset.1,
+            right: offset.0.abs(),
+            left: 0,
+            top: 0,
+        },
+    }
 }
 
 /// Load a Theme from `theme.lua` in the shell directory.

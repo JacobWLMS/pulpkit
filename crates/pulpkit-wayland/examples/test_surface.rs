@@ -5,7 +5,7 @@
 
 use std::time::{Duration, Instant};
 
-use pulpkit_wayland::{Anchor, Layer, LayerSurface, SurfaceConfig, WaylandClient};
+use pulpkit_wayland::{Anchor, Layer, LayerSurface, SurfaceConfig, SurfaceMargins, WaylandClient};
 
 fn main() -> anyhow::Result<()> {
 
@@ -24,6 +24,7 @@ fn main() -> anyhow::Result<()> {
         exclusive_zone: 32,
         namespace: "pulpkit-test".to_string(),
         output: None,
+        margins: SurfaceMargins::default(),
     };
 
     let mut surface = LayerSurface::new(&mut client.state, config)?;
