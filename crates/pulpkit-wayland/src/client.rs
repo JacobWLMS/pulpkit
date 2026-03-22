@@ -357,17 +357,18 @@ impl SeatHandler for AppState {
                 }
             }
         }
-        if capability == Capability::Keyboard {
-            match self.seat_state.get_keyboard(qh, &seat, None) {
-                Ok(keyboard) => {
-                    log::debug!("Keyboard capability acquired");
-                    self.keyboards.push(keyboard);
-                }
-                Err(e) => {
-                    log::warn!("Failed to get keyboard: {e}");
-                }
-            }
-        }
+        // Keyboard support disabled temporarily — investigating broken pipe on NIRI
+        // if capability == Capability::Keyboard {
+        //     match self.seat_state.get_keyboard(qh, &seat, None) {
+        //         Ok(keyboard) => {
+        //             log::debug!("Keyboard capability acquired");
+        //             self.keyboards.push(keyboard);
+        //         }
+        //         Err(e) => {
+        //             log::warn!("Failed to get keyboard: {e}");
+        //         }
+        //     }
+        // }
     }
 
     fn remove_capability(

@@ -321,7 +321,7 @@ popup("audio", {
   visible = show_audio,
   dismiss_on_outside = true,
   width  = 320,
-  height = 0,  -- auto-size from content
+  height = 200,
 }, function()
   return col("bg-surface p-5 gap-4", {
     -- Header
@@ -371,7 +371,7 @@ popup("power", {
   visible = show_power,
   dismiss_on_outside = true,
   width  = 260,
-  height = 0,  -- auto-size from content
+  height = 300,
 }, function()
   return col("bg-surface p-5 gap-3", {
     -- Date header
@@ -489,7 +489,7 @@ popup("launcher", {
   visible = show_launcher,
   dismiss_on_outside = true,
   width = 400,
-  height = 0,
+  height = 420,
   keyboard = true,
   on_key = function(key, utf8)
     if key == "Escape" then
