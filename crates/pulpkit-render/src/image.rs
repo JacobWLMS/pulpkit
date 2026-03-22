@@ -37,26 +37,23 @@ pub fn resolve_icon_path(icon_name: &str) -> Option<PathBuf> {
         }
     }
 
-    // Search hicolor at preferred sizes (48px for bar icons)
-    let sizes = ["48x48", "32x32", "64x64", "scalable", "128x128", "24x24"];
-    let dirs = ["/usr/share/icons/hicolor", "/usr/share/pixmaps"];
+    // Search hicolor at preferred sizes — PNG only (Skia can't decode SVG).
+    // Prefer larger sizes for better quality when scaling down.
+    let sizes = ["48x48", "64x64", "128x128", "32x32", "256x256", "24x24", "192x192", "16x16"];
 
-    for dir in &dirs {
-        for size in &sizes {
-            let base = format!("{}/{}/apps/{}", dir, size, icon_name);
-            for ext in &["", ".png", ".svg", ".svgz"] {
-                let path = PathBuf::from(format!("{}{}", base, ext));
-                if path.exists() {
-                    return Some(path);
-                }
-            }
+    for size in &sizes {
+        let path = PathBuf::from(format!(
+            "/usr/share/icons/hicolor/{}/apps/{}.png", size, icon_name
+        ));
+        if path.exists() {
+            return Some(path);
         }
     }
 
-    // Check pixmaps directly
-    for ext in &[".png", ".svg", ".xpm", ""] {
+    // Check pixmaps (PNG only)
+    for ext in &[".png", ""] {
         let path = PathBuf::from(format!("/usr/share/pixmaps/{}{}", icon_name, ext));
-        if path.exists() {
+        if path.exists() && path.extension().is_some_and(|e| e == "png") {
             return Some(path);
         }
     }
