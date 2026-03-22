@@ -5,13 +5,14 @@
 
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
-    delegate_compositor, delegate_layer, delegate_output, delegate_pointer, delegate_registry,
-    delegate_seat, delegate_shm,
+    delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_pointer,
+    delegate_registry, delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     reexports::calloop_wayland_source::WaylandSource,
     seat::{
+        keyboard::{KeyEvent, KeyboardHandler, Keysym},
         pointer::{PointerEvent, PointerEventKind, PointerHandler},
         Capability, SeatHandler, SeatState,
     },
@@ -24,7 +25,9 @@ use smithay_client_toolkit::{
 use wayland_client::{
     backend::ObjectId,
     globals::registry_queue_init,
-    protocol::{wl_compositor, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
+    protocol::{
+        wl_compositor, wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface,
+    },
     Connection, Proxy, QueueHandle,
 };
 use wayland_cursor::CursorTheme;
@@ -62,6 +65,10 @@ pub struct AppState {
 
     /// Active WlPointer objects, so we can release them on capability removal.
     pointers: Vec<wl_pointer::WlPointer>,
+    /// Active WlKeyboard objects.
+    keyboards: Vec<wl_keyboard::WlKeyboard>,
+    /// Surface that currently has keyboard focus.
+    pub keyboard_surface: Option<ObjectId>,
 
     /// Cursor theme for setting the pointer cursor.
     cursor_theme: Option<CursorTheme>,
@@ -158,6 +165,8 @@ impl WaylandClient {
             pointer_position: None,
             pointer_surface: None,
             pointers: Vec::new(),
+            keyboards: Vec::new(),
+            keyboard_surface: None,
             cursor_theme,
             cursor_surface: Some(cursor_surface),
             last_pointer_serial: 0,
@@ -348,6 +357,17 @@ impl SeatHandler for AppState {
                 }
             }
         }
+        if capability == Capability::Keyboard {
+            match self.seat_state.get_keyboard(qh, &seat, None) {
+                Ok(keyboard) => {
+                    log::debug!("Keyboard capability acquired");
+                    self.keyboards.push(keyboard);
+                }
+                Err(e) => {
+                    log::warn!("Failed to get keyboard: {e}");
+                }
+            }
+        }
     }
 
     fn remove_capability(
@@ -358,10 +378,13 @@ impl SeatHandler for AppState {
         capability: Capability,
     ) {
         if capability == Capability::Pointer {
-            // Release all pointers — they are no longer valid.
             self.pointers.clear();
             self.pointer_surface = None;
             self.pointer_position = None;
+        }
+        if capability == Capability::Keyboard {
+            self.keyboards.clear();
+            self.keyboard_surface = None;
         }
     }
 
@@ -483,6 +506,103 @@ impl PointerHandler for AppState {
 }
 
 // ---------------------------------------------------------------------------
+// Keyboard handler
+// ---------------------------------------------------------------------------
+
+impl KeyboardHandler for AppState {
+    fn enter(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        surface: &wl_surface::WlSurface,
+        _serial: u32,
+        _raw: &[u32],
+        _keysyms: &[Keysym],
+    ) {
+        self.keyboard_surface = Some(surface.id());
+        log::debug!("Keyboard entered surface {:?}", surface.id());
+    }
+
+    fn leave(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        _surface: &wl_surface::WlSurface,
+        _serial: u32,
+    ) {
+        self.keyboard_surface = None;
+    }
+
+    fn press_key(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        _serial: u32,
+        event: KeyEvent,
+    ) {
+        if let Some(ref surface_id) = self.keyboard_surface {
+            self.input_events.push(InputEvent::KeyPress {
+                surface_id: surface_id.clone(),
+                raw_code: event.raw_code,
+                keysym: event.keysym.raw(),
+                utf8: event.utf8,
+            });
+        }
+    }
+
+    fn release_key(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        _serial: u32,
+        event: KeyEvent,
+    ) {
+        if let Some(ref surface_id) = self.keyboard_surface {
+            self.input_events.push(InputEvent::KeyRelease {
+                surface_id: surface_id.clone(),
+                raw_code: event.raw_code,
+                keysym: event.keysym.raw(),
+            });
+        }
+    }
+
+    fn repeat_key(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        _serial: u32,
+        event: KeyEvent,
+    ) {
+        // Treat repeats as presses.
+        if let Some(ref surface_id) = self.keyboard_surface {
+            self.input_events.push(InputEvent::KeyPress {
+                surface_id: surface_id.clone(),
+                raw_code: event.raw_code,
+                keysym: event.keysym.raw(),
+                utf8: event.utf8,
+            });
+        }
+    }
+
+    fn update_modifiers(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _keyboard: &wl_keyboard::WlKeyboard,
+        _serial: u32,
+        _modifiers: smithay_client_toolkit::seat::keyboard::Modifiers,
+        _raw_modifiers: smithay_client_toolkit::seat::keyboard::RawModifiers,
+        _layout: u32,
+    ) {
+    }
+}
+
+// ---------------------------------------------------------------------------
 // sctk delegate macros
 // ---------------------------------------------------------------------------
 
@@ -491,6 +611,7 @@ delegate_output!(AppState);
 delegate_shm!(AppState);
 delegate_seat!(AppState);
 delegate_pointer!(AppState);
+delegate_keyboard!(AppState);
 delegate_layer!(AppState);
 delegate_registry!(AppState);
 

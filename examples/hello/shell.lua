@@ -181,9 +181,12 @@ set_interval(function()
 end, 1000)
 
 set_interval(function()
-  poll_audio()
   poll_workspaces()
-end, 500)  -- fast poll for responsive workspace switching
+end, 1000)
+
+set_interval(function()
+  poll_audio()
+end, 2000)
 
 set_interval(function()
   poll_battery()
@@ -194,12 +197,18 @@ end, 30000)
 -- Popup Visibility
 -- ============================================================================
 
-local show_audio   = signal(false)
-local show_power   = signal(false)
+local show_audio    = signal(false)
+local show_power    = signal(false)
+local show_launcher = signal(false)
+local search_query  = signal("")
+local selected_index = signal(1)
 
 local function close_all_popups()
   show_audio:set(false)
   show_power:set(false)
+  show_launcher:set(false)
+  search_query:set("")
+  selected_index:set(1)
 end
 
 local function toggle_popup(sig)
@@ -222,6 +231,14 @@ window("bar", {
 
     -- ── Left: flex-1 so left+right take equal space → clock is centered
     row("flex-1 items-center gap-2 px-2", {
+      -- App launcher button
+      icon_btn("󰍉", {
+        on_click = function()
+          close_all_popups()
+          show_launcher:set(not show_launcher:get())
+        end,
+      }),
+
       each(function()
         local result = {}
         for i = 1, ws_count:get() do
@@ -407,5 +424,141 @@ popup("power", {
         text("text-base text-error", "Log Out"),
       }
     ),
+  })
+end)
+
+-- ============================================================================
+-- App Launcher
+-- ============================================================================
+
+-- Load desktop entries once at startup
+local all_apps = {}
+do
+  local dir = "/usr/share/applications"
+  local home_dir = (env("HOME") or "") .. "/.local/share/applications"
+  local function scan_dir(path)
+    local ls = exec_output("ls " .. path .. "/*.desktop 2>/dev/null")
+    for file in ls:gmatch("[^\n]+") do
+      local f = io.open(file, "r")
+      if f then
+        local content = f:read("*a")
+        f:close()
+        local name = content:match("Name=([^\n]+)")
+        local ex = content:match("Exec=([^\n]+)")
+        local nodisplay = content:match("NoDisplay=true")
+        if name and ex and not nodisplay then
+          -- Strip field codes from Exec (%u, %U, %f, %F, etc.)
+          ex = ex:gsub("%%[uUfFdDnNickvm]", ""):gsub("%s+$", "")
+          table.insert(all_apps, { name = name, exec = ex })
+        end
+      end
+    end
+  end
+  scan_dir(dir)
+  scan_dir(home_dir)
+  table.sort(all_apps, function(a, b) return a.name:lower() < b.name:lower() end)
+end
+
+local function filtered_apps()
+  local q = search_query:get():lower()
+  if q == "" then return all_apps end
+  local result = {}
+  for _, app in ipairs(all_apps) do
+    if app.name:lower():find(q, 1, true) then
+      table.insert(result, app)
+    end
+  end
+  return result
+end
+
+local function launch_selected()
+  local apps = filtered_apps()
+  local idx = selected_index:get()
+  if idx >= 1 and idx <= #apps then
+    exec(apps[idx].exec)
+    show_launcher:set(false)
+    search_query:set("")
+    selected_index:set(1)
+  end
+end
+
+popup("launcher", {
+  parent = "bar",
+  anchor = "top left",
+  offset = { x = 0, y = 0 },
+  visible = show_launcher,
+  dismiss_on_outside = true,
+  width = 400,
+  height = 0,
+  keyboard = true,
+  on_key = function(key, utf8)
+    if key == "Escape" then
+      show_launcher:set(false)
+      search_query:set("")
+      selected_index:set(1)
+    elseif key == "Return" then
+      launch_selected()
+    elseif key == "BackSpace" then
+      local q = search_query:get()
+      if #q > 0 then
+        search_query:set(q:sub(1, #q - 1))
+        selected_index:set(1)
+      end
+    elseif key == "Up" then
+      local idx = selected_index:get()
+      if idx > 1 then selected_index:set(idx - 1) end
+    elseif key == "Down" then
+      local apps = filtered_apps()
+      local idx = selected_index:get()
+      if idx < #apps then selected_index:set(idx + 1) end
+    elseif #utf8 == 1 and utf8:byte() >= 32 then
+      search_query:set(search_query:get() .. utf8)
+      selected_index:set(1)
+    end
+  end,
+}, function()
+  local max_results = 8
+  return col("bg-surface p-4 gap-2", {
+    -- Search input display
+    row("bg-base p-3 gap-2 items-center", {
+      text("text-lg text-muted", "󰍉"),
+      text("text-base text-fg", function()
+        local q = search_query:get()
+        if q == "" then return "Search apps..." end
+        return q .. "│"
+      end),
+    }),
+
+    -- Results
+    each(function()
+      local apps = filtered_apps()
+      local result = {}
+      for i = 1, math.min(#apps, max_results) do
+        table.insert(result, { idx = i, name = apps[i].name, exec = apps[i].exec })
+      end
+      return result
+    end, function(item)
+      return hbutton(
+        function()
+          return selected_index:get() == item.idx
+            and "px-3 py-2 items-center gap-3 bg-overlay"
+            or "px-3 py-2 items-center gap-3"
+        end,
+        function()
+          return selected_index:get() == item.idx
+            and "px-3 py-2 items-center gap-3 bg-card"
+            or "px-3 py-2 items-center gap-3 bg-overlay"
+        end,
+        {
+          on_click = function()
+            selected_index:set(item.idx)
+            launch_selected()
+          end,
+        },
+        {
+          text("text-base text-fg", item.name),
+        }
+      )
+    end, function(item) return item.name end),
   })
 end)

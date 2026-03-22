@@ -198,6 +198,20 @@ impl LayerSurface {
         namespace: String,
         output: Option<&wl_output::WlOutput>,
     ) -> anyhow::Result<Self> {
+        Self::new_popup_with_keyboard(state, popup_anchor, width, height, margins, namespace, output, false)
+    }
+
+    /// Create a popup surface with optional keyboard interactivity.
+    pub fn new_popup_with_keyboard(
+        state: &mut AppState,
+        popup_anchor: PopupAnchor,
+        width: u32,
+        height: u32,
+        margins: SurfaceMargins,
+        namespace: String,
+        output: Option<&wl_output::WlOutput>,
+        keyboard: bool,
+    ) -> anyhow::Result<Self> {
         let surface = state.compositor_state.create_surface(&state.qh);
 
         let layer = state.layer_shell.create_layer_surface(
@@ -210,7 +224,12 @@ impl LayerSurface {
 
         layer.set_anchor(popup_anchor.to_sctk());
         layer.set_exclusive_zone(-1);
-        layer.set_keyboard_interactivity(KeyboardInteractivity::None);
+        let kb = if keyboard {
+            KeyboardInteractivity::OnDemand
+        } else {
+            KeyboardInteractivity::None
+        };
+        layer.set_keyboard_interactivity(kb);
         layer.set_margin(margins.top, margins.right, margins.bottom, margins.left);
         layer.set_size(width, height);
 

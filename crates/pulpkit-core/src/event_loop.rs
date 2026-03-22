@@ -131,6 +131,28 @@ pub fn run(
                             any_handler_fired = true;
                         }
                     }
+                    InputEvent::KeyPress {
+                        surface_id,
+                        keysym,
+                        utf8,
+                        ..
+                    } => {
+                        // Dispatch key to the popup that owns this surface.
+                        for popup in popups.iter() {
+                            if popup.surface_id().as_ref() == Some(surface_id) {
+                                if let Some(ref key) = popup.on_key {
+                                    let cb: mlua::Function = lua.registry_value(key).unwrap();
+                                    let key_name = keysym_to_name(*keysym);
+                                    let _ = cb.call::<()>((
+                                        key_name,
+                                        utf8.clone().unwrap_or_default(),
+                                    ));
+                                    any_handler_fired = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -254,4 +276,28 @@ fn update_cursor(surfaces: &[ManagedSurface], app_state: &mut AppState) {
         }
     }
     app_state.set_cursor("default");
+}
+
+/// Map common XKB keysyms to human-readable names for Lua.
+fn keysym_to_name(keysym: u32) -> String {
+    match keysym {
+        0xff08 => "BackSpace".into(),
+        0xff09 => "Tab".into(),
+        0xff0d => "Return".into(),
+        0xff1b => "Escape".into(),
+        0xffff => "Delete".into(),
+        0xff50 => "Home".into(),
+        0xff51 => "Left".into(),
+        0xff52 => "Up".into(),
+        0xff53 => "Right".into(),
+        0xff54 => "Down".into(),
+        0xff55 => "Page_Up".into(),
+        0xff56 => "Page_Down".into(),
+        0xff57 => "End".into(),
+        0x20 => "space".into(),
+        k if (0x20..=0x7e).contains(&k) => {
+            String::from(char::from_u32(k).unwrap_or('?'))
+        }
+        other => format!("0x{other:04x}"),
+    }
 }

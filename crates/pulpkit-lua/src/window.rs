@@ -92,6 +92,10 @@ pub struct PopupDef {
     pub width: Option<u32>,
     /// Explicit height, if provided.
     pub height: Option<u32>,
+    /// Whether this popup requests keyboard focus.
+    pub keyboard: bool,
+    /// Registry key for the on_key(key, utf8) Lua callback.
+    pub on_key: Option<RegistryKey>,
 }
 
 /// Registry of popup definitions collected during shell.lua execution.
@@ -131,6 +135,11 @@ pub fn register_popup_fn(lua: &Lua, registry: PopupRegistry) -> LuaResult<()> {
 
             let width: Option<u32> = opts.get("width")?;
             let height: Option<u32> = opts.get("height")?;
+            let keyboard: bool = opts.get::<Option<bool>>("keyboard")?.unwrap_or(false);
+            let on_key = opts
+                .get::<Option<LuaFunction>>("on_key")?
+                .map(|f| lua.create_registry_value(f))
+                .transpose()?;
 
             let widget_fn_key = lua.create_registry_value(func)?;
 
@@ -144,6 +153,8 @@ pub fn register_popup_fn(lua: &Lua, registry: PopupRegistry) -> LuaResult<()> {
                 widget_fn_key,
                 width,
                 height,
+                keyboard,
+                on_key,
             });
 
             Ok(())

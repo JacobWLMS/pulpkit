@@ -1,11 +1,11 @@
-//! Input handling for pointer events.
+//! Input handling for pointer and keyboard events.
 //!
-//! Provides an [`InputEvent`] enum that normalises sctk pointer callbacks
+//! Provides an [`InputEvent`] enum that normalises sctk callbacks
 //! into a simple event queue consumed by the shell runtime.
 
 use wayland_client::backend::ObjectId;
 
-/// A pointer/mouse input event tied to a specific surface.
+/// An input event tied to a specific surface.
 #[derive(Debug, Clone)]
 pub enum InputEvent {
     /// Pointer entered a surface.
@@ -39,5 +39,21 @@ pub enum InputEvent {
         y: f64,
         delta: f64,
         horizontal: bool,
+    },
+    /// A key was pressed.
+    KeyPress {
+        surface_id: ObjectId,
+        /// The raw keycode.
+        raw_code: u32,
+        /// XKB keysym value.
+        keysym: u32,
+        /// UTF-8 text produced by this key (None for modifiers, function keys, etc).
+        utf8: Option<String>,
+    },
+    /// A key was released.
+    KeyRelease {
+        surface_id: ObjectId,
+        raw_code: u32,
+        keysym: u32,
     },
 }

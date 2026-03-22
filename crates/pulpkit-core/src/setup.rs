@@ -122,6 +122,10 @@ pub fn create_popups(
             _ => PopupAnchor::TopLeft,
         };
 
+        let on_key = popup_def.on_key.as_ref()
+            .and_then(|k| lua.registry_value::<LuaFunction>(k).ok())
+            .and_then(|f| lua.create_registry_value(f).ok());
+
         popups.push(ManagedPopup {
             name: popup_def.name.clone(),
             root: lua_node.0.clone(),
@@ -132,10 +136,12 @@ pub fn create_popups(
                 offset: popup_def.offset,
                 dismiss_on_outside: popup_def.dismiss_on_outside,
                 width: popup_def.width.unwrap_or(280),
-                height: popup_def.height.unwrap_or(200),
+                height: popup_def.height.unwrap_or(0),
                 output: client.state.outputs.first().cloned(),
+                keyboard: popup_def.keyboard,
             },
             visible_signal: popup_def.visible_signal.clone(),
+            on_key,
         });
 
         log::info!("Popup '{}' registered (starts hidden)", popup_def.name);

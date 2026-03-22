@@ -16,6 +16,7 @@ pub struct PopupConfig {
     pub width: u32,
     pub height: u32,
     pub output: Option<pulpkit_wayland::OutputInfo>,
+    pub keyboard: bool,
 }
 
 /// The lifecycle state of a popup surface.
@@ -56,6 +57,8 @@ pub struct ManagedPopup {
     pub state: PopupState,
     pub config: PopupConfig,
     pub visible_signal: Option<Signal<DynValue>>,
+    /// Registry key for the on_key Lua callback (if keyboard enabled).
+    pub on_key: Option<mlua::RegistryKey>,
 }
 
 impl ManagedPopup {
@@ -115,7 +118,7 @@ impl ManagedPopup {
         };
 
         // Always use TopLeft anchor — we control position via left margin.
-        match LayerSurface::new_popup(
+        match LayerSurface::new_popup_with_keyboard(
             app_state,
             PopupAnchor::TopLeft,
             popup_width,
@@ -123,6 +126,7 @@ impl ManagedPopup {
             margins,
             format!("pulpkit-popup-{}", self.name),
             self.config.output.as_ref().map(|o| &o.wl_output),
+            self.config.keyboard,
         ) {
             Ok(surface) => {
                 log::info!(
