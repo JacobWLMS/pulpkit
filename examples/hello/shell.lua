@@ -374,12 +374,16 @@ end)
 
 popup("power", {
   parent = "bar",
-  anchor = "top right",
+  anchor = "center",
   offset = { x = 0, y = 0 },
   visible = show_power,
   dismiss_on_outside = true,
-  width  = 260,
-  height = 300,
+  width  = 300,
+  height = 320,
+  keyboard = true,
+  on_key = function(key, utf8)
+    if key == "Escape" then show_power:set(false) end
+  end,
 }, function()
   return col("bg-surface p-5 gap-3", {
     -- Date header
@@ -530,14 +534,9 @@ popup("launcher", {
     -- Search input display
     row("bg-base p-3 gap-2 items-center", {
       text("text-lg text-muted", "󰍉"),
-      text(function()
-        local q = search_query:get()
-        if q == "" then return "text-base text-muted" end
-        return "text-base text-fg"
-      end, function()
+      text("text-base text-fg", function()
         local q = search_query:get()
         local cursor = cursor_blink:get() and "│" or " "
-        if q == "" then return "Type to search..." .. cursor end
         return q .. cursor
       end),
     }),

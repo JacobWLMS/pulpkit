@@ -144,6 +144,7 @@ pub fn create_popups(
             },
             visible_signal: popup_def.visible_signal.clone(),
             on_key,
+            backdrop: None,
         });
 
         log::info!("Popup '{}' registered (starts hidden)", popup_def.name);

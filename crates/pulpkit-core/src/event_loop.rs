@@ -108,16 +108,27 @@ pub fn run(
                     } => {
                         // BTN_LEFT = 0x110
                         if *button == 0x110 {
-                            // Always dismiss popups on clicks outside the popup surface,
-                            // even if the click hit a bar button (the button's handler
-                            // runs too — e.g., toggle_popup closes all first).
-                            dismiss_popups_on_outside_click(popups, surface_id);
+                            // Check if click was on a backdrop → dismiss that popup.
+                            let mut backdrop_click = false;
+                            for popup in popups.iter_mut() {
+                                if let Some(ref bd) = popup.backdrop {
+                                    if bd.surface_id() == *surface_id {
+                                        popup.dismiss();
+                                        backdrop_click = true;
+                                        any_handler_fired = true;
+                                        break;
+                                    }
+                                }
+                            }
 
-                            let result = events::dispatch_click(
-                                surfaces, popups, *x, *y, surface_id,
-                            );
-                            if result == ClickResult::Handled {
-                                any_handler_fired = true;
+                            if !backdrop_click {
+                                dismiss_popups_on_outside_click(popups, surface_id);
+                                let result = events::dispatch_click(
+                                    surfaces, popups, *x, *y, surface_id,
+                                );
+                                if result == ClickResult::Handled {
+                                    any_handler_fired = true;
+                                }
                             }
                         }
                     }

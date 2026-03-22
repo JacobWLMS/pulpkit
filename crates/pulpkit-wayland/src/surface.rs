@@ -254,6 +254,49 @@ impl LayerSurface {
         })
     }
 
+    /// Create a full-screen transparent surface on the overlay layer.
+    ///
+    /// Used as a click-catcher behind popups: when the user clicks the backdrop,
+    /// the popup dismisses. The surface is 1x1 pixel (stretched to full screen
+    /// by the all-edges anchor) filled with transparent pixels.
+    pub fn new_backdrop(
+        state: &mut AppState,
+        namespace: String,
+        output: Option<&wl_output::WlOutput>,
+    ) -> anyhow::Result<Self> {
+        let surface = state.compositor_state.create_surface(&state.qh);
+
+        let layer = state.layer_shell.create_layer_surface(
+            &state.qh,
+            surface,
+            SctkLayer::Overlay,
+            Some(namespace),
+            output,
+        );
+
+        // Anchor all edges = full screen. Size 0,0 = stretch to fill.
+        layer.set_anchor(SctkAnchor::TOP | SctkAnchor::BOTTOM | SctkAnchor::LEFT | SctkAnchor::RIGHT);
+        layer.set_exclusive_zone(-1);
+        layer.set_keyboard_interactivity(KeyboardInteractivity::None);
+        layer.set_size(0, 0);
+        layer.commit();
+
+        // Minimal 1x1 buffer — will be stretched by compositor.
+        // Actually we need a real buffer. Use a small one filled with transparent.
+        let width = 1u32;
+        let height = 1u32;
+        let buf_size = 4; // 1 pixel * 4 bytes
+        let pool = SlotPool::new(256, &state.shm)?;
+
+        Ok(LayerSurface {
+            layer,
+            pool,
+            width,
+            height,
+            buffer_data: vec![0u8; buf_size], // transparent
+        })
+    }
+
     /// Get a mutable reference to the raw pixel buffer (ARGB8888 format).
     ///
     /// The buffer is `width * height * 4` bytes. Each pixel is 4 bytes

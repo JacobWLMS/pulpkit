@@ -59,6 +59,8 @@ pub struct ManagedPopup {
     pub visible_signal: Option<Signal<DynValue>>,
     /// Registry key for the on_key Lua callback (if keyboard enabled).
     pub on_key: Option<mlua::RegistryKey>,
+    /// Full-screen transparent surface behind the popup for click-to-dismiss.
+    pub backdrop: Option<LayerSurface>,
 }
 
 impl ManagedPopup {
@@ -143,6 +145,23 @@ impl ManagedPopup {
                     "Showing popup '{}' ({}x{})",
                     self.name, popup_width, popup_height,
                 );
+                // Create backdrop for click-to-dismiss.
+                if self.config.dismiss_on_outside {
+                    match LayerSurface::new_backdrop(
+                        app_state,
+                        format!("pulpkit-backdrop-{}", self.name),
+                        self.config.output.as_ref().map(|o| &o.wl_output),
+                    ) {
+                        Ok(mut backdrop) => {
+                            // Commit a transparent buffer so the surface is live.
+                            backdrop.commit();
+                            self.backdrop = Some(backdrop);
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to create backdrop: {e}");
+                        }
+                    }
+                }
                 self.state = PopupState::Creating { surface };
             }
             Err(e) => {
@@ -153,6 +172,9 @@ impl ManagedPopup {
 
     /// Start fade-out animation.
     pub fn hide(&mut self) {
+        // Destroy backdrop immediately.
+        self.backdrop = None;
+
         match std::mem::replace(&mut self.state, PopupState::Hidden) {
             PopupState::Visible { surface, .. }
             | PopupState::FadingIn { surface, .. } => {
