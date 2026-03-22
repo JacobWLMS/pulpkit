@@ -101,6 +101,25 @@ impl<'a> Canvas<'a> {
             .draw_str(text, (x, baseline_y), &font, &paint);
     }
 
+    /// Draw an image from raw pixel data at (x, y), scaled to fit (w, h).
+    pub fn draw_image(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        image: &skia_safe::Image,
+    ) {
+        let rect = Rect::from_xywh(x, y, w, h);
+        let paint = Paint::default();
+        self.surface.canvas().draw_image_rect(
+            image,
+            None,
+            rect,
+            &paint,
+        );
+    }
+
     /// Flush all pending drawing operations to the backing pixel buffer.
     ///
     /// For raster (CPU) surfaces, drawing is immediate so this is a no-op.

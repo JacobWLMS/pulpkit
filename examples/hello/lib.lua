@@ -19,6 +19,11 @@ lib.icons = {
   logout     = "󰗼",  reboot   = "󰜉",
   brightness = "󰃟",  calendar = "󰃭",  settings   = "󰒓",
   search     = "󰍉",  close    = "󰅖",  check      = "󰄬",
+  app        = "󰀻",  terminal = "󰆍",  browser    = "󰖟",
+  files      = "󰉋",  code     = "󰨞",  music      = "󰝚",
+  video      = "󰕧",  image    = "󰋩",  game       = "󰊗",
+  mail       = "󰇮",  chat     = "󰍡",  settings2  = "󰒓",
+  text       = "󰧮",  download = "󰇚",  camera     = "󰄀",
   chevron_r  = "󰅂",  chevron_l = "󰅁",
   circle     = "󰝥",  circle_f = "󰝤",  dot = "●",
 }
@@ -210,6 +215,47 @@ function lib.poll_battery()
 end
 
 --- Get battery icon.
+--- Guess an icon for an app based on its name, exec, or .desktop categories.
+function lib.app_icon(name, exec, categories)
+  local n = (name or ""):lower()
+  local e = (exec or ""):lower()
+  local c = (categories or ""):lower()
+
+  -- Match by exec name
+  if e:find("ghostty") or e:find("alacritty") or e:find("kitty") or e:find("foot")
+    or e:find("wezterm") or e:find("terminal") then return lib.icons.terminal end
+  if e:find("firefox") or e:find("chrom") or e:find("brave") or e:find("zen")
+    or e:find("vivaldi") then return lib.icons.browser end
+  if e:find("code") or e:find("nvim") or e:find("vim") or e:find("zed")
+    or e:find("emacs") or e:find("helix") then return lib.icons.code end
+  if e:find("nautilus") or e:find("thunar") or e:find("dolphin") or e:find("nemo")
+    or e:find("pcmanfm") then return lib.icons.files end
+  if e:find("spotify") or e:find("music") or e:find("rhythmbox")
+    or e:find("lollypop") then return lib.icons.music end
+  if e:find("mpv") or e:find("vlc") or e:find("celluloid") or e:find("totem")
+    then return lib.icons.video end
+  if e:find("gimp") or e:find("inkscape") or e:find("krita")
+    then return lib.icons.image end
+  if e:find("steam") or e:find("lutris") or e:find("heroic") or e:find("game")
+    then return lib.icons.game end
+  if e:find("thunderbird") or e:find("geary") or e:find("mail")
+    then return lib.icons.mail end
+  if e:find("discord") or e:find("telegram") or e:find("signal") or e:find("element")
+    then return lib.icons.chat end
+
+  -- Match by category
+  if c:find("terminal") then return lib.icons.terminal end
+  if c:find("browser") or c:find("web") then return lib.icons.browser end
+  if c:find("develop") or c:find("ide") then return lib.icons.code end
+  if c:find("filemanager") then return lib.icons.files end
+  if c:find("audio") or c:find("music") then return lib.icons.music end
+  if c:find("video") then return lib.icons.video end
+  if c:find("game") then return lib.icons.game end
+  if c:find("setting") then return lib.icons.settings2 end
+
+  return lib.icons.app
+end
+
 function lib.bat_icon(pct, status)
   if not pct then return "" end
   if status == "Charging" then return lib.icons.bat_charge end

@@ -218,9 +218,17 @@ do
       if c then
         local name = c:match("Name=([^\n]+)")
         local ex   = c:match("Exec=([^\n]+)")
+        local cats = c:match("Categories=([^\n]+)") or ""
         if name and ex and not c:match("NoDisplay=true") then
           ex = ex:gsub("%%[uUfFdDnNickvm]", ""):gsub("%s+$", "")
-          all_apps[#all_apps+1] = { name = name, exec = ex }
+          local icon_name = c:match("Icon=([^\n]+)") or ""
+          local icon_path = resolve_icon(icon_name)
+          all_apps[#all_apps+1] = {
+            name = name,
+            exec = ex,
+            icon_path = icon_path,
+            icon_fallback = lib.app_icon(name, ex, cats),
+          }
         end
       end
     end
@@ -284,24 +292,52 @@ popup("launcher", {
       end),
     }),
 
+    -- Virtual scroll: show a window of 8 items around the selection
     each(function()
       local apps = filtered_apps()
+      local sel = selected_index:get()
+      local max_visible = 8
+      -- Compute scroll window
+      local start = 1
+      if sel > max_visible then
+        start = sel - max_visible + 1
+      end
       local r = {}
-      for i = 1, math.min(#apps, 8) do
-        r[#r+1] = { idx = i, name = apps[i].name, exec = apps[i].exec }
+      for i = start, math.min(start + max_visible - 1, #apps) do
+        r[#r+1] = {
+          idx = i,
+          name = apps[i].name,
+          exec = apps[i].exec,
+          icon_path = apps[i].icon_path,
+          icon_fallback = apps[i].icon_fallback,
+        }
       end
       return r
     end, function(item)
-      return lib.btn(item.name, {
-        style = function()
-          return selected_index:get() == item.idx
-            and "px-3 py-2 bg-overlay" or "px-3 py-2"
-        end,
+      local children = {}
+      -- App icon (real PNG or fallback glyph)
+      if item.icon_path then
+        children[#children+1] = image(item.icon_path, 24, 24)
+      else
+        children[#children+1] = text("text-lg text-muted", item.icon_fallback or icons.app)
+      end
+      children[#children+1] = text("text-base text-fg", item.name)
+
+      local hovered = signal(false)
+      return button(function()
+        local is_sel = selected_index:get() == item.idx
+        local is_hov = hovered:get()
+        if is_sel then return "px-2 py-1 items-center gap-3 bg-overlay" end
+        if is_hov then return "px-2 py-1 items-center gap-3 bg-overlay" end
+        return "px-2 py-1 items-center gap-3"
+      end, {
         on_click = function()
           selected_index:set(item.idx)
           launch_selected()
         end,
-      })
+        on_hover = function() hovered:set(true) end,
+        on_hover_lost = function() hovered:set(false) end,
+      }, children)
     end, function(item) return item.name end),
   })
 end)

@@ -40,5 +40,15 @@ pub fn register_system_api(lua: &Lua) -> LuaResult<()> {
     })?;
     lua.globals().set("env", env_fn)?;
 
+    // resolve_icon(name) — find the file path for an icon name.
+    // Returns the path string or nil.
+    let resolve_icon_fn = lua.create_function(|lua, name: String| {
+        match pulpkit_render::resolve_icon_path(&name) {
+            Some(path) => Ok(LuaValue::String(lua.create_string(path.to_string_lossy().as_ref())?)),
+            None => Ok(LuaValue::Nil),
+        }
+    })?;
+    lua.globals().set("resolve_icon", resolve_icon_fn)?;
+
     Ok(())
 }

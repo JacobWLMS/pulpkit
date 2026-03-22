@@ -91,6 +91,19 @@ fn build_taffy_node(
             order.insert(insert_idx, (id, node.clone()));
             id
         }
+        Node::Image { style, width: img_w, height: img_h, .. } => {
+            let resolved = style.resolve();
+            let mut taffy_style = to_taffy_style(&resolved, Direction::Row, false);
+            taffy_style.size = Size {
+                width: Dimension::from_length(*img_w),
+                height: Dimension::from_length(*img_h),
+            };
+            let id = tree
+                .new_leaf(taffy_style)
+                .expect("failed to create taffy image leaf");
+            order.push((id, node.clone()));
+            id
+        }
         Node::Text { style, content } => {
             let resolved_style = style.resolve();
             let resolved_text = content.resolve();

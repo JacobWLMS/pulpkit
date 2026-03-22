@@ -143,6 +143,20 @@ pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
         lua.globals().set("spacer", spacer_fn)?;
     }
 
+    // image(path, width, height) -> LuaNode
+    // Renders an image file (PNG). Width/height in pixels.
+    {
+        let image_fn = lua.create_function(|_lua, (path, w, h): (String, f32, f32)| {
+            Ok(LuaNode(Node::Image {
+                style: Prop::Static(StyleProps::default()),
+                path,
+                width: w,
+                height: h,
+            }))
+        })?;
+        lua.globals().set("image", image_fn)?;
+    }
+
     // button(style, opts, children?) -> LuaNode
     //
     // style: string or function (reactive)

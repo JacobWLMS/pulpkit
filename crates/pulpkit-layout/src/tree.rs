@@ -49,6 +49,16 @@ pub enum Node {
         style: Prop<StyleProps>,
         content: Prop<String>,
     },
+    /// Image node — renders a raster image from a file path.
+    Image {
+        style: Prop<StyleProps>,
+        /// Path to the image file (resolved at load time).
+        path: String,
+        /// Display width in pixels.
+        width: f32,
+        /// Display height in pixels.
+        height: f32,
+    },
     /// Spacer (flex-grow: 1, takes remaining space).
     Spacer,
     /// Dynamic list — resolves children from a reactive data source with

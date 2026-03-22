@@ -36,6 +36,9 @@ pub fn wire_dirty_tracking(
 
 fn wire_node(node: &Node, dirty: &Rc<Cell<bool>>, wake: &Sender<RuntimeEvent>) {
     match node {
+        Node::Image { style, .. } => {
+            wire_style_prop(style, dirty, wake);
+        }
         Node::Text { content, style, .. } => {
             wire_prop(content, dirty, wake);
             wire_style_prop(style, dirty, wake);

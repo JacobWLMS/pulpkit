@@ -1,8 +1,10 @@
 //! Paint pipeline — walks layout results and issues Skia draw calls.
 
+use std::path::Path;
+
 use crate::flex::LayoutResult;
 use crate::tree::{InteractiveKind, Node};
-use pulpkit_render::{Canvas, Color};
+use pulpkit_render::{Canvas, Color, load_image};
 
 /// Paint the laid-out widget tree onto the canvas.
 pub fn paint_tree(
@@ -149,6 +151,17 @@ pub fn paint_tree(
                             circle_color,
                         );
                     }
+                }
+            }
+            Node::Image { path, .. } => {
+                if let Some(image) = load_image(Path::new(path)) {
+                    canvas.draw_image(
+                        layout_node.x,
+                        layout_node.y,
+                        layout_node.width,
+                        layout_node.height,
+                        &image,
+                    );
                 }
             }
             Node::DynamicList { style, .. } => {
