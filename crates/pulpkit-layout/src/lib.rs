@@ -7,17 +7,17 @@ pub mod tree;
 pub mod flex;
 pub mod paint;
 
-pub use animation::{AnimationManager, FadeAnimation};
+pub use animation::FadeAnimation;
 pub use theme::Theme;
 pub use style::{StyleProps, SizeValue, FontWeight, AlignItems, JustifyContent};
-pub use tree::{Node, Direction, ButtonHandlers, SliderState, TextContent, ToggleState};
+pub use tree::{Node, Direction, Prop, InteractiveKind, EventHandlers};
 pub use flex::{compute_layout, hit_test, LayoutResult, LayoutNode};
 pub use paint::paint_tree;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tree::{Node, Direction, TextContent};
+    use crate::tree::{Node, Direction, Prop};
     use crate::style::StyleProps;
     use pulpkit_render::TextRenderer;
 
@@ -25,21 +25,21 @@ mod tests {
     fn row_with_spacer_fills_width() {
         let text_renderer = TextRenderer::new();
         let root = Node::Container {
-            style: StyleProps {
+            style: Prop::Static(StyleProps {
                 width: Some(SizeValue::Px(200.0)),
                 height: Some(SizeValue::Px(36.0)),
                 ..Default::default()
-            },
+            }),
             direction: Direction::Row,
             children: vec![
                 Node::Text {
-                    style: StyleProps::default(),
-                    content: TextContent::Static("Hello".into()),
+                    style: Prop::Static(StyleProps::default()),
+                    content: Prop::Static("Hello".into()),
                 },
                 Node::Spacer,
                 Node::Text {
-                    style: StyleProps::default(),
-                    content: TextContent::Static("World".into()),
+                    style: Prop::Static(StyleProps::default()),
+                    content: Prop::Static("World".into()),
                 },
             ],
         };

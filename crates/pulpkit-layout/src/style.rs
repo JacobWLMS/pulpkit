@@ -40,13 +40,6 @@ pub struct StyleProps {
 
     // Effects
     pub opacity: f32,
-
-    // Hover state overrides
-    pub hover_bg_color: Option<Color>,
-    pub hover_text_color: Option<Color>,
-
-    // Transition
-    pub transition_duration_ms: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -92,29 +85,6 @@ impl StyleProps {
     }
 
     fn apply_token(props: &mut Self, token: &str, theme: &Theme) {
-        // 0. Hover-prefixed tokens: strip "hover:" and route to hover fields
-        if let Some(inner) = token.strip_prefix("hover:") {
-            match inner {
-                t if t.starts_with("bg-") => {
-                    let name = &t[3..];
-                    props.hover_bg_color = theme.colors.get(name).copied();
-                }
-                t if t.starts_with("text-") => {
-                    let name = &t[5..];
-                    // Only treat as hover color if it resolves to a theme color
-                    // (not a font size like text-sm)
-                    if let Some(c) = theme.colors.get(name) {
-                        props.hover_text_color = Some(*c);
-                    }
-                }
-                _ => {
-                    #[cfg(debug_assertions)]
-                    eprintln!("pulpkit-layout: unknown hover token: {:?}", token);
-                }
-            }
-            return;
-        }
-
         // 1. Typography sizes (exact matches)
         if let Some(size_key) = token.strip_prefix("text-") {
             match size_key {
@@ -306,23 +276,6 @@ impl StyleProps {
             }
         }
 
-        // 10b. Transitions
-        match token {
-            "transition-fast" => {
-                props.transition_duration_ms = Some(150);
-                return;
-            }
-            "transition-normal" => {
-                props.transition_duration_ms = Some(250);
-                return;
-            }
-            "transition-slow" => {
-                props.transition_duration_ms = Some(400);
-                return;
-            }
-            _ => {}
-        }
-
         // 11. Unknown tokens
         #[cfg(debug_assertions)]
         eprintln!("pulpkit-layout: unknown style token: {:?}", token);
@@ -396,55 +349,4 @@ mod tests {
         assert_eq!(props.text_color, Some(Color::from_hex("#8cb4d8").unwrap()));
     }
 
-    #[test]
-    fn parse_hover_bg() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("bg-base hover:bg-surface", &theme);
-        assert_eq!(props.bg_color, Some(Color::from_hex("#121618").unwrap()));
-        assert_eq!(props.hover_bg_color, Some(Color::from_hex("#1a1e22").unwrap()));
-    }
-
-    #[test]
-    fn parse_hover_text_color() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("text-fg hover:text-primary", &theme);
-        assert!(props.text_color.is_some());
-        assert!(props.hover_text_color.is_some());
-    }
-
-    #[test]
-    fn hover_fields_default_none() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("bg-base text-fg", &theme);
-        assert!(props.hover_bg_color.is_none());
-        assert!(props.hover_text_color.is_none());
-    }
-
-    #[test]
-    fn parse_transition_fast() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("transition-fast", &theme);
-        assert_eq!(props.transition_duration_ms, Some(150));
-    }
-
-    #[test]
-    fn parse_transition_normal() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("transition-normal", &theme);
-        assert_eq!(props.transition_duration_ms, Some(250));
-    }
-
-    #[test]
-    fn parse_transition_slow() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("transition-slow", &theme);
-        assert_eq!(props.transition_duration_ms, Some(400));
-    }
-
-    #[test]
-    fn transition_default_none() {
-        let theme = Theme::default_slate();
-        let props = StyleProps::parse("bg-base", &theme);
-        assert!(props.transition_duration_ms.is_none());
-    }
 }

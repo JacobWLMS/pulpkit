@@ -3,7 +3,7 @@
 use taffy::prelude::*;
 
 use crate::style::{AlignItems as PkAlignItems, JustifyContent as PkJustifyContent, SizeValue};
-use crate::tree::{Direction, Node};
+use crate::tree::{Direction, InteractiveKind, Node};
 use pulpkit_render::TextRenderer;
 
 /// The result of a layout computation: a flat list of positioned nodes.
@@ -57,8 +57,6 @@ pub fn compute_layout(
     .expect("taffy layout computation failed");
 
     // Read back positions — walk the order list and accumulate absolute offsets.
-    // taffy gives us positions relative to the parent, so we need to walk the
-    // tree to compute absolute positions. We'll do a recursive walk instead.
     let mut nodes = Vec::with_capacity(order.len());
     collect_layout(&tree, root_id, 0.0, 0.0, &mut order, &mut 0, &mut nodes);
 
@@ -79,7 +77,8 @@ fn build_taffy_node(
             direction,
             children,
         } => {
-            let taffy_style = to_taffy_style(style, *direction, false);
+            let resolved = style.resolve();
+            let taffy_style = to_taffy_style(&resolved, *direction, false);
             let child_ids: Vec<taffy::NodeId> = children
                 .iter()
                 .map(|c| build_taffy_node(tree, c, order, text_renderer, font_family))
@@ -87,30 +86,24 @@ fn build_taffy_node(
             let id = tree
                 .new_with_children(taffy_style, &child_ids)
                 .expect("failed to create taffy container node");
-            // Insert at the front of order — but we actually want pre-order,
-            // so containers go first. We'll use a different approach: insert
-            // container into order *before* children by recording position.
-            // Actually, since we called children first (to get child_ids),
-            // children are already in `order`. We need to insert the container
-            // *before* them. Let's fix this with an index.
-            // We'll use a simpler approach: track insertion index.
             let insert_idx = order.len() - children.len()
                 - children.iter().map(|c| count_descendants(c)).sum::<usize>();
             order.insert(insert_idx, (id, node.clone()));
             id
         }
         Node::Text { style, content } => {
-            let resolved = content.resolve();
-            let font_size = style.font_size.unwrap_or(14.0);
-            let (tw, th) = text_renderer.measure(&resolved, font_size, font_family);
-            let mut taffy_style = to_taffy_style(style, Direction::Row, false);
+            let resolved_style = style.resolve();
+            let resolved_text = content.resolve();
+            let font_size = resolved_style.font_size.unwrap_or(14.0);
+            let (tw, th) = text_renderer.measure(&resolved_text, font_size, font_family);
+            let mut taffy_style = to_taffy_style(&resolved_style, Direction::Row, false);
             // Set text node to its measured intrinsic size
             taffy_style.size = Size {
                 width: Dimension::from_length(tw),
                 height: Dimension::from_length(th),
             };
             let ctx = MeasureCtx {
-                text: resolved,
+                text: resolved_text,
                 font_size,
             };
             let id = tree
@@ -119,50 +112,52 @@ fn build_taffy_node(
             order.push((id, node.clone()));
             id
         }
-        Node::Button {
+        Node::Interactive {
             style,
+            kind,
             children,
-            ..
         } => {
-            // Button is laid out exactly like a Container (row direction by default).
-            let taffy_style = to_taffy_style(style, Direction::Row, false);
-            let child_ids: Vec<taffy::NodeId> = children
-                .iter()
-                .map(|c| build_taffy_node(tree, c, order, text_renderer, font_family))
-                .collect();
-            let id = tree
-                .new_with_children(taffy_style, &child_ids)
-                .expect("failed to create taffy button node");
-            let insert_idx = order.len() - children.len()
-                - children.iter().map(|c| count_descendants(c)).sum::<usize>();
-            order.insert(insert_idx, (id, node.clone()));
-            id
-        }
-        Node::Slider { style, .. } => {
-            // Slider is a leaf node with a fixed clickable height (20px)
-            // but flexible width (honors w-full / flex-grow from style).
-            let mut taffy_style = to_taffy_style(style, Direction::Row, false);
-            // Set a fixed height for the clickable area (track is 6px but
-            // the overall hit-area is taller for usability).
-            taffy_style.size.height = Dimension::from_length(20.0);
-            let id = tree
-                .new_leaf(taffy_style)
-                .expect("failed to create taffy slider leaf");
-            order.push((id, node.clone()));
-            id
-        }
-        Node::Toggle { style, .. } => {
-            // Toggle is a leaf node with a fixed pill-switch size: 40x22.
-            let mut taffy_style = to_taffy_style(style, Direction::Row, false);
-            taffy_style.size = Size {
-                width: Dimension::from_length(40.0),
-                height: Dimension::from_length(22.0),
-            };
-            let id = tree
-                .new_leaf(taffy_style)
-                .expect("failed to create taffy toggle leaf");
-            order.push((id, node.clone()));
-            id
+            let resolved = style.resolve();
+            match kind {
+                InteractiveKind::Slider { .. } => {
+                    // Slider is a leaf node with a fixed clickable height (20px)
+                    let mut taffy_style = to_taffy_style(&resolved, Direction::Row, false);
+                    taffy_style.size.height = Dimension::from_length(20.0);
+                    let id = tree
+                        .new_leaf(taffy_style)
+                        .expect("failed to create taffy slider leaf");
+                    order.push((id, node.clone()));
+                    id
+                }
+                InteractiveKind::Toggle { .. } => {
+                    // Toggle is a leaf node with a fixed pill-switch size: 40x22.
+                    let mut taffy_style = to_taffy_style(&resolved, Direction::Row, false);
+                    taffy_style.size = Size {
+                        width: Dimension::from_length(40.0),
+                        height: Dimension::from_length(22.0),
+                    };
+                    let id = tree
+                        .new_leaf(taffy_style)
+                        .expect("failed to create taffy toggle leaf");
+                    order.push((id, node.clone()));
+                    id
+                }
+                InteractiveKind::Button { .. } => {
+                    // Button is laid out exactly like a Container (row direction by default).
+                    let taffy_style = to_taffy_style(&resolved, Direction::Row, false);
+                    let child_ids: Vec<taffy::NodeId> = children
+                        .iter()
+                        .map(|c| build_taffy_node(tree, c, order, text_renderer, font_family))
+                        .collect();
+                    let id = tree
+                        .new_with_children(taffy_style, &child_ids)
+                        .expect("failed to create taffy button node");
+                    let insert_idx = order.len() - children.len()
+                        - children.iter().map(|c| count_descendants(c)).sum::<usize>();
+                    order.insert(insert_idx, (id, node.clone()));
+                    id
+                }
+            }
         }
         Node::Spacer => {
             let style = taffy::Style {
@@ -181,8 +176,16 @@ fn build_taffy_node(
 /// Count all descendant nodes (not including self).
 fn count_descendants(node: &Node) -> usize {
     match node {
-        Node::Container { children, .. } | Node::Button { children, .. } => {
+        Node::Container { children, .. } => {
             children.iter().map(|c| 1 + count_descendants(c)).sum()
+        }
+        Node::Interactive { children, kind, .. } => {
+            match kind {
+                InteractiveKind::Button { .. } => {
+                    children.iter().map(|c| 1 + count_descendants(c)).sum()
+                }
+                _ => 0, // Slider/Toggle are leaves
+            }
         }
         _ => 0,
     }
