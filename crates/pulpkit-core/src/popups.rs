@@ -104,23 +104,33 @@ impl ManagedPopup {
             self.config.height
         };
 
-        // Position: center popup horizontally under the click point, flush
-        // against the bar (no gap). Clamp so it stays on screen.
-        let popup_left = (click_x as i32 - popup_width as i32 / 2)
-            .max(0)
-            .min(parent_width as i32 - popup_width as i32);
-
-        let margins = SurfaceMargins {
-            top: parent_height as i32,
-            left: popup_left,
-            right: 0,
-            bottom: 0,
+        // Position based on anchor type.
+        let (anchor, margins) = if self.config.anchor == PopupAnchor::Center {
+            // Center on screen.
+            let screen_h = parent_width; // approximate — use output height if available
+            let margin_top = self.config.offset.1; // offset.y shifts from center
+            (PopupAnchor::Center, SurfaceMargins {
+                top: margin_top,
+                left: 0,
+                right: 0,
+                bottom: 0,
+            })
+        } else {
+            // Position below click point, flush against bar.
+            let popup_left = (click_x as i32 - popup_width as i32 / 2)
+                .max(0)
+                .min(parent_width as i32 - popup_width as i32);
+            (PopupAnchor::TopLeft, SurfaceMargins {
+                top: parent_height as i32,
+                left: popup_left,
+                right: 0,
+                bottom: 0,
+            })
         };
-
-        // Always use TopLeft anchor — we control position via left margin.
+        let anchor = anchor;
         match LayerSurface::new_popup_with_keyboard(
             app_state,
-            PopupAnchor::TopLeft,
+            anchor,
             popup_width,
             popup_height,
             margins,
@@ -130,8 +140,8 @@ impl ManagedPopup {
         ) {
             Ok(surface) => {
                 log::info!(
-                    "Showing popup '{}' at x={} ({}x{})",
-                    self.name, popup_left, popup_width, popup_height,
+                    "Showing popup '{}' ({}x{})",
+                    self.name, popup_width, popup_height,
                 );
                 self.state = PopupState::Creating { surface };
             }
@@ -390,6 +400,12 @@ fn compute_popup_margins(
             right: offset.0.abs(),
             left: 0,
             top: 0,
+        },
+        PopupAnchor::Center => SurfaceMargins {
+            top: offset.1,
+            left: offset.0,
+            right: 0,
+            bottom: 0,
         },
     }
 }

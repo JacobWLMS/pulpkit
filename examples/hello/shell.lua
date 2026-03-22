@@ -202,6 +202,14 @@ local show_power    = signal(false)
 local show_launcher = signal(false)
 local search_query  = signal("")
 local selected_index = signal(1)
+local cursor_blink  = signal(true)
+
+-- Blink cursor every 530ms
+set_interval(function()
+  if show_launcher:get() then
+    cursor_blink:set(not cursor_blink:get())
+  end
+end, 530)
 
 local function close_all_popups()
   show_audio:set(false)
@@ -269,7 +277,7 @@ window("bar", {
             end),
           }
         )
-      end, function(ws) return tostring(ws.id) end),
+      end, function(ws) return tostring(ws.id) end, "row"),
     }),
 
     -- ── Center: Clock (true center — left and right are flex-1) ───────
@@ -484,12 +492,12 @@ end
 
 popup("launcher", {
   parent = "bar",
-  anchor = "top left",
-  offset = { x = 0, y = 0 },
+  anchor = "center",
+  offset = { x = 0, y = -100 },  -- nudge slightly above center
   visible = show_launcher,
   dismiss_on_outside = true,
-  width = 400,
-  height = 420,
+  width = 500,
+  height = 440,
   keyboard = true,
   on_key = function(key, utf8)
     if key == "Escape" then
@@ -522,10 +530,15 @@ popup("launcher", {
     -- Search input display
     row("bg-base p-3 gap-2 items-center", {
       text("text-lg text-muted", "󰍉"),
-      text("text-base text-fg", function()
+      text(function()
         local q = search_query:get()
-        if q == "" then return "Search apps..." end
-        return q .. "│"
+        if q == "" then return "text-base text-muted" end
+        return "text-base text-fg"
+      end, function()
+        local q = search_query:get()
+        local cursor = cursor_blink:get() and "│" or " "
+        if q == "" then return "Type to search..." .. cursor end
+        return q .. cursor
       end),
     }),
 

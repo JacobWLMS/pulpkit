@@ -74,15 +74,18 @@ pub enum PopupAnchor {
     TopRight,
     BottomLeft,
     BottomRight,
+    /// Centered on screen — no edge anchoring, positioned via margins.
+    Center,
 }
 
 impl PopupAnchor {
-    fn to_sctk(self) -> SctkAnchor {
+    pub fn to_sctk(self) -> SctkAnchor {
         match self {
             PopupAnchor::TopLeft => SctkAnchor::TOP | SctkAnchor::LEFT,
             PopupAnchor::TopRight => SctkAnchor::TOP | SctkAnchor::RIGHT,
             PopupAnchor::BottomLeft => SctkAnchor::BOTTOM | SctkAnchor::LEFT,
             PopupAnchor::BottomRight => SctkAnchor::BOTTOM | SctkAnchor::RIGHT,
+            PopupAnchor::Center => SctkAnchor::empty(), // no edge anchor = centered by margins
         }
     }
 }

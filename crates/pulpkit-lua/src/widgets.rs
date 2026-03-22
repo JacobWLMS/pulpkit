@@ -248,7 +248,11 @@ pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
     {
         let _t = theme.clone();
         let each_fn = lua.create_function(
-            move |lua, (items_fn, render_fn, key_fn): (LuaFunction, LuaFunction, Option<LuaFunction>)| {
+            move |lua, (items_fn, render_fn, key_fn, dir): (LuaFunction, LuaFunction, Option<LuaFunction>, Option<String>)| {
+                let direction = match dir.as_deref() {
+                    Some("row") => Direction::Row,
+                    _ => Direction::Column, // default vertical for lists
+                };
                 let items_key = lua.create_registry_value(items_fn)?;
                 let render_key = lua.create_registry_value(render_fn)?;
                 let key_key = key_fn
@@ -321,7 +325,7 @@ pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
 
                 Ok(LuaNode(Node::DynamicList {
                     style: Prop::Static(StyleProps::default()),
-                    direction: Direction::Row,
+                    direction,
                     resolve,
                     cached_children,
                 }))

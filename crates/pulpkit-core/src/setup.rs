@@ -74,15 +74,14 @@ pub fn create_surfaces(
                 }
             }
 
-            let mut managed = ManagedSurface {
+            let managed = ManagedSurface {
                 name: window_def.name.clone(),
                 surface,
                 root: root_node,
                 layout: None,
-                dirty: Rc::new(Cell::new(true)),
+                dirty: Rc::new(Cell::new(true)), // first render happens in event loop after configure
                 hovered_node: None,
             };
-            managed.render(text_renderer, theme);
 
             log::info!("Surface created for '{}' ({}x{})", window_def.name, width, height);
             surfaces.push(managed);
@@ -119,6 +118,7 @@ pub fn create_popups(
             "top right" => PopupAnchor::TopRight,
             "bottom left" => PopupAnchor::BottomLeft,
             "bottom right" => PopupAnchor::BottomRight,
+            "center" => PopupAnchor::Center,
             _ => PopupAnchor::TopLeft,
         };
 

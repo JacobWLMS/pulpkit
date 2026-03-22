@@ -49,14 +49,10 @@ pub fn run(
                 // Bar surfaces
                 for managed in surfaces.iter_mut() {
                     if managed.surface.surface_id() == configure.surface_id {
-                        let (old_w, old_h) = (managed.surface.width(), managed.surface.height());
-                        if configure.width > 0
-                            && configure.height > 0
-                            && (configure.width != old_w || configure.height != old_h)
-                        {
+                        if configure.width > 0 && configure.height > 0 {
                             managed.surface.resize(configure.width, configure.height);
-                            managed.mark_dirty();
                         }
+                        managed.mark_dirty(); // always render after configure (acks the configure)
                         break;
                     }
                 }
