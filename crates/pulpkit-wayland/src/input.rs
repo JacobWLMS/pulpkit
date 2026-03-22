@@ -1,9 +1,43 @@
-//! Input handling — stub for Plan 1.
+//! Input handling for pointer events.
 //!
-//! Full pointer/keyboard handling comes in Plan 2.
+//! Provides an [`InputEvent`] enum that normalises sctk pointer callbacks
+//! into a simple event queue consumed by the shell runtime.
 
-/// Placeholder for input handling state.
-///
-/// In Plan 2 this will hold keyboard and pointer state,
-/// dispatch input events to the widget tree, etc.
-pub struct InputHandler;
+use wayland_client::backend::ObjectId;
+
+/// A pointer/mouse input event tied to a specific surface.
+#[derive(Debug, Clone)]
+pub enum InputEvent {
+    /// Pointer entered a surface.
+    PointerEnter {
+        surface_id: ObjectId,
+        x: f64,
+        y: f64,
+    },
+    /// Pointer left a surface.
+    PointerLeave {
+        surface_id: ObjectId,
+    },
+    /// Pointer moved within a surface.
+    PointerMotion {
+        surface_id: ObjectId,
+        x: f64,
+        y: f64,
+    },
+    /// A mouse button was pressed or released.
+    PointerButton {
+        surface_id: ObjectId,
+        x: f64,
+        y: f64,
+        button: u32,
+        pressed: bool,
+    },
+    /// Scroll / axis event.
+    PointerAxis {
+        surface_id: ObjectId,
+        x: f64,
+        y: f64,
+        delta: f64,
+        horizontal: bool,
+    },
+}

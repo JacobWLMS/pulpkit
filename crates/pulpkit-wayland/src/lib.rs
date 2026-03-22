@@ -11,6 +11,6 @@ pub mod surface;
 
 // Re-export primary types at crate root for convenience.
 pub use client::{AppState, WaylandClient};
-pub use input::InputHandler;
+pub use input::InputEvent;
 pub use output::OutputInfo;
 pub use surface::{Anchor, Layer, LayerSurface, SurfaceConfig};
