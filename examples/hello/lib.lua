@@ -45,7 +45,7 @@ end
 ---        lib.btn("Label", { on_click = fn, style = "px-4 py-2" })
 function lib.btn(label, opts)
   opts = opts or {}
-  local base_style = opts.style or "px-3 py-2"
+  local base_style = opts.style or "px-2 py-1"
   local hover_add = opts.hover or "bg-overlay"
   local text_style = opts.text_style or "text-base text-fg"
   local hovered = signal(false)
@@ -78,7 +78,7 @@ end
 --- Usage: lib.icon_btn("󰕾", { on_click = fn })
 function lib.icon_btn(icon, opts)
   opts = opts or {}
-  local style = opts.style or "px-3 py-2"
+  local style = opts.style or "px-2 py-1"
   local hover = opts.hover or "bg-overlay"
   local icon_style = opts.icon_style or "text-xl text-fg"
   local hovered = signal(false)
@@ -105,7 +105,7 @@ end
 --- Usage: lib.menu_item("󰌾", "Lock", { on_click = fn })
 function lib.menu_item(icon, label, opts)
   opts = opts or {}
-  local style = opts.style or "px-4 py-3 items-center gap-3"
+  local style = opts.style or "px-3 py-2 items-center gap-3"
   local hover = opts.hover or "bg-overlay"
   local icon_style = opts.icon_style or "text-xl text-fg"
   local text_style = opts.text_style or "text-base text-fg"

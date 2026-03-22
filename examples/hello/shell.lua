@@ -76,10 +76,10 @@ window("bar", {
   exclusive = true,
   height  = 48,
 }, function(ctx)
-  return row("w-full h-12 bg-base px-4 items-center", {
+  return row("w-full h-12 bg-base px-2 items-center gap-1", {
 
     -- Left
-    row("flex-1 items-center gap-2 px-2", {
+    row("flex-1 items-center gap-1", {
       lib.icon_btn(icons.search, {
         on_click = function() close_all_popups(); toggle_launcher() end,
       }),
@@ -107,11 +107,11 @@ window("bar", {
     text("text-lg text-fg font-medium", function() return time_str:get() end),
 
     -- Right
-    row("flex-1 items-center justify-end gap-2", {
+    row("flex-1 items-center justify-end gap-1", {
       -- Battery
       (function()
         if not has_battery then return spacer() end
-        return row("items-center gap-1 px-2", {
+        return row("items-center gap-1 px-1", {
           text("text-lg text-fg", function()
             return lib.bat_icon(bat_pct:get(), bat_status:get())
           end),
