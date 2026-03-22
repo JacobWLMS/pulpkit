@@ -14,7 +14,6 @@ use pulpkit_render::TextRenderer;
 use pulpkit_wayland::WaylandClient;
 
 use crate::event_loop;
-use crate::ipc::IpcServer;
 use crate::setup;
 use crate::theme::load_theme;
 use crate::watcher;
@@ -39,8 +38,6 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
 
 /// Inner runtime logic, executed inside the reactive context.
 fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
-    let ipc = IpcServer::new();
-
     // 0. File watcher disabled — causes spurious events from Lua I/O (Wave 2 fix).
     // let watcher = watcher::FileWatcher::new(shell_dir)?;
     // while watcher.poll().is_some() {}
@@ -109,6 +106,26 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
         })
         .map_err(|e| anyhow::anyhow!("Failed to insert wake channel: {e}"))?;
 
+    // IPC socket — commands arrive via calloop channel, waking the loop.
+    let ipc_commands: std::rc::Rc<std::cell::RefCell<Vec<String>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let _ipc_socket_path;
+    if let Some((ipc_channel, path)) = crate::ipc::start_ipc_server() {
+        _ipc_socket_path = Some(path);
+        let cmds = ipc_commands.clone();
+        client
+            .event_loop
+            .handle()
+            .insert_source(ipc_channel, move |event, _, _state| {
+                if let channel::Event::Msg(cmd) = event {
+                    cmds.borrow_mut().push(cmd);
+                }
+            })
+            .map_err(|e| anyhow::anyhow!("Failed to insert IPC channel: {e}"))?;
+    } else {
+        _ipc_socket_path = None;
+    }
+
     client
         .event_loop
         .dispatch(Duration::from_millis(100), &mut client.state)?;
@@ -127,15 +144,12 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     let mut timers = setup::create_timers(&timer_registry.borrow(), lua)?;
 
     // 8. Enter the event loop.
-    let ipc_commands = ipc.as_ref().map(|i| i.commands.clone());
-
     event_loop::run(
         &mut client,
         &mut surfaces,
         &mut popups,
         &mut timers,
         &cancelled_timers,
-        ipc.as_ref(),
         &ipc_commands,
         lua,
         &text_renderer,

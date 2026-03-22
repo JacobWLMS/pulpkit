@@ -1,79 +1,74 @@
 //! IPC server — listens for commands on a Unix socket.
 //!
-//! Commands are sent as newline-terminated strings. The runtime polls the
-//! socket each event loop iteration and queues commands for processing.
+//! A background thread accepts connections and reads commands (one per line).
+//! Commands are sent to the event loop via a calloop channel, which wakes
+//! the loop immediately — no polling delay.
 //!
 //! Socket path: $XDG_RUNTIME_DIR/pulpkit.sock (or /tmp/pulpkit.sock)
 
-use std::cell::RefCell;
 use std::io::{BufRead, BufReader};
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
-use std::rc::Rc;
 
-/// Queued IPC commands, polled by the event loop.
-pub type IpcCommands = Rc<RefCell<Vec<String>>>;
+use calloop::channel::{self, Channel, Sender};
 
-pub struct IpcServer {
-    listener: UnixListener,
-    pub socket_path: PathBuf,
-    pub commands: IpcCommands,
+/// Start the IPC server. Returns the calloop channel source and socket path.
+///
+/// The channel receives command strings that should be executed as Lua code.
+/// Insert the channel into the calloop event loop to wake on incoming commands.
+pub fn start_ipc_server() -> Option<(Channel<String>, PathBuf)> {
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
+        .unwrap_or_else(|_| "/tmp".into());
+    let socket_path = PathBuf::from(runtime_dir).join("pulpkit.sock");
+
+    // Remove stale socket.
+    let _ = std::fs::remove_file(&socket_path);
+
+    let listener = match UnixListener::bind(&socket_path) {
+        Ok(l) => l,
+        Err(e) => {
+            log::warn!("Failed to create IPC socket: {e}");
+            return None;
+        }
+    };
+
+    log::info!("IPC listening on {}", socket_path.display());
+
+    let (sender, channel) = channel::channel::<String>();
+    let path_clone = socket_path.clone();
+
+    // Background thread: accept connections and forward commands.
+    std::thread::spawn(move || {
+        ipc_accept_loop(listener, sender);
+        // Cleanup on thread exit.
+        let _ = std::fs::remove_file(&path_clone);
+    });
+
+    Some((channel, socket_path))
 }
 
-impl IpcServer {
-    /// Create and bind the IPC socket. Removes stale socket if it exists.
-    pub fn new() -> Option<Self> {
-        let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-            .unwrap_or_else(|_| "/tmp".into());
-        let socket_path = PathBuf::from(runtime_dir).join("pulpkit.sock");
-
-        // Remove stale socket.
-        let _ = std::fs::remove_file(&socket_path);
-
-        match UnixListener::bind(&socket_path) {
-            Ok(listener) => {
-                listener.set_nonblocking(true).ok();
-                log::info!("IPC listening on {}", socket_path.display());
-                Some(IpcServer {
-                    listener,
-                    socket_path,
-                    commands: Rc::new(RefCell::new(Vec::new())),
-                })
-            }
-            Err(e) => {
-                log::warn!("Failed to create IPC socket: {e}");
-                None
-            }
-        }
-    }
-
-    /// Poll for incoming commands (non-blocking).
-    pub fn poll(&self) {
-        loop {
-            match self.listener.accept() {
-                Ok((stream, _)) => {
-                    let reader = BufReader::new(stream);
-                    for line in reader.lines() {
-                        match line {
-                            Ok(cmd) => {
-                                let cmd = cmd.trim().to_string();
-                                if !cmd.is_empty() {
-                                    self.commands.borrow_mut().push(cmd);
+fn ipc_accept_loop(listener: UnixListener, sender: Sender<String>) {
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                let reader = BufReader::new(stream);
+                for line in reader.lines() {
+                    match line {
+                        Ok(cmd) => {
+                            let cmd = cmd.trim().to_string();
+                            if !cmd.is_empty() {
+                                if sender.send(cmd).is_err() {
+                                    return; // channel closed, runtime exiting
                                 }
                             }
-                            Err(_) => break,
                         }
+                        Err(_) => break,
                     }
                 }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(_) => break,
+            }
+            Err(e) => {
+                log::debug!("IPC accept error: {e}");
             }
         }
-    }
-}
-
-impl Drop for IpcServer {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.socket_path);
     }
 }

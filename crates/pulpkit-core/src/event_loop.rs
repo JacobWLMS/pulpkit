@@ -21,8 +21,7 @@ pub fn run(
     popups: &mut Vec<ManagedPopup>,
     timers: &mut Vec<ActiveTimer>,
     cancelled_timers: &pulpkit_lua::CancelledTimers,
-    ipc: Option<&crate::ipc::IpcServer>,
-    ipc_commands: &Option<crate::ipc::IpcCommands>,
+    ipc_commands: &std::rc::Rc<std::cell::RefCell<Vec<String>>>,
     lua: &Lua,
     text_renderer: &TextRenderer,
     theme: &Theme,
@@ -203,15 +202,11 @@ pub fn run(
             }
         }
 
-        // --- Process IPC commands ---
-        if let Some(ipc_server) = ipc {
-            ipc_server.poll();
-        }
-        if let Some(commands) = ipc_commands {
-            let cmds: Vec<String> = commands.borrow_mut().drain(..).collect();
+        // --- Process IPC commands (arrive via calloop channel, no polling needed) ---
+        {
+            let cmds: Vec<String> = ipc_commands.borrow_mut().drain(..).collect();
             for cmd in cmds {
                 log::info!("IPC command: {}", cmd);
-                // Execute as Lua: e.g. "toggle_popup(show_launcher)"
                 if let Err(e) = lua.load(&cmd).exec() {
                     log::error!("IPC command error: {e}");
                 }
