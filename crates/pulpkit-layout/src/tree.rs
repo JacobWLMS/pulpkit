@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use pulpkit_reactive::Signal;
+use pulpkit_reactive::{DynValue, Signal};
 use pulpkit_render::Color;
 
 use crate::style::StyleProps;
@@ -65,14 +65,14 @@ pub enum InteractiveKind {
         handlers: EventHandlers,
     },
     Slider {
-        value: Signal<f64>,
+        value: Signal<DynValue>,
         min: f64,
         max: f64,
         on_change: Option<Rc<dyn Fn(f64)>>,
         accent_color: Option<Color>,
     },
     Toggle {
-        checked: Signal<bool>,
+        checked: Signal<DynValue>,
         on_change: Option<Rc<dyn Fn(bool)>>,
         accent_color: Option<Color>,
     },

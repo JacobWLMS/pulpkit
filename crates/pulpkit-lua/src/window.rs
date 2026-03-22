@@ -4,8 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::signals::LuaSignal;
-use pulpkit_reactive::Signal;
-use crate::signals::DynValue;
+use pulpkit_reactive::{DynValue, Signal};
 
 /// Description of a window collected during shell.lua execution.
 pub struct WindowDef {

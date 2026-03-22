@@ -3,8 +3,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use mlua::prelude::*;
-use pulpkit_layout::tree::{ButtonHandlers, Direction, Node, SliderState, TextContent, ToggleState};
 use pulpkit_layout::style::StyleProps;
+use pulpkit_layout::tree::{Direction, EventHandlers, InteractiveKind, Node, Prop};
 use pulpkit_layout::Theme;
 use pulpkit_render::Color;
 
@@ -27,211 +27,303 @@ fn table_to_nodes(table: &LuaTable) -> LuaResult<Vec<Node>> {
     Ok(nodes)
 }
 
-/// Register `row`, `col`, `box`, `text`, and `spacer` as Lua globals.
+/// Convert a Lua value (string or function) into a `Prop<StyleProps>`.
+///
+/// - String: parsed once as static style.
+/// - Function: called each frame; result is parsed (with caching to avoid
+///   re-parsing when the returned string hasn't changed).
+/// - Other: returns `Prop::Static(StyleProps::default())`.
+fn value_to_style_prop(lua: &Lua, val: LuaValue, theme: &Arc<Theme>) -> LuaResult<Prop<StyleProps>> {
+    match val {
+        LuaValue::String(s) => {
+            let parsed = StyleProps::parse(&s.to_string_lossy(), theme);
+            Ok(Prop::Static(parsed))
+        }
+        LuaValue::Function(f) => {
+            let key = lua.create_registry_value(f)?;
+            let lua_clone = lua.clone();
+            let theme = theme.clone();
+            let cached_str = RefCell::new(String::new());
+            let cached_props = RefCell::new(StyleProps::default());
+            Ok(Prop::Reactive(Rc::new(move || {
+                let cb: LuaFunction = lua_clone.registry_value(&key).unwrap();
+                let new_str: String = cb.call(()).unwrap_or_default();
+                if new_str != *cached_str.borrow() {
+                    *cached_str.borrow_mut() = new_str.clone();
+                    *cached_props.borrow_mut() = StyleProps::parse(&new_str, &theme);
+                }
+                cached_props.borrow().clone()
+            })))
+        }
+        _ => Ok(Prop::Static(StyleProps::default())),
+    }
+}
+
+/// Convert a Lua value (string, number, or function) into a `Prop<String>`.
+fn value_to_string_prop(lua: &Lua, val: LuaValue) -> LuaResult<Prop<String>> {
+    match val {
+        LuaValue::String(s) => Ok(Prop::Static(s.to_string_lossy().to_string())),
+        LuaValue::Function(f) => {
+            let key = lua.create_registry_value(f)?;
+            let lua_clone = lua.clone();
+            Ok(Prop::Reactive(Rc::new(move || {
+                let cb: LuaFunction = lua_clone.registry_value(&key).unwrap();
+                cb.call::<String>(()).unwrap_or_default()
+            })))
+        }
+        LuaValue::Integer(i) => Ok(Prop::Static(i.to_string())),
+        LuaValue::Number(n) => Ok(Prop::Static(n.to_string())),
+        _ => Ok(Prop::Static(String::new())),
+    }
+}
+
+/// Register `row`, `col`, `box`, `text`, `spacer`, `button`, `slider`, and
+/// `toggle` as Lua globals.
 pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
-    // row(style_string, children_table) -> LuaNode
-    let t = theme.clone();
-    let row_fn = lua.create_function(move |_lua, (style_str, children): (String, LuaTable)| {
-        let style = StyleProps::parse(&style_str, &t);
-        let nodes = table_to_nodes(&children)?;
-        Ok(LuaNode(Node::Container {
-            style,
-            direction: Direction::Row,
-            children: nodes,
-        }))
-    })?;
-    lua.globals().set("row", row_fn)?;
+    // row(style, children) -> LuaNode
+    {
+        let t = theme.clone();
+        let row_fn = lua.create_function(move |lua, (style_val, children): (LuaValue, LuaTable)| {
+            let style = value_to_style_prop(lua, style_val, &t)?;
+            let nodes = table_to_nodes(&children)?;
+            Ok(LuaNode(Node::Container {
+                style,
+                direction: Direction::Row,
+                children: nodes,
+            }))
+        })?;
+        lua.globals().set("row", row_fn)?;
+    }
 
-    // col(style_string, children_table) -> LuaNode
-    let t = theme.clone();
-    let col_fn = lua.create_function(move |_lua, (style_str, children): (String, LuaTable)| {
-        let style = StyleProps::parse(&style_str, &t);
-        let nodes = table_to_nodes(&children)?;
-        Ok(LuaNode(Node::Container {
-            style,
-            direction: Direction::Column,
-            children: nodes,
-        }))
-    })?;
-    lua.globals().set("col", col_fn)?;
+    // col(style, children) -> LuaNode
+    {
+        let t = theme.clone();
+        let col_fn = lua.create_function(move |lua, (style_val, children): (LuaValue, LuaTable)| {
+            let style = value_to_style_prop(lua, style_val, &t)?;
+            let nodes = table_to_nodes(&children)?;
+            Ok(LuaNode(Node::Container {
+                style,
+                direction: Direction::Column,
+                children: nodes,
+            }))
+        })?;
+        lua.globals().set("col", col_fn)?;
+    }
 
-    // box(style_string, children_table) -> LuaNode  (alias for col)
-    let t = theme.clone();
-    let box_fn = lua.create_function(move |_lua, (style_str, children): (String, LuaTable)| {
-        let style = StyleProps::parse(&style_str, &t);
-        let nodes = table_to_nodes(&children)?;
-        Ok(LuaNode(Node::Container {
-            style,
-            direction: Direction::Column,
-            children: nodes,
-        }))
-    })?;
-    // "box" is a Lua keyword-safe name (not reserved), register it directly.
-    lua.globals().set("box", box_fn)?;
+    // box(style, children) -> LuaNode  (alias for col)
+    {
+        let t = theme.clone();
+        let box_fn = lua.create_function(move |lua, (style_val, children): (LuaValue, LuaTable)| {
+            let style = value_to_style_prop(lua, style_val, &t)?;
+            let nodes = table_to_nodes(&children)?;
+            Ok(LuaNode(Node::Container {
+                style,
+                direction: Direction::Column,
+                children: nodes,
+            }))
+        })?;
+        lua.globals().set("box", box_fn)?;
+    }
 
-    // text(style_string, content_string_or_function) -> LuaNode
-    // If content is a string, the text is static.
-    // If content is a function, it's called each render to get the current text (reactive).
-    let t = theme.clone();
-    let text_fn = lua.create_function(move |lua, (style_str, content_val): (String, LuaValue)| {
-        let style = StyleProps::parse(&style_str, &t);
-        let content = match content_val {
-            LuaValue::String(s) => TextContent::Static(s.to_string_lossy().to_string()),
-            LuaValue::Function(f) => {
-                let key = lua.create_registry_value(f)?;
-                let lua_clone = lua.clone();
-                TextContent::Dynamic(Rc::new(move || {
-                    let cb: LuaFunction = lua_clone
-                        .registry_value(&key)
-                        .expect("text: registry lookup failed");
-                    cb.call::<String>(()).unwrap_or_default()
-                }))
-            }
-            other => TextContent::Static(format!("{:?}", other)),
-        };
-        Ok(LuaNode(Node::Text { style, content }))
-    })?;
-    lua.globals().set("text", text_fn)?;
+    // text(style, content) -> LuaNode
+    // Both style and content accept static values or functions for reactivity.
+    {
+        let t = theme.clone();
+        let text_fn = lua.create_function(move |lua, (style_val, content_val): (LuaValue, LuaValue)| {
+            let style = value_to_style_prop(lua, style_val, &t)?;
+            let content = value_to_string_prop(lua, content_val)?;
+            Ok(LuaNode(Node::Text { style, content }))
+        })?;
+        lua.globals().set("text", text_fn)?;
+    }
 
     // spacer() -> LuaNode
-    let spacer_fn = lua.create_function(|_lua, ()| Ok(LuaNode(Node::Spacer)))?;
-    lua.globals().set("spacer", spacer_fn)?;
+    {
+        let spacer_fn = lua.create_function(|_lua, ()| Ok(LuaNode(Node::Spacer)))?;
+        lua.globals().set("spacer", spacer_fn)?;
+    }
 
-    // button(style_string, opts_table, children_table) -> LuaNode
+    // button(style, opts, children?) -> LuaNode
     //
-    // opts may contain on_click, on_scroll_up, on_scroll_down (Lua functions).
-    // Children is optional — if omitted, the button has no child nodes.
-    let t = theme.clone();
-    let button_fn = lua.create_function(move |lua, (style_str, opts, children): (String, LuaTable, Option<LuaTable>)| {
-        let style = StyleProps::parse(&style_str, &t);
+    // style: string or function (reactive)
+    // opts: table with on_click, on_scroll_up, on_scroll_down, on_hover, on_hover_lost
+    // children: optional table of child nodes
+    {
+        let t = theme.clone();
+        let button_fn = lua.create_function(
+            move |lua, (style_val, opts, children): (LuaValue, LuaTable, Option<LuaTable>)| {
+                let style = value_to_style_prop(lua, style_val, &t)?;
+                let nodes = match children {
+                    Some(tbl) => table_to_nodes(&tbl)?,
+                    None => Vec::new(),
+                };
+                let handlers = lua_table_to_handlers(lua, &opts)?;
+                Ok(LuaNode(Node::Interactive {
+                    style,
+                    kind: InteractiveKind::Button { handlers },
+                    children: nodes,
+                }))
+            },
+        )?;
+        lua.globals().set("button", button_fn)?;
+    }
 
-        let nodes = match children {
-            Some(tbl) => table_to_nodes(&tbl)?,
-            None => Vec::new(),
-        };
-
-        let handlers = lua_table_to_handlers(lua, &opts)?;
-
-        Ok(LuaNode(Node::Button {
-            style,
-            children: nodes,
-            handlers,
-        }))
-    })?;
-    lua.globals().set("button", button_fn)?;
-
-    // slider(style_string, opts_table) -> LuaNode
-    //
-    // opts:
-    //   value     — LuaSignal (current numeric value)
-    //   on_change — function(v) called when the value changes from interaction
-    //   min       — number (default 0)
-    //   max       — number (default 100)
-    //
-    // Style tokens:
-    //   accent-<color>  — parsed manually for the filled track color
-    //   (all other tokens handled normally by StyleProps::parse)
-    let t = theme.clone();
-    let slider_fn = lua.create_function(move |lua, (style_str, opts): (String, LuaTable)| {
-        // Parse accent-* token manually before passing to StyleProps::parse.
-        let mut accent_color = None;
-        let mut filtered_tokens = Vec::new();
-        for token in style_str.split_whitespace() {
-            if let Some(color_name) = token.strip_prefix("accent-") {
-                if let Some(&c) = t.colors.get(color_name) {
-                    accent_color = Some(c);
-                }
-                // Don't pass accent-* to StyleProps::parse (it would be unknown)
-            } else {
-                filtered_tokens.push(token);
-            }
-        }
-        let style = StyleProps::parse(&filtered_tokens.join(" "), &t);
-
-        // Read the value signal's current value.
-        let value_signal: LuaAnyUserData = opts.get("value")?;
-        let sig = value_signal.borrow::<LuaSignal>()?;
-        let current_val = match sig.0.get() {
-            crate::signals::DynValue::Int(i) => i as f64,
-            crate::signals::DynValue::Float(f) => f,
-            _ => 0.0,
-        };
-
-        let min: f64 = opts.get::<Option<f64>>("min")?.unwrap_or(0.0);
-        let max: f64 = opts.get::<Option<f64>>("max")?.unwrap_or(100.0);
-
-        // Wrap on_change Lua function.
-        let on_change = wrap_lua_callback_f64(lua, opts.get::<Option<LuaFunction>>("on_change")?)?;
-
-        let state = SliderState {
-            value: Rc::new(RefCell::new(current_val)),
-            min,
-            max,
-            on_change,
-            accent_color,
-        };
-
-        Ok(LuaNode(Node::Slider { style, state }))
-    })?;
-    lua.globals().set("slider", slider_fn)?;
-
-    // toggle(style_string, opts_table) -> LuaNode
+    // slider(style, opts) -> LuaNode
     //
     // opts:
-    //   checked   — LuaSignal (current boolean value)
-    //   on_change — function(v) called when the toggle is flipped
+    //   value     - LuaSignal (Signal<DynValue>) for the current numeric value
+    //   on_change - function(v) called on interaction
+    //   min       - number (default 0)
+    //   max       - number (default 100)
     //
-    // Style tokens:
-    //   accent-<color>  — parsed manually for the track color when checked
-    //   (all other tokens handled normally by StyleProps::parse)
-    let t = theme.clone();
-    let toggle_fn = lua.create_function(move |lua, (style_str, opts): (String, LuaTable)| {
-        // Parse accent-* token manually before passing to StyleProps::parse.
-        let mut accent_color = None;
-        let mut filtered_tokens = Vec::new();
-        for token in style_str.split_whitespace() {
-            if let Some(color_name) = token.strip_prefix("accent-") {
-                if let Some(&c) = t.colors.get(color_name) {
-                    accent_color = Some(c);
-                }
-            } else {
-                filtered_tokens.push(token);
-            }
-        }
-        let style = StyleProps::parse(&filtered_tokens.join(" "), &t);
+    // Style tokens: accent-<color> parsed manually for the filled track color.
+    {
+        let t = theme.clone();
+        let slider_fn = lua.create_function(move |lua, (style_val, opts): (LuaValue, LuaTable)| {
+            // Parse accent-* token out of style string before passing to the style prop.
+            let (style, accent_color) = parse_style_with_accent(lua, style_val, &t)?;
 
-        // Read the checked signal's current value.
-        let checked_signal: LuaAnyUserData = opts.get("checked")?;
-        let sig = checked_signal.borrow::<LuaSignal>()?;
-        let current_val = matches!(sig.0.get(), crate::signals::DynValue::Bool(true));
+            // Extract the value signal.
+            let value_ud: LuaAnyUserData = opts.get("value")?;
+            let value = value_ud.borrow::<LuaSignal>()?.0.clone();
 
-        // Wrap on_change Lua function.
-        let on_change = wrap_lua_callback_bool(lua, opts.get::<Option<LuaFunction>>("on_change")?)?;
+            let min: f64 = opts.get::<Option<f64>>("min")?.unwrap_or(0.0);
+            let max: f64 = opts.get::<Option<f64>>("max")?.unwrap_or(100.0);
 
-        let state = ToggleState {
-            checked: Rc::new(RefCell::new(current_val)),
-            on_change,
-            accent_color,
-        };
+            let on_change = wrap_lua_callback_f64(lua, opts.get::<Option<LuaFunction>>("on_change")?)?;
 
-        Ok(LuaNode(Node::Toggle { style, state }))
-    })?;
-    lua.globals().set("toggle", toggle_fn)?;
+            Ok(LuaNode(Node::Interactive {
+                style,
+                kind: InteractiveKind::Slider {
+                    value,
+                    min,
+                    max,
+                    on_change,
+                    accent_color,
+                },
+                children: Vec::new(),
+            }))
+        })?;
+        lua.globals().set("slider", slider_fn)?;
+    }
+
+    // toggle(style, opts) -> LuaNode
+    //
+    // opts:
+    //   checked   - LuaSignal (Signal<DynValue>) for the current boolean value
+    //   on_change - function(v) called when toggled
+    //
+    // Style tokens: accent-<color> parsed manually for the track color when checked.
+    {
+        let t = theme.clone();
+        let toggle_fn = lua.create_function(move |lua, (style_val, opts): (LuaValue, LuaTable)| {
+            let (style, accent_color) = parse_style_with_accent(lua, style_val, &t)?;
+
+            let checked_ud: LuaAnyUserData = opts.get("checked")?;
+            let checked = checked_ud.borrow::<LuaSignal>()?.0.clone();
+
+            let on_change = wrap_lua_callback_bool(lua, opts.get::<Option<LuaFunction>>("on_change")?)?;
+
+            Ok(LuaNode(Node::Interactive {
+                style,
+                kind: InteractiveKind::Toggle {
+                    checked,
+                    on_change,
+                    accent_color,
+                },
+                children: Vec::new(),
+            }))
+        })?;
+        lua.globals().set("toggle", toggle_fn)?;
+    }
 
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Parse a style value, extracting `accent-<color>` tokens before building the
+/// `Prop<StyleProps>`. Returns (style_prop, accent_color).
+///
+/// For static strings, accent tokens are stripped before parsing.
+/// For functions, accent parsing is deferred into the reactive closure.
+fn parse_style_with_accent(
+    lua: &Lua,
+    val: LuaValue,
+    theme: &Arc<Theme>,
+) -> LuaResult<(Prop<StyleProps>, Option<Color>)> {
+    match val {
+        LuaValue::String(s) => {
+            let raw = s.to_string_lossy();
+            let (filtered, accent) = extract_accent(&raw, theme);
+            let parsed = StyleProps::parse(&filtered, theme);
+            Ok((Prop::Static(parsed), accent))
+        }
+        LuaValue::Function(f) => {
+            let key = lua.create_registry_value(f)?;
+            let lua_clone = lua.clone();
+            let theme = theme.clone();
+            let cached_str = RefCell::new(String::new());
+            let cached_props = RefCell::new(StyleProps::default());
+            // For reactive styles on slider/toggle, we cannot return a changing
+            // accent color without making it Prop<Option<Color>> too, which is
+            // overkill. We resolve the accent once on first call and keep it.
+            let accent_cell: Rc<RefCell<Option<Color>>> = Rc::new(RefCell::new(None));
+            let accent_out = accent_cell.clone();
+            let prop = Prop::Reactive(Rc::new(move || {
+                let cb: LuaFunction = lua_clone.registry_value(&key).unwrap();
+                let new_str: String = cb.call(()).unwrap_or_default();
+                if new_str != *cached_str.borrow() {
+                    let (filtered, accent) = extract_accent(&new_str, &theme);
+                    *cached_str.borrow_mut() = new_str;
+                    *cached_props.borrow_mut() = StyleProps::parse(&filtered, &theme);
+                    *accent_cell.borrow_mut() = accent;
+                }
+                cached_props.borrow().clone()
+            }));
+            // Resolve once now so the accent is available immediately.
+            let _ = prop.resolve();
+            let accent = accent_out.borrow().clone();
+            Ok((prop, accent))
+        }
+        _ => Ok((Prop::Static(StyleProps::default()), None)),
+    }
+}
+
+/// Strip `accent-<color>` tokens from a style string. Returns the filtered
+/// string and the resolved accent color (if any).
+fn extract_accent(raw: &str, theme: &Theme) -> (String, Option<Color>) {
+    let mut accent = None;
+    let mut filtered = Vec::new();
+    for token in raw.split_whitespace() {
+        if let Some(color_name) = token.strip_prefix("accent-") {
+            if let Some(&c) = theme.colors.get(color_name) {
+                accent = Some(c);
+            }
+        } else {
+            filtered.push(token);
+        }
+    }
+    (filtered.join(" "), accent)
+}
+
 /// Extract event-handler Lua functions from an options table and wrap them
-/// as `ButtonHandlers` with `Rc`-wrapped closures.
-fn lua_table_to_handlers(lua: &Lua, opts: &LuaTable) -> LuaResult<ButtonHandlers> {
+/// as `EventHandlers` with `Rc`-wrapped closures.
+fn lua_table_to_handlers(lua: &Lua, opts: &LuaTable) -> LuaResult<EventHandlers> {
     let on_click = wrap_lua_callback(lua, opts.get::<Option<LuaFunction>>("on_click")?)?;
     let on_scroll_up = wrap_lua_callback(lua, opts.get::<Option<LuaFunction>>("on_scroll_up")?)?;
     let on_scroll_down = wrap_lua_callback(lua, opts.get::<Option<LuaFunction>>("on_scroll_down")?)?;
+    let on_hover = wrap_lua_callback(lua, opts.get::<Option<LuaFunction>>("on_hover")?)?;
+    let on_hover_lost = wrap_lua_callback(lua, opts.get::<Option<LuaFunction>>("on_hover_lost")?)?;
 
-    Ok(ButtonHandlers {
+    Ok(EventHandlers {
         on_click,
         on_scroll_up,
         on_scroll_down,
+        on_hover,
+        on_hover_lost,
     })
 }
 

@@ -80,7 +80,7 @@ pub fn paint_tree(
                         );
 
                         // Filled portion
-                        let val = value.get();
+                        let val = value.get().as_f64();
                         let range = max - min;
                         let ratio = if range > 0.0 {
                             ((val - min) / range).clamp(0.0, 1.0) as f32
@@ -108,7 +108,7 @@ pub fn paint_tree(
                         accent_color,
                         ..
                     } => {
-                        let is_checked = checked.get();
+                        let is_checked = checked.get().as_bool();
                         let w = 40.0_f32;
                         let h = 22.0_f32;
                         let padding = 2.0_f32;

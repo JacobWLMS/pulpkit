@@ -6,7 +6,8 @@ pub mod vm;
 pub mod widgets;
 pub mod window;
 
-pub use signals::{DynValue, LuaComputed, LuaSignal, register_signal_api};
+pub use signals::{LuaComputed, LuaSignal, register_signal_api};
+pub use pulpkit_reactive::DynValue;
 pub use timers::{IntervalDef, IntervalRegistry, register_interval_fn};
 pub use vm::LuaVm;
 pub use widgets::{LuaNode, register_widgets};
@@ -15,7 +16,7 @@ pub use window::{MonitorTarget, PopupDef, PopupRegistry, WindowDef, WindowRegist
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pulpkit_layout::{Theme, tree::Node};
+    use pulpkit_layout::{Theme, tree::{Node, InteractiveKind}};
     use pulpkit_reactive::ReactiveRuntime;
     use std::sync::Arc;
 
@@ -269,13 +270,15 @@ mod tests {
             let result: mlua::AnyUserData = vm.lua().globals().get("result").unwrap();
             let node = result.borrow::<LuaNode>().unwrap();
             match &node.0 {
-                Node::Button {
-                    children, handlers, ..
+                Node::Interactive {
+                    kind: InteractiveKind::Button { handlers },
+                    children,
+                    ..
                 } => {
                     assert_eq!(children.len(), 1);
                     assert!(handlers.on_click.is_some());
                 }
-                _ => panic!("expected Button"),
+                _ => panic!("expected Interactive/Button"),
             }
         });
     }
@@ -354,14 +357,17 @@ mod tests {
             let result: mlua::AnyUserData = vm.lua().globals().get("result").unwrap();
             let node = result.borrow::<LuaNode>().unwrap();
             match &node.0 {
-                Node::Slider { state, .. } => {
-                    assert!((state.min - 0.0).abs() < f64::EPSILON);
-                    assert!((state.max - 100.0).abs() < f64::EPSILON);
-                    assert!(state.on_change.is_some());
-                    // Value should have been read from the signal.
-                    assert!((*state.value.borrow() - 75.0).abs() < f64::EPSILON);
+                Node::Interactive {
+                    kind: InteractiveKind::Slider { value, min, max, on_change, .. },
+                    ..
+                } => {
+                    assert!((*min - 0.0).abs() < f64::EPSILON);
+                    assert!((*max - 100.0).abs() < f64::EPSILON);
+                    assert!(on_change.is_some());
+                    // Value signal should hold the initial value from Lua.
+                    assert!((value.get().as_f64() - 75.0).abs() < f64::EPSILON);
                 }
-                _ => panic!("expected Slider"),
+                _ => panic!("expected Interactive/Slider"),
             }
         });
     }
@@ -400,21 +406,21 @@ mod tests {
             let sig = defs[0].visible_signal.as_ref().unwrap();
 
             // Initially false
-            assert_eq!(sig.get(), signals::DynValue::Bool(false));
+            assert_eq!(sig.get(), DynValue::Bool(false));
 
             // Set to true from Lua
             vm.lua()
                 .load(r#"show_popup:set(true)"#)
                 .exec()
                 .unwrap();
-            assert_eq!(sig.get(), signals::DynValue::Bool(true));
+            assert_eq!(sig.get(), DynValue::Bool(true));
 
             // Set back to false
             vm.lua()
                 .load(r#"show_popup:set(false)"#)
                 .exec()
                 .unwrap();
-            assert_eq!(sig.get(), signals::DynValue::Bool(false));
+            assert_eq!(sig.get(), DynValue::Bool(false));
         });
     }
 
@@ -443,11 +449,14 @@ mod tests {
             let result: mlua::AnyUserData = vm.lua().globals().get("result").unwrap();
             let node = result.borrow::<LuaNode>().unwrap();
             match &node.0 {
-                Node::Toggle { state, .. } => {
-                    assert_eq!(*state.checked.borrow(), false);
-                    assert!(state.on_change.is_some());
+                Node::Interactive {
+                    kind: InteractiveKind::Toggle { checked, on_change, .. },
+                    ..
+                } => {
+                    assert_eq!(checked.get().as_bool(), false);
+                    assert!(on_change.is_some());
                 }
-                _ => panic!("expected Toggle"),
+                _ => panic!("expected Interactive/Toggle"),
             }
         });
     }

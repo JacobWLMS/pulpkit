@@ -6,22 +6,7 @@
 use std::rc::Rc;
 
 use mlua::prelude::*;
-use pulpkit_reactive::{Computed, Effect, Signal};
-
-// ---------------------------------------------------------------------------
-// DynValue — a Lua-compatible value that is Clone + 'static
-// ---------------------------------------------------------------------------
-
-/// A dynamic value that can cross the Rust ↔ Lua boundary and live inside a
-/// reactive `Signal<DynValue>`.
-#[derive(Debug, Clone, PartialEq)]
-pub enum DynValue {
-    Nil,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    Str(String),
-}
+use pulpkit_reactive::{Computed, DynValue, Effect, Signal};
 
 /// Convert a `LuaValue` to a `DynValue`.
 fn lua_to_dynvalue(value: &LuaValue) -> DynValue {
