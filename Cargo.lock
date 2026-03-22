@@ -835,6 +835,7 @@ name = "pulpkit-layout"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "pulpkit-reactive",
  "pulpkit-render",
  "taffy",
 ]
