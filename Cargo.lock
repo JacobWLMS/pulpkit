@@ -828,6 +828,7 @@ dependencies = [
  "pulpkit-render",
  "pulpkit-wayland",
  "tokio",
+ "wayland-client",
 ]
 
 [[package]]

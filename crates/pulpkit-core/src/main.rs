@@ -5,8 +5,15 @@
 
 use std::path::PathBuf;
 
+mod dirty;
+mod event_loop;
+mod events;
 mod ipc;
+mod popups;
 mod runtime;
+mod surfaces;
+mod theme;
+mod timers;
 mod watcher;
 
 fn main() -> anyhow::Result<()> {

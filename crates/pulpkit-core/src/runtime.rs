@@ -1,6 +1,6 @@
-//! Main runtime — wires Lua, layout, rendering, and Wayland together.
+//! Runtime orchestration — setup, Lua loading, surface creation, event loop entry.
 
-use std::collections::HashMap;
+use std::cell::Cell;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -8,88 +8,81 @@ use std::time::{Duration, Instant};
 
 use calloop::channel;
 use mlua::prelude::*;
-use pulpkit_layout::{AnimationManager, FadeAnimation, Theme, Node, compute_layout, paint_tree};
-use pulpkit_lua::{LuaNode, LuaVm, register_interval_fn, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
-use pulpkit_lua::signals::DynValue;
-use pulpkit_reactive::{ReactiveRuntime, Signal};
-use pulpkit_render::{Canvas, Color, TextRenderer};
-use pulpkit_wayland::{Anchor, InputEvent, Layer, LayerSurface, OutputInfo, PopupAnchor, SurfaceConfig, SurfaceMargins, WaylandClient};
+use pulpkit_lua::{
+    LuaNode, LuaVm,
+    register_interval_fn, register_popup_fn, register_signal_api, register_widgets,
+    register_window_fn,
+};
+use pulpkit_reactive::ReactiveRuntime;
+use pulpkit_layout::Theme;
+use pulpkit_render::TextRenderer;
+use pulpkit_wayland::{
+    Anchor, Layer, LayerSurface, OutputInfo, PopupAnchor, SurfaceConfig, SurfaceMargins,
+    WaylandClient,
+};
 
+use crate::event_loop;
 use crate::ipc::IpcServer;
+use crate::popups::{ManagedPopup, PopupConfig, PopupState};
+use crate::surfaces::ManagedSurface;
+use crate::theme::load_theme;
+use crate::timers::ActiveInterval;
 use crate::watcher;
 
 /// Internal events that can wake the event loop from its idle sleep.
-///
-/// Other parts of the system send these via the `wake_sender` to trigger
-/// a redraw or other processing without waiting for Wayland events.
 #[allow(dead_code)]
 pub enum RuntimeEvent {
-    /// Request a full redraw of all surfaces.
     Redraw,
-    // Future: HotReload, SignalUpdate, etc.
 }
 
 /// Run the shell defined in `shell_dir`.
-///
-/// This is the main entry point: it creates the reactive runtime, Lua VM,
-/// loads the shell configuration, connects to Wayland, creates surfaces,
-/// renders the initial frame, and enters the event loop.
 pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
     log::info!("Starting pulpkit with shell dir: {}", shell_dir.display());
 
-    // Validate shell directory exists
     if !shell_dir.is_dir() {
         anyhow::bail!("Shell directory does not exist: {}", shell_dir.display());
     }
 
-    // Create reactive runtime and enter its context.
     let rt = ReactiveRuntime::new();
-    rt.enter(|| run_inner(&shell_dir))
+    rt.enter(|| run_inner(&shell_dir, &rt))
 }
 
 /// Inner runtime logic, executed inside the reactive context.
-fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
+fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     let _ipc = IpcServer::new();
 
-    // 0. Start watching the shell directory for .lua file changes.
+    // 0. File watcher (hot-reload — Wave 2).
     let watcher = watcher::FileWatcher::new(shell_dir)?;
     log::info!("File watcher active on {}", shell_dir.display());
+    while watcher.poll().is_some() {} // drain startup noise
 
-    // Drain any events that fired during watcher setup (filesystem noise).
-    while watcher.poll().is_some() {}
-    let startup_time = std::time::Instant::now();
-
-    // 1. Create the Lua VM.
+    // 1. Lua VM.
     let vm = LuaVm::new().map_err(|e| anyhow::anyhow!("Failed to create Lua VM: {e}"))?;
     let lua = vm.lua();
 
-    // 2. Load the theme from theme.lua (or use default if not present).
-    let theme = load_theme(lua, shell_dir)?;
-    let theme = Arc::new(theme);
+    // 2. Theme.
+    let theme = Arc::new(load_theme(lua, shell_dir)?);
     log::info!("Theme loaded (font: {})", theme.font_family);
 
-    // 3. Inject widget constructors and signal API into the Lua VM.
+    // 3. Register Lua APIs.
     register_widgets(lua, theme.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register widgets: {e}"))?;
     register_signal_api(lua)
         .map_err(|e| anyhow::anyhow!("Failed to register signal API: {e}"))?;
 
-    // 4. Register the window() function — collects WindowDefs during shell.lua execution.
-    let registry = pulpkit_lua::WindowRegistry::default();
-    register_window_fn(lua, registry.clone())
+    let window_registry = pulpkit_lua::WindowRegistry::default();
+    register_window_fn(lua, window_registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register window fn: {e}"))?;
 
-    // 4b. Register the popup() function — collects PopupDefs during shell.lua execution.
     let popup_registry = pulpkit_lua::PopupRegistry::default();
     register_popup_fn(lua, popup_registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register popup fn: {e}"))?;
 
-    // 4c. Register the set_interval() function — collects IntervalDefs during shell.lua execution.
     let interval_registry = pulpkit_lua::IntervalRegistry::default();
     register_interval_fn(lua, interval_registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register set_interval fn: {e}"))?;
 
-    // 5. Execute shell.lua — this calls window() to register window definitions.
+    // 4. Execute shell.lua.
     let shell_path = shell_dir.join("shell.lua");
     if !shell_path.exists() {
         anyhow::bail!("shell.lua not found in {}", shell_dir.display());
@@ -98,72 +91,87 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to load shell.lua: {e}"))?;
     log::info!("shell.lua loaded successfully");
 
-    let window_defs = registry.borrow();
+    let window_defs = window_registry.borrow();
     if window_defs.is_empty() {
         anyhow::bail!("No windows defined in shell.lua — call window() at least once");
     }
     log::info!("{} window(s) defined", window_defs.len());
 
-    // 6. Connect to Wayland.
+    // 5. Connect to Wayland.
     let mut client = WaylandClient::connect()?;
     log::info!("Connected to Wayland display");
 
-    // 6b. Insert a calloop channel so internal events can wake the loop.
-    //     The loop sleeps with a long timeout; any Wayland event OR a message
-    //     on this channel will wake it immediately.
+    // Insert calloop wake channel.
     let (wake_sender, wake_channel) = channel::channel::<RuntimeEvent>();
     client
         .event_loop
         .handle()
         .insert_source(wake_channel, |event, _, _state| {
-            // For now we just need the wake — the event type tells us why.
             if let channel::Event::Msg(msg) = event {
                 match msg {
-                    RuntimeEvent::Redraw => {
-                        log::debug!("Wake: Redraw requested");
-                    }
+                    RuntimeEvent::Redraw => log::debug!("Wake: Redraw requested"),
                 }
             }
         })
         .map_err(|e| anyhow::anyhow!("Failed to insert wake channel: {e}"))?;
-
-    // Keep the sender around so other subsystems can wake the loop later.
-    let _wake_sender = wake_sender;
-
-    // Do an initial roundtrip to discover outputs.
+    // Initial roundtrip to discover outputs.
     client
         .event_loop
         .dispatch(Duration::from_millis(100), &mut client.state)?;
-
     log::info!("{} output(s) detected", client.state.outputs.len());
 
-    // 7. Create text renderer for layout measurements.
+    // 6. Create text renderer.
     let text_renderer = TextRenderer::new();
 
-    // 8. For each WindowDef, create layer surfaces and render the initial frame.
-    struct ManagedSurface {
-        surface: LayerSurface,
-        root: pulpkit_layout::Node,
-        /// Cached layout result used for hit testing on input events.
-        layout: Option<pulpkit_layout::LayoutResult>,
-        /// Index of the currently hovered layout node (for hover styling).
-        hovered_node: Option<usize>,
-        /// Active color transition animations for this surface.
-        animations: AnimationManager,
-    }
+    // 7. Create surfaces for each WindowDef.
+    let mut surfaces = create_surfaces(
+        &window_defs, lua, &mut client, &text_renderer, &theme,
+    )?;
+    drop(window_defs);
 
-    let mut surfaces: Vec<ManagedSurface> = Vec::new();
+    // Wire dirty-tracking Effects for reactive Props.
+    crate::dirty::wire_dirty_tracking(&surfaces, &wake_sender);
 
-    for window_def in window_defs.iter() {
+    // 8. Create popups for each PopupDef.
+    let mut popups = create_popups(
+        &popup_registry.borrow(), lua, &client,
+    )?;
+
+    // 9. Set up intervals.
+    let mut intervals = create_intervals(&interval_registry.borrow(), lua)?;
+
+    // 10. Enter the event loop.
+    event_loop::run(
+        &mut client,
+        &mut surfaces,
+        &mut popups,
+        &mut intervals,
+        lua,
+        &text_renderer,
+        &theme,
+        rt,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Setup helpers
+// ---------------------------------------------------------------------------
+
+fn create_surfaces(
+    window_defs: &[pulpkit_lua::WindowDef],
+    lua: &Lua,
+    client: &mut WaylandClient,
+    text_renderer: &TextRenderer,
+    theme: &Theme,
+) -> anyhow::Result<Vec<ManagedSurface>> {
+    let mut surfaces = Vec::new();
+
+    for window_def in window_defs {
         log::info!(
             "Creating window '{}' (anchor={}, exclusive={})",
-            window_def.name,
-            window_def.anchor,
-            window_def.exclusive
+            window_def.name, window_def.anchor, window_def.exclusive,
         );
 
-        // Determine which outputs to create surfaces on.
-        // Clone the OutputInfo to avoid borrowing client.state across mutable uses.
         let target_outputs: Vec<Option<OutputInfo>> = match &window_def.monitor {
             pulpkit_lua::MonitorTarget::All => {
                 if client.state.outputs.is_empty() {
@@ -173,13 +181,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 }
             }
             pulpkit_lua::MonitorTarget::Named(name) => {
-                let found = client
-                    .state
-                    .outputs
-                    .iter()
-                    .find(|o| o.name == *name)
-                    .cloned();
-                vec![found]
+                vec![client.state.outputs.iter().find(|o| o.name == *name).cloned()]
             }
             pulpkit_lua::MonitorTarget::Focused => {
                 if client.state.outputs.is_empty() {
@@ -196,13 +198,10 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 .registry_value(&window_def.widget_fn)
                 .map_err(|e| anyhow::anyhow!("Failed to get widget function: {e}"))?;
 
-            let ctx = lua
-                .create_table()
+            let ctx = lua.create_table()
                 .map_err(|e| anyhow::anyhow!("Failed to create context table: {e}"))?;
-            let monitor_table = lua
-                .create_table()
+            let monitor_table = lua.create_table()
                 .map_err(|e| anyhow::anyhow!("Failed to create monitor table: {e}"))?;
-
             if let Some(output) = maybe_output {
                 monitor_table.set("name", output.name.clone()).ok();
                 monitor_table.set("width", output.width).ok();
@@ -222,7 +221,6 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 .map_err(|e| anyhow::anyhow!("Widget function did not return a LuaNode: {e}"))?;
             let root_node = lua_node.0.clone();
 
-            // Map anchor string to Anchor enum.
             let anchor = match window_def.anchor.as_str() {
                 "top" => Anchor::Top,
                 "bottom" => Anchor::Bottom,
@@ -231,12 +229,11 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 _ => Anchor::Top,
             };
 
-            // Determine surface dimensions.
             let (width, height) = match anchor {
                 Anchor::Top | Anchor::Bottom => {
-                    let w = window_def.width.unwrap_or_else(|| {
-                        maybe_output.as_ref().map(|o| o.width).unwrap_or(1920)
-                    });
+                    let w = window_def
+                        .width
+                        .unwrap_or_else(|| maybe_output.as_ref().map(|o| o.width).unwrap_or(1920));
                     let h = window_def.height.unwrap_or(36);
                     (w, h)
                 }
@@ -271,1011 +268,118 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
 
             let mut surface = LayerSurface::new(&mut client.state, config)?;
 
-            // Do a roundtrip to get the configure event from the compositor.
+            // Roundtrip for configure.
             client
                 .event_loop
                 .dispatch(Duration::from_millis(50), &mut client.state)?;
 
-            // Handle any pending configures (resize the surface if needed).
             for configure in client.state.pending_configures.drain(..) {
-                if configure.width > 0 && configure.height > 0
+                if configure.width > 0
+                    && configure.height > 0
                     && configure.surface_id == surface.surface_id()
                 {
                     surface.resize(configure.width, configure.height);
                 }
             }
 
-            // Initial render — also stores the layout for hit testing.
-            let mut animations = AnimationManager::default();
-            let layout = render_surface(&mut surface, &root_node, &text_renderer, &theme, None, &mut animations);
-
-            surfaces.push(ManagedSurface {
+            let mut managed = ManagedSurface {
+                name: window_def.name.clone(),
                 surface,
                 root: root_node,
-                layout: Some(layout),
-                hovered_node: None,
-                animations,
-            });
-
-            log::info!(
-                "Surface created for '{}' ({}x{})",
-                window_def.name,
-                width,
-                height
-            );
-        }
-    }
-
-    // Drop the borrow on window_defs before entering the event loop.
-    drop(window_defs);
-
-    // 8b. For each PopupDef, create a ManagedPopup (starts hidden — no surface yet).
-    struct ManagedPopup {
-        name: String,
-        _parent_name: String,
-        layer_surface: Option<LayerSurface>,
-        root_node: pulpkit_layout::Node,
-        layout: Option<pulpkit_layout::LayoutResult>,
-        visible: bool,
-        visible_signal: Option<Signal<DynValue>>,
-        dismiss_on_outside: bool,
-        offset: (i32, i32),
-        popup_anchor: PopupAnchor,
-        width: u32,
-        height: u32,
-        output: Option<pulpkit_wayland::output::OutputInfo>,
-        needs_initial_render: bool,
-        opacity: f32,
-        fade_animation: Option<FadeAnimation>,
-        pending_destroy: bool,
-    }
-
-    let mut popups: Vec<ManagedPopup> = Vec::new();
-    {
-        let popup_defs = popup_registry.borrow();
-        for popup_def in popup_defs.iter() {
-            log::info!(
-                "Registering popup '{}' (parent={}, anchor={})",
-                popup_def.name,
-                popup_def.parent,
-                popup_def.anchor
-            );
-
-            // Call the widget function to build the node tree (called once).
-            let widget_fn: LuaFunction = lua
-                .registry_value(&popup_def.widget_fn_key)
-                .map_err(|e| anyhow::anyhow!("Failed to get popup widget function: {e}"))?;
-            let result: LuaAnyUserData = widget_fn
-                .call(())
-                .map_err(|e| anyhow::anyhow!("Popup widget function failed: {e}"))?;
-            let lua_node = result
-                .borrow::<LuaNode>()
-                .map_err(|e| anyhow::anyhow!("Popup widget function did not return a LuaNode: {e}"))?;
-            let root_node = lua_node.0.clone();
-
-            // Parse anchor string to PopupAnchor.
-            let popup_anchor = match popup_def.anchor.as_str() {
-                "top right" => PopupAnchor::TopRight,
-                "bottom left" => PopupAnchor::BottomLeft,
-                "bottom right" => PopupAnchor::BottomRight,
-                _ => PopupAnchor::TopLeft,
-            };
-
-            let width = popup_def.width.unwrap_or(280);
-            let height = popup_def.height.unwrap_or(200);
-
-            // Use the first output for now (or None).
-            let output = client.state.outputs.first().cloned();
-
-            popups.push(ManagedPopup {
-                name: popup_def.name.clone(),
-                _parent_name: popup_def.parent.clone(),
-                layer_surface: None, // starts hidden
-                root_node,
                 layout: None,
-                visible: false,
-                visible_signal: popup_def.visible_signal.clone(),
-                dismiss_on_outside: popup_def.dismiss_on_outside,
-                offset: popup_def.offset,
-                popup_anchor,
-                width,
-                height,
-                output,
-                needs_initial_render: false,
-                opacity: 1.0,
-                fade_animation: None,
-                pending_destroy: false,
-            });
+                dirty: Rc::new(Cell::new(true)),
+                hovered_node: None,
+            };
+            managed.render(text_renderer, theme);
 
-            log::info!("Popup '{}' registered (starts hidden)", popup_def.name);
+            log::info!("Surface created for '{}' ({}x{})", window_def.name, width, height);
+            surfaces.push(managed);
         }
     }
 
-    // 8c. Set up active intervals from set_interval() calls in shell.lua.
-    struct ActiveInterval {
-        callback_key: mlua::RegistryKey,
-        interval: Duration,
-        next_fire: Instant,
-    }
+    Ok(surfaces)
+}
 
-    let mut intervals: Vec<ActiveInterval> = Vec::new();
-    {
-        let interval_defs = interval_registry.borrow();
-        let now = Instant::now();
-        for def in interval_defs.iter() {
-            let interval = Duration::from_millis(def.interval_ms);
-            intervals.push(ActiveInterval {
-                callback_key: lua
-                    .registry_value::<LuaFunction>(&def.callback_key)
-                    .and_then(|f| lua.create_registry_value(f))
-                    .map_err(|e| anyhow::anyhow!("Failed to clone interval callback: {e}"))?,
-                interval,
-                next_fire: now + interval,
-            });
-        }
-        if !intervals.is_empty() {
-            log::info!("{} interval(s) registered", intervals.len());
-        }
-    }
+fn create_popups(
+    popup_defs: &[pulpkit_lua::PopupDef],
+    lua: &Lua,
+    client: &WaylandClient,
+) -> anyhow::Result<Vec<ManagedPopup>> {
+    let mut popups = Vec::new();
 
-    // 9. Event loop — dispatch Wayland events.
-    //    The timeout is set to the minimum time until the next interval fires,
-    //    or 60 seconds if there are no intervals. Calloop wakes immediately
-    //    when the Wayland fd is readable or the wake channel receives a message.
-    log::info!("Entering event loop");
-    loop {
-        // Compute dispatch timeout: animate at 60fps, otherwise sleep until
-        // next interval or 60 seconds. Minimum 1ms to avoid busy-spinning.
-        let has_animations = surfaces.iter().any(|s| s.animations.has_active());
-        let has_popup_animations = popups.iter().any(|p| p.fade_animation.is_some());
-        let dispatch_timeout = if has_animations || has_popup_animations {
-            Duration::from_millis(16) // ~60fps while animating
-        } else {
-            let next_interval = intervals
-                .iter()
-                .map(|i| i.next_fire.saturating_duration_since(Instant::now()))
-                .min()
-                .unwrap_or(Duration::from_secs(60));
-            // Minimum 1ms to prevent busy-loop when next_fire just passed
-            next_interval.max(Duration::from_millis(1))
+    for popup_def in popup_defs {
+        log::info!(
+            "Registering popup '{}' (parent={}, anchor={})",
+            popup_def.name, popup_def.parent, popup_def.anchor,
+        );
+
+        let widget_fn: LuaFunction = lua
+            .registry_value(&popup_def.widget_fn_key)
+            .map_err(|e| anyhow::anyhow!("Failed to get popup widget function: {e}"))?;
+        let result: LuaAnyUserData = widget_fn
+            .call(())
+            .map_err(|e| anyhow::anyhow!("Popup widget function failed: {e}"))?;
+        let lua_node = result
+            .borrow::<LuaNode>()
+            .map_err(|e| anyhow::anyhow!("Popup widget function did not return a LuaNode: {e}"))?;
+        let root_node = lua_node.0.clone();
+
+        let popup_anchor = match popup_def.anchor.as_str() {
+            "top right" => PopupAnchor::TopRight,
+            "bottom left" => PopupAnchor::BottomLeft,
+            "bottom right" => PopupAnchor::BottomRight,
+            _ => PopupAnchor::TopLeft,
         };
 
-        client
-            .event_loop
-            .dispatch(dispatch_timeout, &mut client.state)?;
+        let output = client.state.outputs.first().cloned();
 
-        // Handle configure events (resize) — only re-render if size actually changed.
-        if !client.state.pending_configures.is_empty() {
-            let configures: Vec<_> = client.state.pending_configures.drain(..).collect();
-            for configure in configures {
-                // Match configure to the correct surface by ID.
-                for managed in &mut surfaces {
-                    if managed.surface.surface_id() == configure.surface_id {
-                        let old_w = managed.surface.width();
-                        let old_h = managed.surface.height();
-                        if configure.width > 0 && configure.height > 0
-                            && (configure.width != old_w || configure.height != old_h)
-                        {
-                            managed.surface.resize(configure.width, configure.height);
-                            managed.layout = Some(render_surface(
-                                &mut managed.surface,
-                                &managed.root,
-                                &text_renderer,
-                                &theme,
-                                managed.hovered_node,
-                                &mut managed.animations,
-                            ));
-                        }
-                        // Same size: do nothing (already rendered)
-                        break;
-                    }
-                }
-                // Also check popups.
-                for popup in &mut popups {
-                    if let Some(ref mut surface) = popup.layer_surface {
-                        if surface.surface_id() == configure.surface_id {
-                            if configure.width > 0 && configure.height > 0 {
-                                if popup.needs_initial_render {
-                                    // First configure after creation — do initial render.
-                                    surface.resize(configure.width, configure.height);
-                                    let mut no_anims = AnimationManager::default();
-                                    popup.layout = Some(render_surface(
-                                        surface,
-                                        &popup.root_node,
-                                        &text_renderer,
-                                        &theme,
-                                        None,
-                                        &mut no_anims,
-                                    ));
-                                    // Apply current opacity (may be 0 at start of fade-in).
-                                    if popup.opacity < 1.0 {
-                                        apply_opacity(surface.get_buffer(), popup.opacity);
-                                        surface.commit();
-                                    }
-                                    popup.needs_initial_render = false;
-                                } else {
-                                    let old_w = surface.width();
-                                    let old_h = surface.height();
-                                    if configure.width != old_w || configure.height != old_h {
-                                        surface.resize(configure.width, configure.height);
-                                        let mut no_anims = AnimationManager::default();
-                                        popup.layout = Some(render_surface(
-                                            surface,
-                                            &popup.root_node,
-                                            &text_renderer,
-                                            &theme,
-                                            None,
-                                            &mut no_anims,
-                                        ));
-                                    }
-                                    // Same size after initial: do nothing
-                                }
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        popups.push(ManagedPopup {
+            name: popup_def.name.clone(),
+            root: root_node,
+            state: PopupState::Hidden,
+            config: PopupConfig {
+                parent_name: popup_def.parent.clone(),
+                anchor: popup_anchor,
+                offset: popup_def.offset,
+                dismiss_on_outside: popup_def.dismiss_on_outside,
+                width: popup_def.width.unwrap_or(280),
+                height: popup_def.height.unwrap_or(200),
+                output,
+            },
+            visible_signal: popup_def.visible_signal.clone(),
+        });
 
-        // 9a. Check for file changes (hot-reload).
-        // TODO: Hot-reload is disabled for now. The file watcher triggers
-        // spuriously from Lua's own file access during interval callbacks.
-        // Proper fix: track file mtimes and only reload on actual mtime changes,
-        // or exclude the shell directory from inotify during Lua execution.
-        {
-            // Drain watcher events without acting on them.
-            while watcher.poll().is_some() {}
-            let should_reload = false;
-            if should_reload {
-                // Clear module cache so require() picks up new files.
-                if let Err(e) = vm.clear_module_cache() {
-                    log::error!("Hot-reload: failed to clear module cache: {e}");
-                } else {
-                    // Clear old window definitions.
-                    registry.borrow_mut().clear();
-
-                    // Re-execute shell.lua.
-                    match vm.load_file(&shell_path) {
-                        Ok(()) => {
-                            log::info!("Hot-reload: shell.lua re-executed");
-
-                            // Update node trees for each surface.
-                            let new_defs = registry.borrow();
-                            for (i, managed) in surfaces.iter_mut().enumerate() {
-                                if let Some(def) = new_defs.get(i) {
-                                    if let Ok(widget_fn) =
-                                        lua.registry_value::<LuaFunction>(&def.widget_fn)
-                                    {
-                                        let ctx = lua.create_table().unwrap();
-                                        match widget_fn.call::<LuaAnyUserData>(ctx) {
-                                            Ok(result) => {
-                                                if let Ok(node) = result.borrow::<LuaNode>() {
-                                                    managed.root = node.0.clone();
-                                                }
-                                            }
-                                            Err(e) => {
-                                                log::error!(
-                                                    "Hot-reload: widget function failed for surface {i}: {e}"
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            drop(new_defs);
-
-                            // Re-render all surfaces.
-                            for managed in &mut surfaces {
-                                managed.layout = Some(render_surface(
-                                    &mut managed.surface,
-                                    &managed.root,
-                                    &text_renderer,
-                                    &theme,
-                                    managed.hovered_node,
-                                    &mut managed.animations,
-                                ));
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("Hot-reload failed: {e}");
-                            // Keep old widget trees — don't crash.
-                        }
-                    }
-                }
-            }
-        }
-
-        // 9b. Dispatch input events FIRST (before popup visibility check).
-        let mut handler_fired = false;
-        let mut hover_changed = false;
-        if !client.state.input_events.is_empty() {
-            let events: Vec<_> = client.state.input_events.drain(..).collect();
-            for event in &events {
-                match event {
-                    InputEvent::PointerMotion { x, y, .. } => {
-                        for managed in &mut surfaces {
-                            if let Some(ref layout) = managed.layout {
-                                let hit = pulpkit_layout::hit_test(layout, *x as f32, *y as f32);
-                                if hit != managed.hovered_node {
-                                    let old_hovered = managed.hovered_node;
-                                    managed.hovered_node = hit;
-                                    hover_changed = true;
-
-                                    // Start transition animations for nodes that have them.
-                                    start_hover_animations(
-                                        layout, old_hovered, hit, &mut managed.animations,
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    InputEvent::PointerLeave { .. } => {
-                        for managed in &mut surfaces {
-                            if managed.hovered_node.is_some() {
-                                let old_hovered = managed.hovered_node;
-                                managed.hovered_node = None;
-                                hover_changed = true;
-
-                                if let Some(ref layout) = managed.layout {
-                                    start_hover_animations(
-                                        layout, old_hovered, None, &mut managed.animations,
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    InputEvent::PointerButton { surface_id, x, y, button, pressed: true } => {
-                        // Left mouse button = 0x110 (BTN_LEFT)
-                        // Process button/slider/toggle handlers FIRST, then dismiss.
-                        let mut click_handled = false;
-                        if *button == 0x110 {
-                            // Check popup surfaces first for button handlers.
-                            for popup in &popups {
-                                if popup.visible {
-                                    if let Some(ref layout) = popup.layout {
-                                        if let Some(cb) = find_button_handler(
-                                            layout, *x as f32, *y as f32,
-                                            |h| h.on_click.clone(),
-                                        ) {
-                                            cb();
-                                            handler_fired = true;
-                                            click_handled = true;
-                                        }
-                                    }
-                                }
-                            }
-                            // Then check bar surfaces.
-                            for managed in &surfaces {
-                                if let Some(ref layout) = managed.layout {
-                                    if let Some(cb) = find_button_handler(
-                                        layout, *x as f32, *y as f32,
-                                        |h| h.on_click.clone(),
-                                    ) {
-                                        cb();
-                                        handler_fired = true;
-                                        click_handled = true;
-                                    }
-                                }
-                            }
-
-                            // Slider click-to-set: check all surfaces for slider hits.
-                            let click_x = *x as f32;
-                            let click_y = *y as f32;
-                            // Check popup surfaces.
-                            for popup in &popups {
-                                if popup.visible {
-                                    if let Some(ref layout) = popup.layout {
-                                        if handle_slider_click(layout, click_x, click_y) {
-                                            handler_fired = true;
-                                        }
-                                    }
-                                }
-                            }
-                            // Check bar surfaces.
-                            for managed in &surfaces {
-                                if let Some(ref layout) = managed.layout {
-                                    if handle_slider_click(layout, click_x, click_y) {
-                                        handler_fired = true;
-                                    }
-                                }
-                            }
-
-                            // Toggle click-to-flip: check all surfaces for toggle hits.
-                            // Check popup surfaces.
-                            for popup in &popups {
-                                if popup.visible {
-                                    if let Some(ref layout) = popup.layout {
-                                        if handle_toggle_click(layout, click_x, click_y) {
-                                            handler_fired = true;
-                                        }
-                                    }
-                                }
-                            }
-                            // Check bar surfaces.
-                            for managed in &surfaces {
-                                if let Some(ref layout) = managed.layout {
-                                    if handle_toggle_click(layout, click_x, click_y) {
-                                        handler_fired = true;
-                                    }
-                                }
-                            }
-                        }
-
-                        // Dismiss-on-outside-click: only if no button handler fired
-                        // (prevents dismiss when clicking the toggle button itself).
-                        if !click_handled {
-                            for popup in &mut popups {
-                                if popup.visible && popup.dismiss_on_outside {
-                                    let is_on_popup = popup
-                                        .layer_surface
-                                        .as_ref()
-                                        .map(|s| s.surface_id() == *surface_id)
-                                        .unwrap_or(false);
-                                    if !is_on_popup {
-                                        if let Some(ref sig) = popup.visible_signal {
-                                            sig.set(DynValue::Bool(false));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    InputEvent::PointerAxis { x, y, delta, horizontal: false, .. } => {
-                        for managed in &surfaces {
-                            if let Some(ref layout) = managed.layout {
-                                let cb = if *delta < 0.0 {
-                                    find_button_handler(
-                                        layout, *x as f32, *y as f32,
-                                        |h| h.on_scroll_up.clone(),
-                                    )
-                                } else {
-                                    find_button_handler(
-                                        layout, *x as f32, *y as f32,
-                                        |h| h.on_scroll_down.clone(),
-                                    )
-                                };
-                                if let Some(cb) = cb {
-                                    cb();
-                                    handler_fired = true;
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // If a handler fired, re-render all surfaces (state may have changed).
-        if handler_fired {
-            for managed in &mut surfaces {
-                managed.layout = Some(render_surface(
-                    &mut managed.surface,
-                    &managed.root,
-                    &text_renderer,
-                    &theme,
-                    managed.hovered_node,
-                    &mut managed.animations,
-                ));
-            }
-            // Re-render visible popups too.
-            for popup in &mut popups {
-                if let Some(ref mut surface) = popup.layer_surface {
-                    let mut no_anims = AnimationManager::default();
-                    popup.layout = Some(render_surface(
-                        surface,
-                        &popup.root_node,
-                        &text_renderer,
-                        &theme,
-                        None,
-                        &mut no_anims,
-                    ));
-                    // Apply fade opacity if animating.
-                    if popup.opacity < 1.0 {
-                        apply_opacity(surface.get_buffer(), popup.opacity);
-                        surface.commit();
-                    }
-                }
-            }
-        }
-
-        // If hover state changed (but no handler fired), re-render for visual feedback.
-        if hover_changed && !handler_fired {
-            for managed in &mut surfaces {
-                managed.layout = Some(render_surface(
-                    &mut managed.surface,
-                    &managed.root,
-                    &text_renderer,
-                    &theme,
-                    managed.hovered_node,
-                    &mut managed.animations,
-                ));
-            }
-        }
-
-        // 9c. Fire any due interval callbacks.
-        {
-            let now = Instant::now();
-            let mut interval_fired = false;
-            for interval in &mut intervals {
-                if now >= interval.next_fire {
-                    let cb: LuaFunction = lua
-                        .registry_value(&interval.callback_key)
-                        .expect("interval: registry lookup failed");
-                    if let Err(e) = cb.call::<()>(()) {
-                        log::error!("Interval callback error: {e}");
-                    }
-                    interval.next_fire = now + interval.interval;
-                    interval_fired = true;
-                }
-            }
-            // If interval callbacks fired, re-render all surfaces.
-            if interval_fired {
-                for managed in &mut surfaces {
-                    managed.layout = Some(render_surface(
-                        &mut managed.surface,
-                        &managed.root,
-                        &text_renderer,
-                        &theme,
-                        managed.hovered_node,
-                        &mut managed.animations,
-                    ));
-                }
-                for popup in &mut popups {
-                    if popup.needs_initial_render { continue; } // wait for configure
-                    if let Some(ref mut surface) = popup.layer_surface {
-                        let mut no_anims = AnimationManager::default();
-                        popup.layout = Some(render_surface(
-                            surface,
-                            &popup.root_node,
-                            &text_renderer,
-                            &theme,
-                            None,
-                            &mut no_anims,
-                        ));
-                        // Apply fade opacity if animating.
-                        if popup.opacity < 1.0 {
-                            apply_opacity(surface.get_buffer(), popup.opacity);
-                            surface.commit();
-                        }
-                    }
-                }
-            }
-        }
-
-        // 9d. Re-render surfaces with active animations (animation tick).
-        if !handler_fired && !hover_changed {
-            for managed in &mut surfaces {
-                if managed.animations.has_active() {
-                    managed.layout = Some(render_surface(
-                        &mut managed.surface,
-                        &managed.root,
-                        &text_renderer,
-                        &theme,
-                        managed.hovered_node,
-                        &mut managed.animations,
-                    ));
-                }
-            }
-        }
-
-        // 9e. Tick popup fade animations.
-        for popup in &mut popups {
-            if popup.needs_initial_render { continue; } // wait for configure
-            if let Some(ref anim) = popup.fade_animation {
-                let (opacity, done) = anim.current();
-                popup.opacity = opacity;
-
-                if done {
-                    popup.fade_animation = None;
-                    if popup.pending_destroy {
-                        // Fade-out complete — destroy the surface.
-                        log::info!("Popup '{}' fade-out complete, destroying surface", popup.name);
-                        popup.layer_surface = None;
-                        popup.layout = None;
-                        popup.visible = false;
-                        popup.pending_destroy = false;
-                        popup.opacity = 1.0;
-                        continue;
-                    }
-                }
-
-                // Re-render with current opacity.
-                if let Some(ref mut surface) = popup.layer_surface {
-                    let mut no_anims = AnimationManager::default();
-                    render_surface(
-                        surface,
-                        &popup.root_node,
-                        &text_renderer,
-                        &theme,
-                        None,
-                        &mut no_anims,
-                    );
-                    apply_opacity(surface.get_buffer(), popup.opacity);
-                    surface.commit();
-                }
-            }
-        }
-
-        // 10. Check popup visibility signals — show/hide popups as needed.
-        // This runs AFTER input dispatch so button handlers can toggle signals first.
-        let mut popup_actions: Vec<(usize, bool)> = Vec::new();
-        for (i, popup) in popups.iter().enumerate() {
-            if let Some(ref sig) = popup.visible_signal {
-                let should_be_visible = matches!(sig.get(), DynValue::Bool(true));
-                // Show: signal true AND not visible AND not already fading out
-                if should_be_visible && !popup.visible {
-                    popup_actions.push((i, true));
-                }
-                // Hide: signal false AND visible AND not already pending destroy
-                if !should_be_visible && popup.visible && !popup.pending_destroy {
-                    popup_actions.push((i, false));
-                }
-            }
-        }
-        for (i, should_show) in popup_actions {
-            let popup = &mut popups[i];
-            if should_show {
-                log::info!("Showing popup '{}' (fade-in)", popup.name);
-                let parent_height = surfaces.first().map(|s| s.surface.height()).unwrap_or(36);
-                let margins = compute_popup_margins(
-                    popup.popup_anchor,
-                    parent_height,
-                    popup.offset,
-                );
-                match LayerSurface::new_popup(
-                    &mut client.state,
-                    popup.popup_anchor,
-                    popup.width,
-                    popup.height,
-                    margins,
-                    format!("pulpkit-popup-{}", popup.name),
-                    popup.output.as_ref().map(|o| &o.wl_output),
-                ) {
-                    Ok(surface) => {
-                        // Don't render yet — wait for the compositor's configure event.
-                        // Mark as needs_initial_render so the configure handler renders it.
-                        popup.layer_surface = Some(surface);
-                        popup.needs_initial_render = true;
-                    }
-                    Err(e) => {
-                        log::error!("Failed to create popup surface '{}': {e}", popup.name);
-                    }
-                }
-                popup.visible = true;
-                popup.opacity = 0.0;
-                popup.fade_animation = Some(FadeAnimation::new(0.0, 1.0, 200));
-                popup.pending_destroy = false;
-            } else {
-                // Start fade-out instead of immediate destroy.
-                log::info!("Hiding popup '{}' (fade-out)", popup.name);
-                popup.pending_destroy = true;
-                popup.fade_animation = Some(FadeAnimation::new(popup.opacity, 0.0, 150));
-            }
-        }
-
-        if client.state.exit_requested {
-            log::info!("Exit requested by compositor");
-            break;
-        }
+        log::info!("Popup '{}' registered (starts hidden)", popup_def.name);
     }
 
-    Ok(())
+    Ok(popups)
 }
 
-/// Apply a global opacity to a pixel buffer in ARGB8888 (BGRA in memory) format.
-///
-/// Multiplies every channel (B, G, R, A) by the opacity factor. This is correct
-/// for premultiplied alpha: both color and alpha channels must be scaled together.
-/// If opacity is >= 1.0, this is a no-op.
-fn apply_opacity(buffer: &mut [u8], opacity: f32) {
-    if opacity >= 1.0 {
-        return;
+fn create_intervals(
+    interval_defs: &[pulpkit_lua::IntervalDef],
+    lua: &Lua,
+) -> anyhow::Result<Vec<ActiveInterval>> {
+    let now = Instant::now();
+    let mut intervals = Vec::new();
+
+    for def in interval_defs {
+        let interval = Duration::from_millis(def.interval_ms);
+        let callback_key = lua
+            .registry_value::<LuaFunction>(&def.callback_key)
+            .and_then(|f| lua.create_registry_value(f))
+            .map_err(|e| anyhow::anyhow!("Failed to clone interval callback: {e}"))?;
+
+        intervals.push(ActiveInterval {
+            callback_key,
+            interval,
+            next_fire: now + interval,
+        });
     }
-    let alpha_mult = (opacity.clamp(0.0, 1.0) * 255.0) as u32;
-    // ARGB8888 format: bytes are [B, G, R, A] on little-endian
-    for pixel in buffer.chunks_exact_mut(4) {
-        pixel[0] = ((pixel[0] as u32 * alpha_mult) / 255) as u8; // B
-        pixel[1] = ((pixel[1] as u32 * alpha_mult) / 255) as u8; // G
-        pixel[2] = ((pixel[2] as u32 * alpha_mult) / 255) as u8; // R
-        pixel[3] = ((pixel[3] as u32 * alpha_mult) / 255) as u8; // A
+
+    if !intervals.is_empty() {
+        log::info!("{} interval(s) registered", intervals.len());
     }
+
+    Ok(intervals)
 }
 
-/// Render a widget tree onto a layer surface and return the computed layout.
-///
-/// `hovered_node` is the index of the currently hovered layout node (if any),
-/// used to apply hover style overrides during painting.
-/// `animations` provides active color transition animations for smooth hover effects.
-fn render_surface(
-    surface: &mut LayerSurface,
-    root: &pulpkit_layout::Node,
-    text_renderer: &TextRenderer,
-    theme: &Theme,
-    hovered_node: Option<usize>,
-    animations: &mut AnimationManager,
-) -> pulpkit_layout::LayoutResult {
-    let width = surface.width();
-    let height = surface.height();
-
-    let layout =
-        compute_layout(root, width as f32, height as f32, text_renderer, &theme.font_family);
-
-    let buf = surface.get_buffer();
-    let mut canvas = match Canvas::from_buffer(buf, width as i32, height as i32) {
-        Some(c) => c,
-        None => {
-            log::error!("Failed to create Skia canvas ({}x{})", width, height);
-            return layout;
-        }
-    };
-
-    let bg_color = theme.colors.get("base").copied().unwrap_or_default();
-    canvas.clear(bg_color);
-    paint_tree(&mut canvas, &layout, &theme.font_family, hovered_node, animations);
-    canvas.flush();
-
-    surface.commit();
-    layout
-}
-
-/// Start background color transition animations when the hovered node changes.
-///
-/// For a node being left (`old_hovered`), animates from hover color back to base.
-/// For a node being entered (`new_hovered`), animates from base color to hover.
-/// Only triggers if the node's style has a `transition_duration_ms` set.
-fn start_hover_animations(
-    layout: &pulpkit_layout::LayoutResult,
-    old_hovered: Option<usize>,
-    new_hovered: Option<usize>,
-    animations: &mut AnimationManager,
-) {
-    // Node being un-hovered: animate hover_bg → bg
-    if let Some(old_idx) = old_hovered {
-        if let Some(node) = layout.nodes.get(old_idx) {
-            let style = match &node.source_node {
-                Node::Container { style, .. }
-                | Node::Button { style, .. }
-                | Node::Text { style, .. }
-                | Node::Slider { style, .. }
-                | Node::Toggle { style, .. } => Some(style),
-                Node::Spacer => None,
-            };
-            if let Some(style) = style {
-                if let (Some(duration), Some(hover_bg), Some(base_bg)) = (
-                    style.transition_duration_ms,
-                    style.hover_bg_color,
-                    style.bg_color,
-                ) {
-                    animations.animate_bg(old_idx, hover_bg, base_bg, duration);
-                }
-            }
-        }
-    }
-    // Node being hovered: animate bg → hover_bg
-    if let Some(new_idx) = new_hovered {
-        if let Some(node) = layout.nodes.get(new_idx) {
-            let style = match &node.source_node {
-                Node::Container { style, .. }
-                | Node::Button { style, .. }
-                | Node::Text { style, .. }
-                | Node::Slider { style, .. }
-                | Node::Toggle { style, .. } => Some(style),
-                Node::Spacer => None,
-            };
-            if let Some(style) = style {
-                if let (Some(duration), Some(hover_bg), Some(base_bg)) = (
-                    style.transition_duration_ms,
-                    style.hover_bg_color,
-                    style.bg_color,
-                ) {
-                    animations.animate_bg(new_idx, base_bg, hover_bg, duration);
-                }
-            }
-        }
-    }
-}
-
-/// Hit test the layout at (x, y) and, walking from the deepest hit node upward,
-/// return the first matching `Button` handler selected by `selector`.
-///
-/// This allows a click at a coordinate to bubble up to the nearest enclosing
-/// `Button` node that has the requested handler.
-fn find_button_handler(
-    layout: &pulpkit_layout::LayoutResult,
-    x: f32,
-    y: f32,
-    selector: impl Fn(&pulpkit_layout::ButtonHandlers) -> Option<Rc<dyn Fn()>>,
-) -> Option<Rc<dyn Fn()>> {
-    // hit_test returns the deepest node index. Walk backwards through all
-    // containing nodes (those that contain the point) to find the innermost
-    // Button with the requested handler.
-    // Since layout nodes are in pre-order, iterate in reverse for depth-first
-    // (deepest first).
-    for node in layout.nodes.iter().rev() {
-        if x >= node.x && x <= node.x + node.width
-            && y >= node.y && y <= node.y + node.height
-        {
-            if let Node::Button { ref handlers, .. } = node.source_node {
-                if let Some(cb) = selector(handlers) {
-                    return Some(cb);
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Handle a click on a Slider node: compute the new value from the click's
-/// x position, update the slider state, and call the on_change callback.
-///
-/// Returns `true` if a slider was hit (and its value updated).
-fn handle_slider_click(
-    layout: &pulpkit_layout::LayoutResult,
-    x: f32,
-    y: f32,
-) -> bool {
-    // Walk layout nodes in reverse (deepest first) to find the first Slider
-    // that contains the click point.
-    for node in layout.nodes.iter().rev() {
-        if x >= node.x && x <= node.x + node.width
-            && y >= node.y && y <= node.y + node.height
-        {
-            if let Node::Slider { ref state, .. } = node.source_node {
-                let ratio = ((x - node.x) / node.width).clamp(0.0, 1.0) as f64;
-                let new_val = state.min + (state.max - state.min) * ratio;
-                *state.value.borrow_mut() = new_val;
-                if let Some(ref cb) = state.on_change {
-                    cb(new_val);
-                }
-                return true;
-            }
-        }
-    }
-    false
-}
-
-/// Handle a click on a Toggle node: flip the checked state and call on_change.
-///
-/// Returns `true` if a toggle was hit (and its state updated).
-fn handle_toggle_click(
-    layout: &pulpkit_layout::LayoutResult,
-    x: f32,
-    y: f32,
-) -> bool {
-    for node in layout.nodes.iter().rev() {
-        if x >= node.x && x <= node.x + node.width
-            && y >= node.y && y <= node.y + node.height
-        {
-            if let Node::Toggle { ref state, .. } = node.source_node {
-                let new_val = !*state.checked.borrow();
-                *state.checked.borrow_mut() = new_val;
-                if let Some(ref cb) = state.on_change {
-                    cb(new_val);
-                }
-                return true;
-            }
-        }
-    }
-    false
-}
-
-/// Compute margins for a popup surface based on anchor, parent height, and offset.
-///
-/// This positions the popup below (or above) the parent bar using layer-shell margins.
-/// For Plan 2 this uses a simplified approach — exact parent-relative positioning
-/// can be refined in later plans.
-fn compute_popup_margins(
-    anchor: PopupAnchor,
-    parent_height: u32,
-    offset: (i32, i32),
-) -> SurfaceMargins {
-    match anchor {
-        PopupAnchor::TopLeft => SurfaceMargins {
-            top: parent_height as i32 + offset.1,
-            left: offset.0.max(0),
-            right: 0,
-            bottom: 0,
-        },
-        PopupAnchor::TopRight => SurfaceMargins {
-            top: parent_height as i32 + offset.1,
-            right: offset.0.abs(),
-            left: 0,
-            bottom: 0,
-        },
-        PopupAnchor::BottomLeft => SurfaceMargins {
-            bottom: parent_height as i32 + offset.1,
-            left: offset.0.max(0),
-            right: 0,
-            top: 0,
-        },
-        PopupAnchor::BottomRight => SurfaceMargins {
-            bottom: parent_height as i32 + offset.1,
-            right: offset.0.abs(),
-            left: 0,
-            top: 0,
-        },
-    }
-}
-
-/// Load a Theme from `theme.lua` in the shell directory.
-///
-/// If `theme.lua` does not exist, returns a default slate theme.
-fn load_theme(lua: &Lua, shell_dir: &Path) -> anyhow::Result<Theme> {
-    let theme_path = shell_dir.join("theme.lua");
-    if !theme_path.exists() {
-        log::info!("No theme.lua found, using default slate theme");
-        return Ok(Theme::default_slate());
-    }
-
-    let code = std::fs::read_to_string(&theme_path)?;
-    let theme_table: LuaTable = lua
-        .load(&code)
-        .set_name(theme_path.to_string_lossy())
-        .eval()
-        .map_err(|e| anyhow::anyhow!("Failed to evaluate theme.lua: {e}"))?;
-
-    // Parse colors table.
-    let mut colors = HashMap::new();
-    if let Ok(colors_table) = theme_table.get::<LuaTable>("colors") {
-        for pair in colors_table.pairs::<String, String>() {
-            let (name, hex) = pair.map_err(|e| anyhow::anyhow!("Error reading colors: {e}"))?;
-            if let Some(c) = Color::from_hex(&hex) {
-                colors.insert(name, c);
-            }
-        }
-    }
-
-    // Parse spacing_scale.
-    let spacing_scale: f32 = theme_table
-        .get::<Option<f32>>("spacing_scale")
-        .unwrap_or(None)
-        .unwrap_or(4.0);
-
-    // Parse rounding table.
-    let mut rounding = HashMap::new();
-    if let Ok(rounding_table) = theme_table.get::<LuaTable>("rounding") {
-        for pair in rounding_table.pairs::<String, f32>() {
-            let (name, val) =
-                pair.map_err(|e| anyhow::anyhow!("Error reading rounding: {e}"))?;
-            rounding.insert(name, val);
-        }
-    }
-
-    // Parse font_sizes table.
-    let mut font_sizes = HashMap::new();
-    if let Ok(sizes_table) = theme_table.get::<LuaTable>("font_sizes") {
-        for pair in sizes_table.pairs::<String, f32>() {
-            let (name, val) =
-                pair.map_err(|e| anyhow::anyhow!("Error reading font_sizes: {e}"))?;
-            font_sizes.insert(name, val);
-        }
-    }
-
-    // Parse font_family.
-    let font_family: String = theme_table
-        .get::<Option<String>>("font_family")
-        .unwrap_or(None)
-        .unwrap_or_else(|| "JetBrainsMono Nerd Font".into());
-
-    // Fill in defaults for any missing sections.
-    let default = Theme::default_slate();
-    if colors.is_empty() {
-        colors = default.colors;
-    }
-    if rounding.is_empty() {
-        rounding = default.rounding;
-    }
-    if font_sizes.is_empty() {
-        font_sizes = default.font_sizes;
-    }
-
-    Ok(Theme {
-        colors,
-        spacing_scale,
-        rounding,
-        font_sizes,
-        font_family,
-    })
-}

@@ -13,6 +13,7 @@ pulpkit-layout.workspace = true
 pulpkit-lua.workspace = true
 tokio.workspace = true
 calloop.workspace = true
+wayland-client.workspace = true
 anyhow.workspace = true
 mlua.workspace = true
 log.workspace = true

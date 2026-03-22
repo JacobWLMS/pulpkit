@@ -29,14 +29,21 @@ window("bar", {
 
     spacer(),
 
-    -- Right: volume button + mute toggle
-    button("px-2 py-1 rounded hover:bg-surface", {
-      on_click = function()
-        show_volume:set(not show_volume:get())
-      end,
-    }, {
-      text("text-sm text-fg", "Vol"),
-    }),
+    -- Right: volume button (reactive hover via signal)
+    (function()
+      local hovered = signal(false)
+      return button(function()
+        return hovered:get() and "px-2 py-1 rounded bg-surface" or "px-2 py-1 rounded"
+      end, {
+        on_click = function()
+          show_volume:set(not show_volume:get())
+        end,
+        on_hover = function() hovered:set(true) end,
+        on_hover_lost = function() hovered:set(false) end,
+      }, {
+        text("text-sm text-fg", "Vol"),
+      })
+    end)(),
 
     text("text-xs text-muted", "Hello World"),
   })
