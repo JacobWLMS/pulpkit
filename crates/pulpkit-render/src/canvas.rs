@@ -4,13 +4,21 @@
 //! which on little-endian systems is BGRA in memory — matching Skia's
 //! `ColorType::BGRA8888`.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use skia_safe::{
     AlphaType, ColorType, Font, FontMgr, FontStyle, ImageInfo, Paint, PaintStyle, RRect, Rect,
-    Surface, surfaces,
+    Surface, Typeface, surfaces,
 };
 use skia_safe::Borrows;
 
 use crate::color::Color;
+
+thread_local! {
+    static FONT_MGR: FontMgr = FontMgr::default();
+    static TYPEFACE_CACHE: RefCell<HashMap<String, Option<Typeface>>> = RefCell::new(HashMap::new());
+}
 
 /// A Skia raster surface that draws into a caller-owned pixel buffer.
 pub struct Canvas<'a> {
@@ -77,15 +85,7 @@ impl<'a> Canvas<'a> {
         font_family: &str,
         color: Color,
     ) {
-        let font_mgr = FontMgr::default();
-        let typeface = font_mgr
-            .match_family_style(font_family, FontStyle::default())
-            .or_else(|| font_mgr.match_family_style("sans-serif", FontStyle::default()));
-
-        let font = match typeface {
-            Some(tf) => Font::from_typeface(tf, font_size),
-            None => Font::default(),
-        };
+        let font = resolve_font(font_family, font_size);
 
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
@@ -108,4 +108,21 @@ impl<'a> Canvas<'a> {
     pub fn flush(&mut self) {
         // Raster surfaces write directly to the pixel buffer — nothing to flush.
     }
+}
+
+/// Look up (or cache) a typeface and create a Font at the given size.
+fn resolve_font(family: &str, size: f32) -> Font {
+    TYPEFACE_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        let typeface = cache.entry(family.to_string()).or_insert_with(|| {
+            FONT_MGR.with(|mgr| {
+                mgr.match_family_style(family, FontStyle::default())
+                    .or_else(|| mgr.match_family_style("sans-serif", FontStyle::default()))
+            })
+        });
+        match typeface {
+            Some(tf) => Font::from_typeface(tf.clone(), size),
+            None => Font::default(),
+        }
+    })
 }
