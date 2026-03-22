@@ -1,11 +1,13 @@
 //! Pulpkit Lua scripting — VM setup and widget constructor functions.
 
 pub mod signals;
+pub mod timers;
 pub mod vm;
 pub mod widgets;
 pub mod window;
 
 pub use signals::{DynValue, LuaComputed, LuaSignal, register_signal_api};
+pub use timers::{IntervalDef, IntervalRegistry, register_interval_fn};
 pub use vm::LuaVm;
 pub use widgets::{LuaNode, register_widgets};
 pub use window::{MonitorTarget, PopupDef, PopupRegistry, WindowDef, WindowRegistry, register_popup_fn, register_window_fn};

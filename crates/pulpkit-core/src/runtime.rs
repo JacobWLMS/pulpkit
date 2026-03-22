@@ -4,12 +4,12 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use calloop::channel;
 use mlua::prelude::*;
 use pulpkit_layout::{Theme, Node, compute_layout, paint_tree};
-use pulpkit_lua::{LuaNode, LuaVm, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
+use pulpkit_lua::{LuaNode, LuaVm, register_interval_fn, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
 use pulpkit_lua::signals::DynValue;
 use pulpkit_reactive::{ReactiveRuntime, Signal};
 use pulpkit_render::{Canvas, Color, TextRenderer};
@@ -79,6 +79,11 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     let popup_registry = pulpkit_lua::PopupRegistry::default();
     register_popup_fn(lua, popup_registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register popup fn: {e}"))?;
+
+    // 4c. Register the set_interval() function — collects IntervalDefs during shell.lua execution.
+    let interval_registry = pulpkit_lua::IntervalRegistry::default();
+    register_interval_fn(lua, interval_registry.clone())
+        .map_err(|e| anyhow::anyhow!("Failed to register set_interval fn: {e}"))?;
 
     // 5. Execute shell.lua — this calls window() to register window definitions.
     let shell_path = shell_dir.join("shell.lua");
@@ -372,15 +377,49 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         }
     }
 
+    // 8c. Set up active intervals from set_interval() calls in shell.lua.
+    struct ActiveInterval {
+        callback_key: mlua::RegistryKey,
+        interval: Duration,
+        next_fire: Instant,
+    }
+
+    let mut intervals: Vec<ActiveInterval> = Vec::new();
+    {
+        let interval_defs = interval_registry.borrow();
+        let now = Instant::now();
+        for def in interval_defs.iter() {
+            let interval = Duration::from_millis(def.interval_ms);
+            intervals.push(ActiveInterval {
+                callback_key: lua
+                    .registry_value::<LuaFunction>(&def.callback_key)
+                    .and_then(|f| lua.create_registry_value(f))
+                    .map_err(|e| anyhow::anyhow!("Failed to clone interval callback: {e}"))?,
+                interval,
+                next_fire: now + interval,
+            });
+        }
+        if !intervals.is_empty() {
+            log::info!("{} interval(s) registered", intervals.len());
+        }
+    }
+
     // 9. Event loop — dispatch Wayland events.
-    //    The long timeout means "sleep until something happens".  Calloop
-    //    wakes immediately when the Wayland fd is readable or the wake
-    //    channel receives a message, so responsiveness is not affected.
+    //    The timeout is set to the minimum time until the next interval fires,
+    //    or 60 seconds if there are no intervals. Calloop wakes immediately
+    //    when the Wayland fd is readable or the wake channel receives a message.
     log::info!("Entering event loop");
     loop {
+        let dispatch_timeout = intervals
+            .iter()
+            .map(|i| i.next_fire)
+            .min()
+            .map(|t| t.saturating_duration_since(Instant::now()))
+            .unwrap_or(Duration::from_secs(60));
+
         client
             .event_loop
-            .dispatch(Duration::from_secs(60), &mut client.state)?;
+            .dispatch(dispatch_timeout, &mut client.state)?;
 
         // Handle configure events (resize) — only re-render if size actually changed.
         if !client.state.pending_configures.is_empty() {
@@ -698,6 +737,47 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     &theme,
                     managed.hovered_node,
                 ));
+            }
+        }
+
+        // 9c. Fire any due interval callbacks.
+        {
+            let now = Instant::now();
+            let mut interval_fired = false;
+            for interval in &mut intervals {
+                if now >= interval.next_fire {
+                    let cb: LuaFunction = lua
+                        .registry_value(&interval.callback_key)
+                        .expect("interval: registry lookup failed");
+                    if let Err(e) = cb.call::<()>(()) {
+                        log::error!("Interval callback error: {e}");
+                    }
+                    interval.next_fire = now + interval.interval;
+                    interval_fired = true;
+                }
+            }
+            // If interval callbacks fired, re-render all surfaces.
+            if interval_fired {
+                for managed in &mut surfaces {
+                    managed.layout = Some(render_surface(
+                        &mut managed.surface,
+                        &managed.root,
+                        &text_renderer,
+                        &theme,
+                        managed.hovered_node,
+                    ));
+                }
+                for popup in &mut popups {
+                    if let Some(ref mut surface) = popup.layer_surface {
+                        popup.layout = Some(render_surface(
+                            surface,
+                            &popup.root_node,
+                            &text_renderer,
+                            &theme,
+                            None,
+                        ));
+                    }
+                }
             }
         }
 

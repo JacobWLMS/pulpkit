@@ -2,6 +2,12 @@
 local show_volume = signal(false)
 local volume = signal(75)
 local muted = signal(false)
+local time_str = signal(os.date("%H:%M:%S"))
+
+-- Update the clock every second
+set_interval(function()
+  time_str:set(os.date("%H:%M:%S"))
+end, 1000)
 
 -- Main bar
 window("bar", {
@@ -16,8 +22,8 @@ window("bar", {
 
     spacer(),
 
-    -- Center: time
-    text("text-sm text-fg", os.date("%H:%M")),
+    -- Center: live clock
+    text("text-sm text-fg", time_str:get()),
 
     spacer(),
 
