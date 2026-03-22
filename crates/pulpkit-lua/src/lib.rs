@@ -238,4 +238,43 @@ mod tests {
                 .unwrap();
         });
     }
+
+    #[test]
+    fn lua_button_with_click_handler() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            let theme = Arc::new(Theme::default_slate());
+            register_widgets(vm.lua(), theme).unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local clicked = signal(false)
+                result = button("bg-surface", {
+                    on_click = function() clicked:set(true) end,
+                }, {
+                    text("text-sm text-fg", "Click me"),
+                })
+                -- Can't test click dispatch here, but verify structure
+                assert(result ~= nil)
+            "#,
+                )
+                .exec()
+                .unwrap();
+
+            let result: mlua::AnyUserData = vm.lua().globals().get("result").unwrap();
+            let node = result.borrow::<LuaNode>().unwrap();
+            match &node.0 {
+                Node::Button {
+                    children, handlers, ..
+                } => {
+                    assert_eq!(children.len(), 1);
+                    assert!(handlers.on_click.is_some());
+                }
+                _ => panic!("expected Button"),
+            }
+        });
+    }
 }

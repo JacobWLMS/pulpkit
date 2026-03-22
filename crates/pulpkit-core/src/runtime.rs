@@ -2,15 +2,16 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
 use mlua::prelude::*;
-use pulpkit_layout::{Theme, compute_layout, paint_tree};
+use pulpkit_layout::{Theme, Node, compute_layout, paint_tree};
 use pulpkit_lua::{LuaNode, LuaVm, register_signal_api, register_widgets, register_window_fn};
 use pulpkit_reactive::ReactiveRuntime;
 use pulpkit_render::{Canvas, Color, TextRenderer};
-use pulpkit_wayland::{Anchor, Layer, LayerSurface, OutputInfo, SurfaceConfig, WaylandClient};
+use pulpkit_wayland::{Anchor, InputEvent, Layer, LayerSurface, OutputInfo, SurfaceConfig, WaylandClient};
 
 use crate::ipc::IpcServer;
 
@@ -89,6 +90,8 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     struct ManagedSurface {
         surface: LayerSurface,
         root: pulpkit_layout::Node,
+        /// Cached layout result used for hit testing on input events.
+        layout: Option<pulpkit_layout::LayoutResult>,
     }
 
     let mut surfaces: Vec<ManagedSurface> = Vec::new();
@@ -221,12 +224,13 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 }
             }
 
-            // Initial render.
-            render_surface(&mut surface, &root_node, &text_renderer, &theme);
+            // Initial render — also stores the layout for hit testing.
+            let layout = render_surface(&mut surface, &root_node, &text_renderer, &theme);
 
             surfaces.push(ManagedSurface {
                 surface,
                 root: root_node,
+                layout: Some(layout),
             });
 
             log::info!(
@@ -252,18 +256,77 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         if !client.state.pending_configures.is_empty() {
             let configures: Vec<_> = client.state.pending_configures.drain(..).collect();
             for configure in configures {
-                // For Plan 1, re-render all surfaces on any configure.
                 for managed in &mut surfaces {
                     if configure.width > 0 && configure.height > 0 {
                         managed.surface.resize(configure.width, configure.height);
                     }
-                    render_surface(
+                    managed.layout = Some(render_surface(
                         &mut managed.surface,
                         &managed.root,
                         &text_renderer,
                         &theme,
-                    );
+                    ));
                 }
+            }
+        }
+
+        // 10. Dispatch input events to button handlers.
+        let mut handler_fired = false;
+        if !client.state.input_events.is_empty() {
+            let events: Vec<_> = client.state.input_events.drain(..).collect();
+            for event in &events {
+                match event {
+                    InputEvent::PointerButton { x, y, button, pressed: true, .. } => {
+                        // Left mouse button = 0x110 (BTN_LEFT)
+                        if *button == 0x110 {
+                            for managed in &surfaces {
+                                if let Some(ref layout) = managed.layout {
+                                    if let Some(cb) = find_button_handler(
+                                        layout, *x as f32, *y as f32,
+                                        |h| h.on_click.clone(),
+                                    ) {
+                                        cb();
+                                        handler_fired = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    InputEvent::PointerAxis { x, y, delta, horizontal: false, .. } => {
+                        for managed in &surfaces {
+                            if let Some(ref layout) = managed.layout {
+                                let cb = if *delta < 0.0 {
+                                    find_button_handler(
+                                        layout, *x as f32, *y as f32,
+                                        |h| h.on_scroll_up.clone(),
+                                    )
+                                } else {
+                                    find_button_handler(
+                                        layout, *x as f32, *y as f32,
+                                        |h| h.on_scroll_down.clone(),
+                                    )
+                                };
+                                if let Some(cb) = cb {
+                                    cb();
+                                    handler_fired = true;
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // If a handler fired, re-render all surfaces (state may have changed).
+        if handler_fired {
+            for managed in &mut surfaces {
+                managed.layout = Some(render_surface(
+                    &mut managed.surface,
+                    &managed.root,
+                    &text_renderer,
+                    &theme,
+                ));
             }
         }
 
@@ -276,13 +339,13 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Render a widget tree onto a layer surface.
+/// Render a widget tree onto a layer surface and return the computed layout.
 fn render_surface(
     surface: &mut LayerSurface,
     root: &pulpkit_layout::Node,
     text_renderer: &TextRenderer,
     theme: &Theme,
-) {
+) -> pulpkit_layout::LayoutResult {
     let width = surface.width();
     let height = surface.height();
 
@@ -294,7 +357,7 @@ fn render_surface(
         Some(c) => c,
         None => {
             log::error!("Failed to create Skia canvas ({}x{})", width, height);
-            return;
+            return layout;
         }
     };
 
@@ -304,6 +367,37 @@ fn render_surface(
     canvas.flush();
 
     surface.commit();
+    layout
+}
+
+/// Hit test the layout at (x, y) and, walking from the deepest hit node upward,
+/// return the first matching `Button` handler selected by `selector`.
+///
+/// This allows a click at a coordinate to bubble up to the nearest enclosing
+/// `Button` node that has the requested handler.
+fn find_button_handler(
+    layout: &pulpkit_layout::LayoutResult,
+    x: f32,
+    y: f32,
+    selector: impl Fn(&pulpkit_layout::ButtonHandlers) -> Option<Rc<dyn Fn()>>,
+) -> Option<Rc<dyn Fn()>> {
+    // hit_test returns the deepest node index. Walk backwards through all
+    // containing nodes (those that contain the point) to find the innermost
+    // Button with the requested handler.
+    // Since layout nodes are in pre-order, iterate in reverse for depth-first
+    // (deepest first).
+    for node in layout.nodes.iter().rev() {
+        if x >= node.x && x <= node.x + node.width
+            && y >= node.y && y <= node.y + node.height
+        {
+            if let Node::Button { ref handlers, .. } = node.source_node {
+                if let Some(cb) = selector(handlers) {
+                    return Some(cb);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Load a Theme from `theme.lua` in the shell directory.

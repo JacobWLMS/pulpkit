@@ -693,6 +693,7 @@ name = "pulpkit-lua"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "log",
  "mlua",
  "pulpkit-layout",
  "pulpkit-reactive",

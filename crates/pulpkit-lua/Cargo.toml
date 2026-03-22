@@ -9,3 +9,4 @@ pulpkit-reactive.workspace = true
 pulpkit-layout.workspace = true
 mlua.workspace = true
 anyhow.workspace = true
+log.workspace = true

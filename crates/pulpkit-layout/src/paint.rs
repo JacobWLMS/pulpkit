@@ -32,6 +32,18 @@ pub fn paint_tree(canvas: &mut Canvas, layout: &LayoutResult, font_family: &str)
                     color,
                 );
             }
+            Node::Button { style, .. } => {
+                if let Some(bg) = style.bg_color {
+                    canvas.draw_rounded_rect(
+                        layout_node.x,
+                        layout_node.y,
+                        layout_node.width,
+                        layout_node.height,
+                        style.border_radius,
+                        bg,
+                    );
+                }
+            }
             Node::Spacer => {} // nothing to paint
         }
     }

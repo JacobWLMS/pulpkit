@@ -118,6 +118,25 @@ fn build_taffy_node(
             order.push((id, node.clone()));
             id
         }
+        Node::Button {
+            style,
+            children,
+            ..
+        } => {
+            // Button is laid out exactly like a Container (row direction by default).
+            let taffy_style = to_taffy_style(style, Direction::Row, false);
+            let child_ids: Vec<taffy::NodeId> = children
+                .iter()
+                .map(|c| build_taffy_node(tree, c, order, text_renderer, font_family))
+                .collect();
+            let id = tree
+                .new_with_children(taffy_style, &child_ids)
+                .expect("failed to create taffy button node");
+            let insert_idx = order.len() - children.len()
+                - children.iter().map(|c| count_descendants(c)).sum::<usize>();
+            order.insert(insert_idx, (id, node.clone()));
+            id
+        }
         Node::Spacer => {
             let style = taffy::Style {
                 flex_grow: 1.0,
@@ -135,7 +154,7 @@ fn build_taffy_node(
 /// Count all descendant nodes (not including self).
 fn count_descendants(node: &Node) -> usize {
     match node {
-        Node::Container { children, .. } => {
+        Node::Container { children, .. } | Node::Button { children, .. } => {
             children.iter().map(|c| 1 + count_descendants(c)).sum()
         }
         _ => 0,
