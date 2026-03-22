@@ -26,6 +26,7 @@ pulpkit-core = { path = "crates/pulpkit-core" }
 tokio = { version = "1", features = ["full"] }
 smithay-client-toolkit = { version = "0.20", features = ["calloop"] }
 wayland-client = "0.31"
+wayland-cursor = "0.31"
 calloop = "0.14"
 skia-safe = "0.93"
 taffy = "0.9"

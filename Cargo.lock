@@ -881,6 +881,7 @@ dependencies = [
  "log",
  "smithay-client-toolkit",
  "wayland-client",
+ "wayland-cursor",
 ]
 
 [[package]]

@@ -100,8 +100,9 @@ fn build_taffy_node(
             id
         }
         Node::Text { style, content } => {
+            let resolved = content.resolve();
             let font_size = style.font_size.unwrap_or(14.0);
-            let (tw, th) = text_renderer.measure(content, font_size, font_family);
+            let (tw, th) = text_renderer.measure(&resolved, font_size, font_family);
             let mut taffy_style = to_taffy_style(style, Direction::Row, false);
             // Set text node to its measured intrinsic size
             taffy_style.size = Size {
@@ -109,7 +110,7 @@ fn build_taffy_node(
                 height: Dimension::from_length(th),
             };
             let ctx = MeasureCtx {
-                text: content.clone(),
+                text: resolved,
                 font_size,
             };
             let id = tree

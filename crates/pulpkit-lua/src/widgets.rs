@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use mlua::prelude::*;
-use pulpkit_layout::tree::{ButtonHandlers, Direction, Node, SliderState, ToggleState};
+use pulpkit_layout::tree::{ButtonHandlers, Direction, Node, SliderState, TextContent, ToggleState};
 use pulpkit_layout::style::StyleProps;
 use pulpkit_layout::Theme;
 use pulpkit_render::Color;
@@ -69,10 +69,26 @@ pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
     // "box" is a Lua keyword-safe name (not reserved), register it directly.
     lua.globals().set("box", box_fn)?;
 
-    // text(style_string, content_string) -> LuaNode
+    // text(style_string, content_string_or_function) -> LuaNode
+    // If content is a string, the text is static.
+    // If content is a function, it's called each render to get the current text (reactive).
     let t = theme.clone();
-    let text_fn = lua.create_function(move |_lua, (style_str, content): (String, String)| {
+    let text_fn = lua.create_function(move |lua, (style_str, content_val): (String, LuaValue)| {
         let style = StyleProps::parse(&style_str, &t);
+        let content = match content_val {
+            LuaValue::String(s) => TextContent::Static(s.to_string_lossy().to_string()),
+            LuaValue::Function(f) => {
+                let key = lua.create_registry_value(f)?;
+                let lua_clone = lua.clone();
+                TextContent::Dynamic(Rc::new(move || {
+                    let cb: LuaFunction = lua_clone
+                        .registry_value(&key)
+                        .expect("text: registry lookup failed");
+                    cb.call::<String>(()).unwrap_or_default()
+                }))
+            }
+            other => TextContent::Static(format!("{:?}", other)),
+        };
         Ok(LuaNode(Node::Text { style, content }))
     })?;
     lua.globals().set("text", text_fn)?;

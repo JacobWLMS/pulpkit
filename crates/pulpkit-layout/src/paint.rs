@@ -52,8 +52,9 @@ pub fn paint_tree(
                     style.text_color.unwrap_or_default()
                 };
                 let font_size = style.font_size.unwrap_or(14.0);
+                let resolved = content.resolve();
                 canvas.draw_text(
-                    content,
+                    &resolved,
                     layout_node.x,
                     layout_node.y,
                     font_size,

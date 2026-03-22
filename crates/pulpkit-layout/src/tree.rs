@@ -81,6 +81,27 @@ impl Clone for ToggleState {
     }
 }
 
+/// Reactive or static text content.
+///
+/// When `Dynamic`, the function is called each time the widget tree is rendered,
+/// producing the current text. This enables reactive text that updates when
+/// signals change (e.g., a clock display).
+#[derive(Clone)]
+pub enum TextContent {
+    Static(String),
+    Dynamic(Rc<dyn Fn() -> String>),
+}
+
+impl TextContent {
+    /// Resolve the current text value.
+    pub fn resolve(&self) -> String {
+        match self {
+            TextContent::Static(s) => s.clone(),
+            TextContent::Dynamic(f) => f(),
+        }
+    }
+}
+
 /// A node in the widget tree.
 #[derive(Clone)]
 pub enum Node {
@@ -90,10 +111,10 @@ pub enum Node {
         direction: Direction,
         children: Vec<Node>,
     },
-    /// Text leaf node.
+    /// Text leaf node. Content can be static or dynamic (reactive).
     Text {
         style: StyleProps,
-        content: String,
+        content: TextContent,
     },
     /// Spacer (flex-grow: 1, takes remaining space).
     Spacer,

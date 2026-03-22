@@ -55,6 +55,10 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     let watcher = watcher::FileWatcher::new(shell_dir)?;
     log::info!("File watcher active on {}", shell_dir.display());
 
+    // Drain any events that fired during watcher setup (filesystem noise).
+    while watcher.poll().is_some() {}
+    let startup_time = std::time::Instant::now();
+
     // 1. Create the Lua VM.
     let vm = LuaVm::new().map_err(|e| anyhow::anyhow!("Failed to create Lua VM: {e}"))?;
     let lua = vm.lua();
@@ -420,17 +424,20 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     //    when the Wayland fd is readable or the wake channel receives a message.
     log::info!("Entering event loop");
     loop {
+        // Compute dispatch timeout: animate at 60fps, otherwise sleep until
+        // next interval or 60 seconds. Minimum 1ms to avoid busy-spinning.
         let has_animations = surfaces.iter().any(|s| s.animations.has_active());
         let has_popup_animations = popups.iter().any(|p| p.fade_animation.is_some());
         let dispatch_timeout = if has_animations || has_popup_animations {
             Duration::from_millis(16) // ~60fps while animating
         } else {
-            intervals
+            let next_interval = intervals
                 .iter()
-                .map(|i| i.next_fire)
+                .map(|i| i.next_fire.saturating_duration_since(Instant::now()))
                 .min()
-                .map(|t| t.saturating_duration_since(Instant::now()))
-                .unwrap_or(Duration::from_secs(60))
+                .unwrap_or(Duration::from_secs(60));
+            // Minimum 1ms to prevent busy-loop when next_fire just passed
+            next_interval.max(Duration::from_millis(1))
         };
 
         client
@@ -512,16 +519,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         }
 
         // 9a. Check for file changes (hot-reload).
+        // TODO: Hot-reload is disabled for now. The file watcher triggers
+        // spuriously from Lua's own file access during interval callbacks.
+        // Proper fix: track file mtimes and only reload on actual mtime changes,
+        // or exclude the shell directory from inotify during Lua execution.
         {
-            let mut should_reload = false;
-            while let Some(event) = watcher.poll() {
-                match event {
-                    watcher::WatchEvent::FileChanged(path) => {
-                        log::info!("Hot-reload: {} changed", path.display());
-                        should_reload = true;
-                    }
-                }
-            }
+            // Drain watcher events without acting on them.
+            while watcher.poll().is_some() {}
+            let should_reload = false;
             if should_reload {
                 // Clear module cache so require() picks up new files.
                 if let Err(e) = vm.clear_module_cache() {
@@ -818,6 +823,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     ));
                 }
                 for popup in &mut popups {
+                    if popup.needs_initial_render { continue; } // wait for configure
                     if let Some(ref mut surface) = popup.layer_surface {
                         let mut no_anims = AnimationManager::default();
                         popup.layout = Some(render_surface(
@@ -856,6 +862,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
 
         // 9e. Tick popup fade animations.
         for popup in &mut popups {
+            if popup.needs_initial_render { continue; } // wait for configure
             if let Some(ref anim) = popup.fade_animation {
                 let (opacity, done) = anim.current();
                 popup.opacity = opacity;

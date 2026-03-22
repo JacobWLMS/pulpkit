@@ -22,8 +22,10 @@ window("bar", {
 
     spacer(),
 
-    -- Center: live clock
-    text("text-sm text-fg", time_str:get()),
+    -- Center: live clock (reactive — function re-evaluated each render)
+    text("text-sm text-fg", function()
+      return time_str:get()
+    end),
 
     spacer(),
 

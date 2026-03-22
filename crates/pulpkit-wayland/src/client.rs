@@ -24,9 +24,10 @@ use smithay_client_toolkit::{
 use wayland_client::{
     backend::ObjectId,
     globals::registry_queue_init,
-    protocol::{wl_output, wl_pointer, wl_seat, wl_surface},
+    protocol::{wl_compositor, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
     Connection, Proxy, QueueHandle,
 };
+use wayland_cursor::CursorTheme;
 
 use crate::input::InputEvent;
 use crate::output::OutputInfo;
@@ -62,6 +63,11 @@ pub struct AppState {
     /// Active WlPointer objects, so we can release them on capability removal.
     pointers: Vec<wl_pointer::WlPointer>,
 
+    /// Cursor theme for setting the pointer cursor.
+    cursor_theme: Option<CursorTheme>,
+    /// Cursor surface for rendering the cursor.
+    cursor_surface: Option<wl_surface::WlSurface>,
+
     /// Set to true when the compositor requests closing a layer surface.
     pub exit_requested: bool,
 }
@@ -96,6 +102,10 @@ impl WaylandClient {
             LayerShell::bind(&globals, &qh).map_err(|e| anyhow::anyhow!("{e}"))?;
         let shm = Shm::bind(&globals, &qh).map_err(|e| anyhow::anyhow!("{e}"))?;
 
+        // Load cursor theme for setting pointer cursor.
+        let cursor_theme = CursorTheme::load(&conn, shm.wl_shm().clone(), 24).ok();
+        let cursor_surface = compositor_state.create_surface(&qh);
+
         let state = AppState {
             registry_state: RegistryState::new(&globals),
             seat_state: SeatState::new(&globals, &qh),
@@ -110,6 +120,8 @@ impl WaylandClient {
             pointer_position: None,
             pointer_surface: None,
             pointers: Vec::new(),
+            cursor_theme,
+            cursor_surface: Some(cursor_surface),
             exit_requested: false,
         };
 
@@ -341,9 +353,27 @@ impl PointerHandler for AppState {
             let (x, y) = event.position;
 
             match &event.kind {
-                PointerEventKind::Enter { .. } => {
+                PointerEventKind::Enter { serial, .. } => {
                     self.pointer_surface = Some(surface_id.clone());
                     self.pointer_position = Some((x, y));
+
+                    // Set the cursor to the default arrow.
+                    if let (Some(theme), Some(cursor_surface)) =
+                        (&mut self.cursor_theme, &self.cursor_surface)
+                    {
+                        if let Some(cursor) = theme.get_cursor("default") {
+                            let image = &cursor[0];
+                            let (hx, hy) = image.hotspot();
+                            let (w, h) = image.dimensions();
+                            // CursorImageBuffer derefs to WlBuffer
+                            let wl_buffer: &wayland_client::protocol::wl_buffer::WlBuffer = image;
+                            cursor_surface.attach(Some(wl_buffer), 0, 0);
+                            cursor_surface.damage_buffer(0, 0, w as i32, h as i32);
+                            cursor_surface.commit();
+                            _pointer.set_cursor(*serial, Some(cursor_surface), hx as i32, hy as i32);
+                        }
+                    }
+
                     self.input_events.push(InputEvent::PointerEnter {
                         surface_id,
                         x,

@@ -10,14 +10,14 @@ pub mod paint;
 pub use animation::{AnimationManager, FadeAnimation};
 pub use theme::Theme;
 pub use style::{StyleProps, SizeValue, FontWeight, AlignItems, JustifyContent};
-pub use tree::{Node, Direction, ButtonHandlers, SliderState, ToggleState};
+pub use tree::{Node, Direction, ButtonHandlers, SliderState, TextContent, ToggleState};
 pub use flex::{compute_layout, hit_test, LayoutResult, LayoutNode};
 pub use paint::paint_tree;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tree::{Node, Direction};
+    use crate::tree::{Node, Direction, TextContent};
     use crate::style::StyleProps;
     use pulpkit_render::TextRenderer;
 
@@ -34,12 +34,12 @@ mod tests {
             children: vec![
                 Node::Text {
                     style: StyleProps::default(),
-                    content: "Hello".into(),
+                    content: TextContent::Static("Hello".into()),
                 },
                 Node::Spacer,
                 Node::Text {
                     style: StyleProps::default(),
-                    content: "World".into(),
+                    content: TextContent::Static("World".into()),
                 },
             ],
         };
