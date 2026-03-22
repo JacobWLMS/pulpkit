@@ -228,7 +228,9 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
 
             // Handle any pending configures (resize the surface if needed).
             for configure in client.state.pending_configures.drain(..) {
-                if configure.width > 0 && configure.height > 0 {
+                if configure.width > 0 && configure.height > 0
+                    && configure.surface_id == surface.surface_id()
+                {
                     surface.resize(configure.width, configure.height);
                 }
             }
@@ -270,6 +272,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         width: u32,
         height: u32,
         output: Option<pulpkit_wayland::output::OutputInfo>,
+        needs_initial_render: bool,
     }
 
     let mut popups: Vec<ManagedPopup> = Vec::new();
@@ -323,6 +326,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 width,
                 height,
                 output,
+                needs_initial_render: false,
             });
 
             log::info!("Popup '{}' registered (starts hidden)", popup_def.name);
@@ -336,93 +340,71 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
             .event_loop
             .dispatch(Duration::from_millis(16), &mut client.state)?;
 
-        // Handle configure events (resize).
+        // Handle configure events (resize) — only re-render if size actually changed.
         if !client.state.pending_configures.is_empty() {
             let configures: Vec<_> = client.state.pending_configures.drain(..).collect();
             for configure in configures {
+                // Match configure to the correct surface by ID.
                 for managed in &mut surfaces {
-                    if configure.width > 0 && configure.height > 0 {
-                        managed.surface.resize(configure.width, configure.height);
-                    }
-                    managed.layout = Some(render_surface(
-                        &mut managed.surface,
-                        &managed.root,
-                        &text_renderer,
-                        &theme,
-                        managed.hovered_node,
-                    ));
-                }
-            }
-        }
-
-        // 9b. Check popup visibility signals — show/hide popups as needed.
-        for popup in &mut popups {
-            if let Some(ref sig) = popup.visible_signal {
-                let should_be_visible = matches!(sig.get(), DynValue::Bool(true));
-                if should_be_visible && !popup.visible {
-                    // Show popup: create the layer surface.
-                    log::info!("Showing popup '{}'", popup.name);
-
-                    // Compute margins based on parent bar height and offset.
-                    // For now, use a simple approach: look at the first bar surface
-                    // to get its height for margin-top calculation.
-                    let parent_height = surfaces.first().map(|s| s.surface.height()).unwrap_or(36);
-                    let margins = compute_popup_margins(
-                        popup.popup_anchor,
-                        parent_height,
-                        popup.offset,
-                    );
-
-                    match LayerSurface::new_popup(
-                        &mut client.state,
-                        popup.popup_anchor,
-                        popup.width,
-                        popup.height,
-                        margins,
-                        format!("pulpkit-popup-{}", popup.name),
-                        popup.output.as_ref().map(|o| &o.wl_output),
-                    ) {
-                        Ok(mut surface) => {
-                            // Do a roundtrip to get the configure event.
-                            if let Err(e) = client.event_loop.dispatch(
-                                Duration::from_millis(50),
-                                &mut client.state,
-                            ) {
-                                log::error!("Failed to dispatch for popup configure: {e}");
-                            }
-                            // Handle any pending configures for the popup.
-                            for configure in client.state.pending_configures.drain(..) {
-                                if configure.width > 0 && configure.height > 0 {
-                                    surface.resize(configure.width, configure.height);
-                                }
-                            }
-                            // Render the popup.
-                            let layout = render_surface(
-                                &mut surface,
-                                &popup.root_node,
+                    if managed.surface.surface_id() == configure.surface_id {
+                        let old_w = managed.surface.width();
+                        let old_h = managed.surface.height();
+                        if configure.width > 0 && configure.height > 0
+                            && (configure.width != old_w || configure.height != old_h)
+                        {
+                            managed.surface.resize(configure.width, configure.height);
+                            managed.layout = Some(render_surface(
+                                &mut managed.surface,
+                                &managed.root,
                                 &text_renderer,
                                 &theme,
-                                None,
-                            );
-                            popup.layout = Some(layout);
-                            popup.layer_surface = Some(surface);
+                                managed.hovered_node,
+                            ));
                         }
-                        Err(e) => {
-                            log::error!("Failed to create popup surface '{}': {e}", popup.name);
+                        // Same size: do nothing (already rendered)
+                        break;
+                    }
+                }
+                // Also check popups.
+                for popup in &mut popups {
+                    if let Some(ref mut surface) = popup.layer_surface {
+                        if surface.surface_id() == configure.surface_id {
+                            if configure.width > 0 && configure.height > 0 {
+                                if popup.needs_initial_render {
+                                    // First configure after creation — do initial render.
+                                    surface.resize(configure.width, configure.height);
+                                    popup.layout = Some(render_surface(
+                                        surface,
+                                        &popup.root_node,
+                                        &text_renderer,
+                                        &theme,
+                                        None,
+                                    ));
+                                    popup.needs_initial_render = false;
+                                } else {
+                                    let old_w = surface.width();
+                                    let old_h = surface.height();
+                                    if configure.width != old_w || configure.height != old_h {
+                                        surface.resize(configure.width, configure.height);
+                                        popup.layout = Some(render_surface(
+                                            surface,
+                                            &popup.root_node,
+                                            &text_renderer,
+                                            &theme,
+                                            None,
+                                        ));
+                                    }
+                                    // Same size after initial: do nothing
+                                }
+                            }
+                            break;
                         }
                     }
-                    popup.visible = true;
-                } else if !should_be_visible && popup.visible {
-                    // Hide popup: destroy the layer surface.
-                    log::info!("Hiding popup '{}'", popup.name);
-                    popup.layer_surface = None;
-                    popup.layout = None;
-                    popup.visible = false;
                 }
             }
         }
 
-        // 10. Dispatch input events to button handlers and track hover state.
+        // 9b. Dispatch input events FIRST (before popup visibility check).
         let mut handler_fired = false;
         let mut hover_changed = false;
         if !client.state.input_events.is_empty() {
@@ -449,24 +431,9 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                         }
                     }
                     InputEvent::PointerButton { surface_id, x, y, button, pressed: true } => {
-                        // Dismiss-on-outside-click: if the click is NOT on a
-                        // popup's surface, hide any dismiss_on_outside popups.
-                        for popup in &mut popups {
-                            if popup.visible && popup.dismiss_on_outside {
-                                let is_on_popup = popup
-                                    .layer_surface
-                                    .as_ref()
-                                    .map(|s| s.surface_id() == *surface_id)
-                                    .unwrap_or(false);
-                                if !is_on_popup {
-                                    if let Some(ref sig) = popup.visible_signal {
-                                        sig.set(DynValue::Bool(false));
-                                    }
-                                }
-                            }
-                        }
-
                         // Left mouse button = 0x110 (BTN_LEFT)
+                        // Process button/slider/toggle handlers FIRST, then dismiss.
+                        let mut click_handled = false;
                         if *button == 0x110 {
                             // Check popup surfaces first for button handlers.
                             for popup in &popups {
@@ -478,6 +445,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                         ) {
                                             cb();
                                             handler_fired = true;
+                                            click_handled = true;
                                         }
                                     }
                                 }
@@ -491,6 +459,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                     ) {
                                         cb();
                                         handler_fired = true;
+                                        click_handled = true;
                                     }
                                 }
                             }
@@ -533,6 +502,25 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                 if let Some(ref layout) = managed.layout {
                                     if handle_toggle_click(layout, click_x, click_y) {
                                         handler_fired = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Dismiss-on-outside-click: only if no button handler fired
+                        // (prevents dismiss when clicking the toggle button itself).
+                        if !click_handled {
+                            for popup in &mut popups {
+                                if popup.visible && popup.dismiss_on_outside {
+                                    let is_on_popup = popup
+                                        .layer_surface
+                                        .as_ref()
+                                        .map(|s| s.surface_id() == *surface_id)
+                                        .unwrap_or(false);
+                                    if !is_on_popup {
+                                        if let Some(ref sig) = popup.visible_signal {
+                                            sig.set(DynValue::Bool(false));
+                                        }
                                     }
                                 }
                             }
@@ -599,6 +587,55 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     &theme,
                     managed.hovered_node,
                 ));
+            }
+        }
+
+        // 10. Check popup visibility signals — show/hide popups as needed.
+        // This runs AFTER input dispatch so button handlers can toggle signals first.
+        let mut popup_actions: Vec<(usize, bool)> = Vec::new();
+        for (i, popup) in popups.iter().enumerate() {
+            if let Some(ref sig) = popup.visible_signal {
+                let should_be_visible = matches!(sig.get(), DynValue::Bool(true));
+                if should_be_visible != popup.visible {
+                    popup_actions.push((i, should_be_visible));
+                }
+            }
+        }
+        for (i, should_show) in popup_actions {
+            let popup = &mut popups[i];
+            if should_show {
+                log::info!("Showing popup '{}'", popup.name);
+                let parent_height = surfaces.first().map(|s| s.surface.height()).unwrap_or(36);
+                let margins = compute_popup_margins(
+                    popup.popup_anchor,
+                    parent_height,
+                    popup.offset,
+                );
+                match LayerSurface::new_popup(
+                    &mut client.state,
+                    popup.popup_anchor,
+                    popup.width,
+                    popup.height,
+                    margins,
+                    format!("pulpkit-popup-{}", popup.name),
+                    popup.output.as_ref().map(|o| &o.wl_output),
+                ) {
+                    Ok(surface) => {
+                        // Don't render yet — wait for the compositor's configure event.
+                        // Mark as needs_initial_render so the configure handler renders it.
+                        popup.layer_surface = Some(surface);
+                        popup.needs_initial_render = true;
+                    }
+                    Err(e) => {
+                        log::error!("Failed to create popup surface '{}': {e}", popup.name);
+                    }
+                }
+                popup.visible = true;
+            } else {
+                log::info!("Hiding popup '{}'", popup.name);
+                popup.layer_surface = None;
+                popup.layout = None;
+                popup.visible = false;
             }
         }
 

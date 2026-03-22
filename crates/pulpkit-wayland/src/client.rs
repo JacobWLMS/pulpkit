@@ -15,7 +15,10 @@ use smithay_client_toolkit::{
         pointer::{PointerEvent, PointerEventKind, PointerHandler},
         Capability, SeatHandler, SeatState,
     },
-    shell::wlr_layer::{LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure},
+    shell::{
+        wlr_layer::{LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure},
+        WaylandSurface,
+    },
     shm::{Shm, ShmHandler},
 };
 use wayland_client::{
@@ -66,6 +69,7 @@ pub struct AppState {
 /// A configure event received for a layer surface.
 #[derive(Debug, Clone)]
 pub struct LayerSurfaceConfigureEvent {
+    pub surface_id: ObjectId,
     pub width: u32,
     pub height: u32,
 }
@@ -239,7 +243,7 @@ impl LayerShellHandler for AppState {
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        _layer: &LayerSurface,
+        layer: &LayerSurface,
         configure: LayerSurfaceConfigure,
         _serial: u32,
     ) {
@@ -254,6 +258,7 @@ impl LayerShellHandler for AppState {
             256
         };
         self.pending_configures.push(LayerSurfaceConfigureEvent {
+            surface_id: layer.wl_surface().id(),
             width,
             height,
         });

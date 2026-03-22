@@ -256,6 +256,13 @@ impl LayerSurface {
     /// to the surface, marks the entire surface as damaged, and commits.
     pub fn commit(&mut self) {
         let stride = self.width as i32 * 4;
+        let buf_size = (self.width as usize) * (self.height as usize) * 4;
+
+        // Ensure pool is large enough — resize if needed (e.g. after surface resize).
+        if self.pool.len() < buf_size {
+            self.pool.resize(buf_size).ok();
+        }
+
         let (buffer, canvas) = match self.pool.create_buffer(
             self.width as i32,
             self.height as i32,
@@ -263,9 +270,26 @@ impl LayerSurface {
             wl_shm::Format::Argb8888,
         ) {
             Ok(pair) => pair,
-            Err(e) => {
-                log::error!("Failed to create shm buffer: {e}");
-                return;
+            Err(_) => {
+                // Pool may be exhausted if previous buffer hasn't been released.
+                // Resize and retry once.
+                if self.pool.resize(buf_size * 2).is_ok() {
+                    match self.pool.create_buffer(
+                        self.width as i32,
+                        self.height as i32,
+                        stride,
+                        wl_shm::Format::Argb8888,
+                    ) {
+                        Ok(pair) => pair,
+                        Err(e) => {
+                            log::error!("Failed to create shm buffer after resize: {e}");
+                            return;
+                        }
+                    }
+                } else {
+                    log::error!("Failed to resize shm pool");
+                    return;
+                }
             }
         };
 
