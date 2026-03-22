@@ -11,6 +11,7 @@ mod events;
 mod ipc;
 mod popups;
 mod runtime;
+mod setup;
 mod surfaces;
 mod theme;
 mod timers;
