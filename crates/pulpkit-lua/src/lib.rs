@@ -326,6 +326,45 @@ mod tests {
     }
 
     #[test]
+    fn lua_slider_creation() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            let theme = Arc::new(Theme::default_slate());
+            register_widgets(vm.lua(), theme).unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local vol = signal(75)
+                result = slider("w-full", {
+                    value = vol,
+                    on_change = function(v) vol:set(v) end,
+                    min = 0,
+                    max = 100,
+                })
+            "#,
+                )
+                .exec()
+                .unwrap();
+
+            let result: mlua::AnyUserData = vm.lua().globals().get("result").unwrap();
+            let node = result.borrow::<LuaNode>().unwrap();
+            match &node.0 {
+                Node::Slider { state, .. } => {
+                    assert!((state.min - 0.0).abs() < f64::EPSILON);
+                    assert!((state.max - 100.0).abs() < f64::EPSILON);
+                    assert!(state.on_change.is_some());
+                    // Value should have been read from the signal.
+                    assert!((*state.value.borrow() - 75.0).abs() < f64::EPSILON);
+                }
+                _ => panic!("expected Slider"),
+            }
+        });
+    }
+
+    #[test]
     fn lua_popup_visible_signal_controls_visibility() {
         let rt = ReactiveRuntime::new();
         rt.enter(|| {
@@ -374,6 +413,40 @@ mod tests {
                 .exec()
                 .unwrap();
             assert_eq!(sig.get(), signals::DynValue::Bool(false));
+        });
+    }
+
+    #[test]
+    fn lua_toggle_creation() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            let theme = Arc::new(Theme::default_slate());
+            register_widgets(vm.lua(), theme).unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local muted = signal(false)
+                result = toggle("", {
+                    checked = muted,
+                    on_change = function(v) muted:set(v) end,
+                })
+            "#,
+                )
+                .exec()
+                .unwrap();
+
+            let result: mlua::AnyUserData = vm.lua().globals().get("result").unwrap();
+            let node = result.borrow::<LuaNode>().unwrap();
+            match &node.0 {
+                Node::Toggle { state, .. } => {
+                    assert_eq!(*state.checked.borrow(), false);
+                    assert!(state.on_change.is_some());
+                }
+                _ => panic!("expected Toggle"),
+            }
         });
     }
 }

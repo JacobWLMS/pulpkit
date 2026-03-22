@@ -8,7 +8,7 @@ pub mod paint;
 
 pub use theme::Theme;
 pub use style::{StyleProps, SizeValue, FontWeight, AlignItems, JustifyContent};
-pub use tree::{Node, Direction, ButtonHandlers};
+pub use tree::{Node, Direction, ButtonHandlers, SliderState, ToggleState};
 pub use flex::{compute_layout, hit_test, LayoutResult, LayoutNode};
 pub use paint::paint_tree;
 

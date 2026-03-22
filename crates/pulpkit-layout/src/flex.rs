@@ -137,6 +137,32 @@ fn build_taffy_node(
             order.insert(insert_idx, (id, node.clone()));
             id
         }
+        Node::Slider { style, .. } => {
+            // Slider is a leaf node with a fixed clickable height (20px)
+            // but flexible width (honors w-full / flex-grow from style).
+            let mut taffy_style = to_taffy_style(style, Direction::Row, false);
+            // Set a fixed height for the clickable area (track is 6px but
+            // the overall hit-area is taller for usability).
+            taffy_style.size.height = Dimension::from_length(20.0);
+            let id = tree
+                .new_leaf(taffy_style)
+                .expect("failed to create taffy slider leaf");
+            order.push((id, node.clone()));
+            id
+        }
+        Node::Toggle { style, .. } => {
+            // Toggle is a leaf node with a fixed pill-switch size: 40x22.
+            let mut taffy_style = to_taffy_style(style, Direction::Row, false);
+            taffy_style.size = Size {
+                width: Dimension::from_length(40.0),
+                height: Dimension::from_length(22.0),
+            };
+            let id = tree
+                .new_leaf(taffy_style)
+                .expect("failed to create taffy toggle leaf");
+            order.push((id, node.clone()));
+            id
+        }
         Node::Spacer => {
             let style = taffy::Style {
                 flex_grow: 1.0,

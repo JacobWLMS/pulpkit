@@ -697,6 +697,7 @@ dependencies = [
  "mlua",
  "pulpkit-layout",
  "pulpkit-reactive",
+ "pulpkit-render",
 ]
 
 [[package]]

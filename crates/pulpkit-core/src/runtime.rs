@@ -494,6 +494,48 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                     }
                                 }
                             }
+
+                            // Slider click-to-set: check all surfaces for slider hits.
+                            let click_x = *x as f32;
+                            let click_y = *y as f32;
+                            // Check popup surfaces.
+                            for popup in &popups {
+                                if popup.visible {
+                                    if let Some(ref layout) = popup.layout {
+                                        if handle_slider_click(layout, click_x, click_y) {
+                                            handler_fired = true;
+                                        }
+                                    }
+                                }
+                            }
+                            // Check bar surfaces.
+                            for managed in &surfaces {
+                                if let Some(ref layout) = managed.layout {
+                                    if handle_slider_click(layout, click_x, click_y) {
+                                        handler_fired = true;
+                                    }
+                                }
+                            }
+
+                            // Toggle click-to-flip: check all surfaces for toggle hits.
+                            // Check popup surfaces.
+                            for popup in &popups {
+                                if popup.visible {
+                                    if let Some(ref layout) = popup.layout {
+                                        if handle_toggle_click(layout, click_x, click_y) {
+                                            handler_fired = true;
+                                        }
+                                    }
+                                }
+                            }
+                            // Check bar surfaces.
+                            for managed in &surfaces {
+                                if let Some(ref layout) = managed.layout {
+                                    if handle_toggle_click(layout, click_x, click_y) {
+                                        handler_fired = true;
+                                    }
+                                }
+                            }
                         }
                     }
                     InputEvent::PointerAxis { x, y, delta, horizontal: false, .. } => {
@@ -632,6 +674,60 @@ fn find_button_handler(
         }
     }
     None
+}
+
+/// Handle a click on a Slider node: compute the new value from the click's
+/// x position, update the slider state, and call the on_change callback.
+///
+/// Returns `true` if a slider was hit (and its value updated).
+fn handle_slider_click(
+    layout: &pulpkit_layout::LayoutResult,
+    x: f32,
+    y: f32,
+) -> bool {
+    // Walk layout nodes in reverse (deepest first) to find the first Slider
+    // that contains the click point.
+    for node in layout.nodes.iter().rev() {
+        if x >= node.x && x <= node.x + node.width
+            && y >= node.y && y <= node.y + node.height
+        {
+            if let Node::Slider { ref state, .. } = node.source_node {
+                let ratio = ((x - node.x) / node.width).clamp(0.0, 1.0) as f64;
+                let new_val = state.min + (state.max - state.min) * ratio;
+                *state.value.borrow_mut() = new_val;
+                if let Some(ref cb) = state.on_change {
+                    cb(new_val);
+                }
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Handle a click on a Toggle node: flip the checked state and call on_change.
+///
+/// Returns `true` if a toggle was hit (and its state updated).
+fn handle_toggle_click(
+    layout: &pulpkit_layout::LayoutResult,
+    x: f32,
+    y: f32,
+) -> bool {
+    for node in layout.nodes.iter().rev() {
+        if x >= node.x && x <= node.x + node.width
+            && y >= node.y && y <= node.y + node.height
+        {
+            if let Node::Toggle { ref state, .. } = node.source_node {
+                let new_val = !*state.checked.borrow();
+                *state.checked.borrow_mut() = new_val;
+                if let Some(ref cb) = state.on_change {
+                    cb(new_val);
+                }
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Compute margins for a popup surface based on anchor, parent height, and offset.

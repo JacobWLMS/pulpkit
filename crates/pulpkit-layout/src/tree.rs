@@ -1,6 +1,9 @@
 //! Widget node tree — the logical structure before layout.
 
+use std::cell::RefCell;
 use std::rc::Rc;
+
+use pulpkit_render::Color;
 
 use crate::style::StyleProps;
 
@@ -34,6 +37,50 @@ impl Default for ButtonHandlers {
     }
 }
 
+/// State for a [`Slider`](Node::Slider) node.
+///
+/// The `value` is shared via `Rc<RefCell<f64>>` so that both the paint pass
+/// and event handlers can read/write the current position.
+pub struct SliderState {
+    pub value: Rc<RefCell<f64>>,
+    pub min: f64,
+    pub max: f64,
+    pub on_change: Option<Rc<dyn Fn(f64)>>,
+    pub accent_color: Option<Color>,
+}
+
+impl Clone for SliderState {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            min: self.min,
+            max: self.max,
+            on_change: self.on_change.clone(),
+            accent_color: self.accent_color,
+        }
+    }
+}
+
+/// State for a [`Toggle`](Node::Toggle) node.
+///
+/// The `checked` boolean is shared via `Rc<RefCell<bool>>` so that both the
+/// paint pass and event handlers can read/write the current state.
+pub struct ToggleState {
+    pub checked: Rc<RefCell<bool>>,
+    pub on_change: Option<Rc<dyn Fn(bool)>>,
+    pub accent_color: Option<Color>,
+}
+
+impl Clone for ToggleState {
+    fn clone(&self) -> Self {
+        Self {
+            checked: self.checked.clone(),
+            on_change: self.on_change.clone(),
+            accent_color: self.accent_color,
+        }
+    }
+}
+
 /// A node in the widget tree.
 #[derive(Clone)]
 pub enum Node {
@@ -55,6 +102,16 @@ pub enum Node {
         style: StyleProps,
         children: Vec<Node>,
         handlers: ButtonHandlers,
+    },
+    /// Slider: a draggable track for numeric values.
+    Slider {
+        style: StyleProps,
+        state: SliderState,
+    },
+    /// Toggle switch: a pill-shaped on/off switch.
+    Toggle {
+        style: StyleProps,
+        state: ToggleState,
     },
 }
 
