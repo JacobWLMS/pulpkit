@@ -44,6 +44,9 @@ pub struct StyleProps {
     // Hover state overrides
     pub hover_bg_color: Option<Color>,
     pub hover_text_color: Option<Color>,
+
+    // Transition
+    pub transition_duration_ms: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -303,6 +306,23 @@ impl StyleProps {
             }
         }
 
+        // 10b. Transitions
+        match token {
+            "transition-fast" => {
+                props.transition_duration_ms = Some(150);
+                return;
+            }
+            "transition-normal" => {
+                props.transition_duration_ms = Some(250);
+                return;
+            }
+            "transition-slow" => {
+                props.transition_duration_ms = Some(400);
+                return;
+            }
+            _ => {}
+        }
+
         // 11. Unknown tokens
         #[cfg(debug_assertions)]
         eprintln!("pulpkit-layout: unknown style token: {:?}", token);
@@ -398,5 +418,33 @@ mod tests {
         let props = StyleProps::parse("bg-base text-fg", &theme);
         assert!(props.hover_bg_color.is_none());
         assert!(props.hover_text_color.is_none());
+    }
+
+    #[test]
+    fn parse_transition_fast() {
+        let theme = Theme::default_slate();
+        let props = StyleProps::parse("transition-fast", &theme);
+        assert_eq!(props.transition_duration_ms, Some(150));
+    }
+
+    #[test]
+    fn parse_transition_normal() {
+        let theme = Theme::default_slate();
+        let props = StyleProps::parse("transition-normal", &theme);
+        assert_eq!(props.transition_duration_ms, Some(250));
+    }
+
+    #[test]
+    fn parse_transition_slow() {
+        let theme = Theme::default_slate();
+        let props = StyleProps::parse("transition-slow", &theme);
+        assert_eq!(props.transition_duration_ms, Some(400));
+    }
+
+    #[test]
+    fn transition_default_none() {
+        let theme = Theme::default_slate();
+        let props = StyleProps::parse("bg-base", &theme);
+        assert!(props.transition_duration_ms.is_none());
     }
 }

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use calloop::channel;
 use mlua::prelude::*;
-use pulpkit_layout::{Theme, Node, compute_layout, paint_tree};
+use pulpkit_layout::{AnimationManager, Theme, Node, compute_layout, paint_tree};
 use pulpkit_lua::{LuaNode, LuaVm, register_interval_fn, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
 use pulpkit_lua::signals::DynValue;
 use pulpkit_reactive::{ReactiveRuntime, Signal};
@@ -144,6 +144,8 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         layout: Option<pulpkit_layout::LayoutResult>,
         /// Index of the currently hovered layout node (for hover styling).
         hovered_node: Option<usize>,
+        /// Active color transition animations for this surface.
+        animations: AnimationManager,
     }
 
     let mut surfaces: Vec<ManagedSurface> = Vec::new();
@@ -280,13 +282,15 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
             }
 
             // Initial render — also stores the layout for hit testing.
-            let layout = render_surface(&mut surface, &root_node, &text_renderer, &theme, None);
+            let mut animations = AnimationManager::default();
+            let layout = render_surface(&mut surface, &root_node, &text_renderer, &theme, None, &mut animations);
 
             surfaces.push(ManagedSurface {
                 surface,
                 root: root_node,
                 layout: Some(layout),
                 hovered_node: None,
+                animations,
             });
 
             log::info!(
@@ -410,12 +414,17 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     //    when the Wayland fd is readable or the wake channel receives a message.
     log::info!("Entering event loop");
     loop {
-        let dispatch_timeout = intervals
-            .iter()
-            .map(|i| i.next_fire)
-            .min()
-            .map(|t| t.saturating_duration_since(Instant::now()))
-            .unwrap_or(Duration::from_secs(60));
+        let has_animations = surfaces.iter().any(|s| s.animations.has_active());
+        let dispatch_timeout = if has_animations {
+            Duration::from_millis(16) // ~60fps while animating
+        } else {
+            intervals
+                .iter()
+                .map(|i| i.next_fire)
+                .min()
+                .map(|t| t.saturating_duration_since(Instant::now()))
+                .unwrap_or(Duration::from_secs(60))
+        };
 
         client
             .event_loop
@@ -440,6 +449,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                 &text_renderer,
                                 &theme,
                                 managed.hovered_node,
+                                &mut managed.animations,
                             ));
                         }
                         // Same size: do nothing (already rendered)
@@ -454,12 +464,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                 if popup.needs_initial_render {
                                     // First configure after creation — do initial render.
                                     surface.resize(configure.width, configure.height);
+                                    let mut no_anims = AnimationManager::default();
                                     popup.layout = Some(render_surface(
                                         surface,
                                         &popup.root_node,
                                         &text_renderer,
                                         &theme,
                                         None,
+                                        &mut no_anims,
                                     ));
                                     popup.needs_initial_render = false;
                                 } else {
@@ -467,12 +479,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                     let old_h = surface.height();
                                     if configure.width != old_w || configure.height != old_h {
                                         surface.resize(configure.width, configure.height);
+                                        let mut no_anims = AnimationManager::default();
                                         popup.layout = Some(render_surface(
                                             surface,
                                             &popup.root_node,
                                             &text_renderer,
                                             &theme,
                                             None,
+                                            &mut no_anims,
                                         ));
                                     }
                                     // Same size after initial: do nothing
@@ -542,6 +556,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                     &text_renderer,
                                     &theme,
                                     managed.hovered_node,
+                                    &mut managed.animations,
                                 ));
                             }
                         }
@@ -566,8 +581,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                             if let Some(ref layout) = managed.layout {
                                 let hit = pulpkit_layout::hit_test(layout, *x as f32, *y as f32);
                                 if hit != managed.hovered_node {
+                                    let old_hovered = managed.hovered_node;
                                     managed.hovered_node = hit;
                                     hover_changed = true;
+
+                                    // Start transition animations for nodes that have them.
+                                    start_hover_animations(
+                                        layout, old_hovered, hit, &mut managed.animations,
+                                    );
                                 }
                             }
                         }
@@ -575,8 +596,15 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     InputEvent::PointerLeave { .. } => {
                         for managed in &mut surfaces {
                             if managed.hovered_node.is_some() {
+                                let old_hovered = managed.hovered_node;
                                 managed.hovered_node = None;
                                 hover_changed = true;
+
+                                if let Some(ref layout) = managed.layout {
+                                    start_hover_animations(
+                                        layout, old_hovered, None, &mut managed.animations,
+                                    );
+                                }
                             }
                         }
                     }
@@ -711,17 +739,20 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     &text_renderer,
                     &theme,
                     managed.hovered_node,
+                    &mut managed.animations,
                 ));
             }
             // Re-render visible popups too.
             for popup in &mut popups {
                 if let Some(ref mut surface) = popup.layer_surface {
+                    let mut no_anims = AnimationManager::default();
                     popup.layout = Some(render_surface(
                         surface,
                         &popup.root_node,
                         &text_renderer,
                         &theme,
                         None,
+                        &mut no_anims,
                     ));
                 }
             }
@@ -736,6 +767,7 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     &text_renderer,
                     &theme,
                     managed.hovered_node,
+                    &mut managed.animations,
                 ));
             }
         }
@@ -765,18 +797,37 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                         &text_renderer,
                         &theme,
                         managed.hovered_node,
+                        &mut managed.animations,
                     ));
                 }
                 for popup in &mut popups {
                     if let Some(ref mut surface) = popup.layer_surface {
+                        let mut no_anims = AnimationManager::default();
                         popup.layout = Some(render_surface(
                             surface,
                             &popup.root_node,
                             &text_renderer,
                             &theme,
                             None,
+                            &mut no_anims,
                         ));
                     }
+                }
+            }
+        }
+
+        // 9d. Re-render surfaces with active animations (animation tick).
+        if !handler_fired && !hover_changed {
+            for managed in &mut surfaces {
+                if managed.animations.has_active() {
+                    managed.layout = Some(render_surface(
+                        &mut managed.surface,
+                        &managed.root,
+                        &text_renderer,
+                        &theme,
+                        managed.hovered_node,
+                        &mut managed.animations,
+                    ));
                 }
             }
         }
@@ -843,12 +894,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
 ///
 /// `hovered_node` is the index of the currently hovered layout node (if any),
 /// used to apply hover style overrides during painting.
+/// `animations` provides active color transition animations for smooth hover effects.
 fn render_surface(
     surface: &mut LayerSurface,
     root: &pulpkit_layout::Node,
     text_renderer: &TextRenderer,
     theme: &Theme,
     hovered_node: Option<usize>,
+    animations: &mut AnimationManager,
 ) -> pulpkit_layout::LayoutResult {
     let width = surface.width();
     let height = surface.height();
@@ -867,11 +920,68 @@ fn render_surface(
 
     let bg_color = theme.colors.get("base").copied().unwrap_or_default();
     canvas.clear(bg_color);
-    paint_tree(&mut canvas, &layout, &theme.font_family, hovered_node);
+    paint_tree(&mut canvas, &layout, &theme.font_family, hovered_node, animations);
     canvas.flush();
 
     surface.commit();
     layout
+}
+
+/// Start background color transition animations when the hovered node changes.
+///
+/// For a node being left (`old_hovered`), animates from hover color back to base.
+/// For a node being entered (`new_hovered`), animates from base color to hover.
+/// Only triggers if the node's style has a `transition_duration_ms` set.
+fn start_hover_animations(
+    layout: &pulpkit_layout::LayoutResult,
+    old_hovered: Option<usize>,
+    new_hovered: Option<usize>,
+    animations: &mut AnimationManager,
+) {
+    // Node being un-hovered: animate hover_bg → bg
+    if let Some(old_idx) = old_hovered {
+        if let Some(node) = layout.nodes.get(old_idx) {
+            let style = match &node.source_node {
+                Node::Container { style, .. }
+                | Node::Button { style, .. }
+                | Node::Text { style, .. }
+                | Node::Slider { style, .. }
+                | Node::Toggle { style, .. } => Some(style),
+                Node::Spacer => None,
+            };
+            if let Some(style) = style {
+                if let (Some(duration), Some(hover_bg), Some(base_bg)) = (
+                    style.transition_duration_ms,
+                    style.hover_bg_color,
+                    style.bg_color,
+                ) {
+                    animations.animate_bg(old_idx, hover_bg, base_bg, duration);
+                }
+            }
+        }
+    }
+    // Node being hovered: animate bg → hover_bg
+    if let Some(new_idx) = new_hovered {
+        if let Some(node) = layout.nodes.get(new_idx) {
+            let style = match &node.source_node {
+                Node::Container { style, .. }
+                | Node::Button { style, .. }
+                | Node::Text { style, .. }
+                | Node::Slider { style, .. }
+                | Node::Toggle { style, .. } => Some(style),
+                Node::Spacer => None,
+            };
+            if let Some(style) = style {
+                if let (Some(duration), Some(hover_bg), Some(base_bg)) = (
+                    style.transition_duration_ms,
+                    style.hover_bg_color,
+                    style.bg_color,
+                ) {
+                    animations.animate_bg(new_idx, base_bg, hover_bg, duration);
+                }
+            }
+        }
+    }
 }
 
 /// Hit test the layout at (x, y) and, walking from the deepest hit node upward,

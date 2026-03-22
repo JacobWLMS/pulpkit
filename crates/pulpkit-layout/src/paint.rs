@@ -1,5 +1,6 @@
 //! Paint pipeline — walks layout results and issues Skia draw calls.
 
+use crate::animation::AnimationManager;
 use crate::flex::LayoutResult;
 use crate::tree::Node;
 use pulpkit_render::{Canvas, Color};
@@ -8,17 +9,24 @@ use pulpkit_render::{Canvas, Color};
 ///
 /// When `hovered_index` is `Some(i)`, the node at index `i` will use its
 /// hover style overrides (e.g. `hover_bg_color` instead of `bg_color`).
+///
+/// Active animations in `animations` take priority over both base and hover
+/// colors, providing smooth transitions between states.
 pub fn paint_tree(
     canvas: &mut Canvas,
     layout: &LayoutResult,
     font_family: &str,
     hovered_index: Option<usize>,
+    animations: &mut AnimationManager,
 ) {
     for (i, layout_node) in layout.nodes.iter().enumerate() {
         let is_hovered = hovered_index == Some(i);
         match &layout_node.source_node {
             Node::Container { style, .. } | Node::Button { style, .. } => {
-                let bg = if is_hovered {
+                // Check for an active animation first; fall back to hover/base logic.
+                let bg = if let Some(animated_color) = animations.get_bg(i) {
+                    Some(animated_color)
+                } else if is_hovered {
                     style.hover_bg_color.or(style.bg_color)
                 } else {
                     style.bg_color

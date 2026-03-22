@@ -1,11 +1,13 @@
 //! Pulpkit layout engine
 
+pub mod animation;
 pub mod theme;
 pub mod style;
 pub mod tree;
 pub mod flex;
 pub mod paint;
 
+pub use animation::AnimationManager;
 pub use theme::Theme;
 pub use style::{StyleProps, SizeValue, FontWeight, AlignItems, JustifyContent};
 pub use tree::{Node, Direction, ButtonHandlers, SliderState, ToggleState};
