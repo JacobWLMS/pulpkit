@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 mod ipc;
 mod runtime;
+mod watcher;
 
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

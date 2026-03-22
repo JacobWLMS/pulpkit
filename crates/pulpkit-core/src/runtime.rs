@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
+use calloop::channel;
 use mlua::prelude::*;
 use pulpkit_layout::{Theme, Node, compute_layout, paint_tree};
 use pulpkit_lua::{LuaNode, LuaVm, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
@@ -15,6 +16,17 @@ use pulpkit_render::{Canvas, Color, TextRenderer};
 use pulpkit_wayland::{Anchor, InputEvent, Layer, LayerSurface, OutputInfo, PopupAnchor, SurfaceConfig, SurfaceMargins, WaylandClient};
 
 use crate::ipc::IpcServer;
+
+/// Internal events that can wake the event loop from its idle sleep.
+///
+/// Other parts of the system send these via the `wake_sender` to trigger
+/// a redraw or other processing without waiting for Wayland events.
+#[allow(dead_code)]
+pub enum RuntimeEvent {
+    /// Request a full redraw of all surfaces.
+    Redraw,
+    // Future: HotReload, SignalUpdate, etc.
+}
 
 /// Run the shell defined in `shell_dir`.
 ///
@@ -81,6 +93,28 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     // 6. Connect to Wayland.
     let mut client = WaylandClient::connect()?;
     log::info!("Connected to Wayland display");
+
+    // 6b. Insert a calloop channel so internal events can wake the loop.
+    //     The loop sleeps with a long timeout; any Wayland event OR a message
+    //     on this channel will wake it immediately.
+    let (wake_sender, wake_channel) = channel::channel::<RuntimeEvent>();
+    client
+        .event_loop
+        .handle()
+        .insert_source(wake_channel, |event, _, _state| {
+            // For now we just need the wake — the event type tells us why.
+            if let channel::Event::Msg(msg) = event {
+                match msg {
+                    RuntimeEvent::Redraw => {
+                        log::debug!("Wake: Redraw requested");
+                    }
+                }
+            }
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to insert wake channel: {e}"))?;
+
+    // Keep the sender around so other subsystems can wake the loop later.
+    let _wake_sender = wake_sender;
 
     // Do an initial roundtrip to discover outputs.
     client
@@ -334,11 +368,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     }
 
     // 9. Event loop — dispatch Wayland events.
+    //    The long timeout means "sleep until something happens".  Calloop
+    //    wakes immediately when the Wayland fd is readable or the wake
+    //    channel receives a message, so responsiveness is not affected.
     log::info!("Entering event loop");
     loop {
         client
             .event_loop
-            .dispatch(Duration::from_millis(16), &mut client.state)?;
+            .dispatch(Duration::from_secs(60), &mut client.state)?;
 
         // Handle configure events (resize) — only re-render if size actually changed.
         if !client.state.pending_configures.is_empty() {
