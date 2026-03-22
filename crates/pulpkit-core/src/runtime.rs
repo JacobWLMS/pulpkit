@@ -92,6 +92,8 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         root: pulpkit_layout::Node,
         /// Cached layout result used for hit testing on input events.
         layout: Option<pulpkit_layout::LayoutResult>,
+        /// Index of the currently hovered layout node (for hover styling).
+        hovered_node: Option<usize>,
     }
 
     let mut surfaces: Vec<ManagedSurface> = Vec::new();
@@ -225,12 +227,13 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
             }
 
             // Initial render — also stores the layout for hit testing.
-            let layout = render_surface(&mut surface, &root_node, &text_renderer, &theme);
+            let layout = render_surface(&mut surface, &root_node, &text_renderer, &theme, None);
 
             surfaces.push(ManagedSurface {
                 surface,
                 root: root_node,
                 layout: Some(layout),
+                hovered_node: None,
             });
 
             log::info!(
@@ -265,17 +268,38 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                         &managed.root,
                         &text_renderer,
                         &theme,
+                        managed.hovered_node,
                     ));
                 }
             }
         }
 
-        // 10. Dispatch input events to button handlers.
+        // 10. Dispatch input events to button handlers and track hover state.
         let mut handler_fired = false;
+        let mut hover_changed = false;
         if !client.state.input_events.is_empty() {
             let events: Vec<_> = client.state.input_events.drain(..).collect();
             for event in &events {
                 match event {
+                    InputEvent::PointerMotion { x, y, .. } => {
+                        for managed in &mut surfaces {
+                            if let Some(ref layout) = managed.layout {
+                                let hit = pulpkit_layout::hit_test(layout, *x as f32, *y as f32);
+                                if hit != managed.hovered_node {
+                                    managed.hovered_node = hit;
+                                    hover_changed = true;
+                                }
+                            }
+                        }
+                    }
+                    InputEvent::PointerLeave { .. } => {
+                        for managed in &mut surfaces {
+                            if managed.hovered_node.is_some() {
+                                managed.hovered_node = None;
+                                hover_changed = true;
+                            }
+                        }
+                    }
                     InputEvent::PointerButton { x, y, button, pressed: true, .. } => {
                         // Left mouse button = 0x110 (BTN_LEFT)
                         if *button == 0x110 {
@@ -326,6 +350,20 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     &managed.root,
                     &text_renderer,
                     &theme,
+                    managed.hovered_node,
+                ));
+            }
+        }
+
+        // If hover state changed (but no handler fired), re-render for visual feedback.
+        if hover_changed && !handler_fired {
+            for managed in &mut surfaces {
+                managed.layout = Some(render_surface(
+                    &mut managed.surface,
+                    &managed.root,
+                    &text_renderer,
+                    &theme,
+                    managed.hovered_node,
                 ));
             }
         }
@@ -340,11 +378,15 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
 }
 
 /// Render a widget tree onto a layer surface and return the computed layout.
+///
+/// `hovered_node` is the index of the currently hovered layout node (if any),
+/// used to apply hover style overrides during painting.
 fn render_surface(
     surface: &mut LayerSurface,
     root: &pulpkit_layout::Node,
     text_renderer: &TextRenderer,
     theme: &Theme,
+    hovered_node: Option<usize>,
 ) -> pulpkit_layout::LayoutResult {
     let width = surface.width();
     let height = surface.height();
@@ -363,7 +405,7 @@ fn render_surface(
 
     let bg_color = theme.colors.get("base").copied().unwrap_or_default();
     canvas.clear(bg_color);
-    paint_tree(&mut canvas, &layout, &theme.font_family);
+    paint_tree(&mut canvas, &layout, &theme.font_family, hovered_node);
     canvas.flush();
 
     surface.commit();
