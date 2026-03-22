@@ -1,0 +1,11 @@
+[package]
+name = "pulpkit-wayland"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+smithay-client-toolkit.workspace = true
+wayland-client.workspace = true
+log.workspace = true
+anyhow.workspace = true

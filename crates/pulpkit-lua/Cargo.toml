@@ -1,0 +1,11 @@
+[package]
+name = "pulpkit-lua"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pulpkit-reactive.workspace = true
+pulpkit-layout.workspace = true
+mlua.workspace = true
+anyhow.workspace = true

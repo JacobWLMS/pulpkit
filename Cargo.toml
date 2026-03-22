@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pulpkit-reactive",
+    "crates/pulpkit-plugin",
+    "crates/pulpkit-wayland",
+    "crates/pulpkit-render",
+    "crates/pulpkit-layout",
+    "crates/pulpkit-lua",
+    "crates/pulpkit-core",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+pulpkit-reactive = { path = "crates/pulpkit-reactive" }
+pulpkit-plugin = { path = "crates/pulpkit-plugin" }
+pulpkit-wayland = { path = "crates/pulpkit-wayland" }
+pulpkit-render = { path = "crates/pulpkit-render" }
+pulpkit-layout = { path = "crates/pulpkit-layout" }
+pulpkit-lua = { path = "crates/pulpkit-lua" }
+pulpkit-core = { path = "crates/pulpkit-core" }
+tokio = { version = "1", features = ["full"] }
+smithay-client-toolkit = { version = "0.20", features = ["calloop"] }
+wayland-client = "0.31"
+calloop = "0.14"
+skia-safe = "0.93"
+taffy = "0.9"
+mlua = { version = "0.11", features = ["luajit", "vendored"] }
+anyhow = "1"
+log = "0.4"

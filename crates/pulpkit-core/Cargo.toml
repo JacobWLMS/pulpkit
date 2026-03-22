@@ -1,0 +1,16 @@
+[package]
+name = "pulpkit-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pulpkit-reactive.workspace = true
+pulpkit-plugin.workspace = true
+pulpkit-wayland.workspace = true
+pulpkit-render.workspace = true
+pulpkit-layout.workspace = true
+pulpkit-lua.workspace = true
+tokio.workspace = true
+calloop.workspace = true
+anyhow.workspace = true
