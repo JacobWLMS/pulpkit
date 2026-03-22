@@ -23,4 +23,13 @@ impl LuaVm {
             .set_name(path.to_string_lossy())
             .exec()
     }
+
+    /// Clear Lua's module cache so require() reloads files.
+    pub fn clear_module_cache(&self) -> LuaResult<()> {
+        self.lua.load(r#"
+            for k, _ in pairs(package.loaded) do
+                package.loaded[k] = nil
+            end
+        "#).exec()
+    }
 }

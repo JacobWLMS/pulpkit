@@ -16,6 +16,7 @@ use pulpkit_render::{Canvas, Color, TextRenderer};
 use pulpkit_wayland::{Anchor, InputEvent, Layer, LayerSurface, OutputInfo, PopupAnchor, SurfaceConfig, SurfaceMargins, WaylandClient};
 
 use crate::ipc::IpcServer;
+use crate::watcher;
 
 /// Internal events that can wake the event loop from its idle sleep.
 ///
@@ -49,6 +50,10 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
 /// Inner runtime logic, executed inside the reactive context.
 fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     let _ipc = IpcServer::new();
+
+    // 0. Start watching the shell directory for .lua file changes.
+    let watcher = watcher::FileWatcher::new(shell_dir)?;
+    log::info!("File watcher active on {}", shell_dir.display());
 
     // 1. Create the Lua VM.
     let vm = LuaVm::new().map_err(|e| anyhow::anyhow!("Failed to create Lua VM: {e}"))?;
@@ -435,6 +440,75 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                 }
                             }
                             break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 9a. Check for file changes (hot-reload).
+        {
+            let mut should_reload = false;
+            while let Some(event) = watcher.poll() {
+                match event {
+                    watcher::WatchEvent::FileChanged(path) => {
+                        log::info!("Hot-reload: {} changed", path.display());
+                        should_reload = true;
+                    }
+                }
+            }
+            if should_reload {
+                // Clear module cache so require() picks up new files.
+                if let Err(e) = vm.clear_module_cache() {
+                    log::error!("Hot-reload: failed to clear module cache: {e}");
+                } else {
+                    // Clear old window definitions.
+                    registry.borrow_mut().clear();
+
+                    // Re-execute shell.lua.
+                    match vm.load_file(&shell_path) {
+                        Ok(()) => {
+                            log::info!("Hot-reload: shell.lua re-executed");
+
+                            // Update node trees for each surface.
+                            let new_defs = registry.borrow();
+                            for (i, managed) in surfaces.iter_mut().enumerate() {
+                                if let Some(def) = new_defs.get(i) {
+                                    if let Ok(widget_fn) =
+                                        lua.registry_value::<LuaFunction>(&def.widget_fn)
+                                    {
+                                        let ctx = lua.create_table().unwrap();
+                                        match widget_fn.call::<LuaAnyUserData>(ctx) {
+                                            Ok(result) => {
+                                                if let Ok(node) = result.borrow::<LuaNode>() {
+                                                    managed.root = node.0.clone();
+                                                }
+                                            }
+                                            Err(e) => {
+                                                log::error!(
+                                                    "Hot-reload: widget function failed for surface {i}: {e}"
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            drop(new_defs);
+
+                            // Re-render all surfaces.
+                            for managed in &mut surfaces {
+                                managed.layout = Some(render_surface(
+                                    &mut managed.surface,
+                                    &managed.root,
+                                    &text_renderer,
+                                    &theme,
+                                    managed.hovered_node,
+                                ));
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Hot-reload failed: {e}");
+                            // Keep old widget trees — don't crash.
                         }
                     }
                 }
