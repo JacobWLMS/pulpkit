@@ -1,5 +1,6 @@
 //! Widget node tree — the logical structure before layout.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use pulpkit_reactive::{DynValue, Signal};
@@ -50,6 +51,18 @@ pub enum Node {
     },
     /// Spacer (flex-grow: 1, takes remaining space).
     Spacer,
+    /// Dynamic list — resolves children from a reactive data source with
+    /// key-based reconciliation. Used for workspace buttons, notification
+    /// lists, etc. Laid out as a row container.
+    DynamicList {
+        style: Prop<StyleProps>,
+        direction: Direction,
+        /// Resolves the current list of children. Called during layout.
+        /// The closure handles reconciliation internally (key-based caching).
+        resolve: Rc<dyn Fn() -> Vec<Node>>,
+        /// Cache of the last resolved children (for hit-testing between layouts).
+        cached_children: Rc<RefCell<Vec<Node>>>,
+    },
     /// Interactive widget: button, slider, or toggle.
     Interactive {
         style: Prop<StyleProps>,

@@ -151,6 +151,22 @@ pub fn paint_tree(
                     }
                 }
             }
+            Node::DynamicList { style, .. } => {
+                // Paint like a container — background if present.
+                let resolved = style.resolve();
+                if let Some(bg) = resolved.bg_color {
+                    canvas.draw_rounded_rect(
+                        layout_node.x,
+                        layout_node.y,
+                        layout_node.width,
+                        layout_node.height,
+                        resolved.border_radius,
+                        bg,
+                    );
+                }
+                // Children are already in the flat layout list and will be painted
+                // by subsequent iterations.
+            }
             Node::Spacer => {} // nothing to paint
         }
     }

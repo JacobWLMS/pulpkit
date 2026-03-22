@@ -159,6 +159,30 @@ fn build_taffy_node(
                 }
             }
         }
+        Node::DynamicList {
+            style,
+            direction,
+            resolve,
+            cached_children,
+        } => {
+            // Resolve current children and cache them for hit-testing.
+            let children = resolve();
+            *cached_children.borrow_mut() = children.clone();
+
+            let resolved = style.resolve();
+            let taffy_style = to_taffy_style(&resolved, *direction, false);
+            let child_ids: Vec<taffy::NodeId> = children
+                .iter()
+                .map(|c| build_taffy_node(tree, c, order, text_renderer, font_family))
+                .collect();
+            let id = tree
+                .new_with_children(taffy_style, &child_ids)
+                .expect("failed to create taffy dynamic list node");
+            let insert_idx = order.len() - children.len()
+                - children.iter().map(|c| count_descendants(c)).sum::<usize>();
+            order.insert(insert_idx, (id, node.clone()));
+            id
+        }
         Node::Spacer => {
             let style = taffy::Style {
                 flex_grow: 1.0,
@@ -186,6 +210,10 @@ fn count_descendants(node: &Node) -> usize {
                 }
                 _ => 0, // Slider/Toggle are leaves
             }
+        }
+        Node::DynamicList { cached_children, .. } => {
+            let children = cached_children.borrow();
+            children.iter().map(|c| 1 + count_descendants(c)).sum()
         }
         _ => 0,
     }

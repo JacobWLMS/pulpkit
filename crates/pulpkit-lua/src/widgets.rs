@@ -237,6 +237,99 @@ pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
         lua.globals().set("toggle", toggle_fn)?;
     }
 
+    // each(items_fn, render_fn, key_fn?) -> LuaNode
+    //
+    // items_fn: function returning a Lua table (array of items)
+    // render_fn: function(item) -> LuaNode
+    // key_fn: optional function(item) -> string (stable identity for reconciliation)
+    //
+    // Returns a DynamicList node. On each layout pass, items_fn is called to get
+    // the current items, render_fn produces nodes, and key_fn enables caching.
+    {
+        let _t = theme.clone();
+        let each_fn = lua.create_function(
+            move |lua, (items_fn, render_fn, key_fn): (LuaFunction, LuaFunction, Option<LuaFunction>)| {
+                let items_key = lua.create_registry_value(items_fn)?;
+                let render_key = lua.create_registry_value(render_fn)?;
+                let key_key = key_fn
+                    .map(|f| lua.create_registry_value(f))
+                    .transpose()?;
+
+                let lua_clone = lua.clone();
+                let cache: Rc<RefCell<Vec<(String, Node)>>> = Rc::new(RefCell::new(Vec::new()));
+                let cached_children: Rc<RefCell<Vec<Node>>> = Rc::new(RefCell::new(Vec::new()));
+
+                let resolve_cache = cache.clone();
+                let resolve = Rc::new(move || -> Vec<Node> {
+                    let items_fn: LuaFunction = lua_clone.registry_value(&items_key).unwrap();
+                    let render_fn: LuaFunction = lua_clone.registry_value(&render_key).unwrap();
+
+                    let items_table: LuaTable = match items_fn.call(()) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            log::error!("each() items_fn error: {e}");
+                            return Vec::new();
+                        }
+                    };
+
+                    let mut new_children = Vec::new();
+                    let mut old_cache = resolve_cache.borrow_mut();
+                    let mut new_cache = Vec::new();
+
+                    for (i, item) in items_table.sequence_values::<LuaValue>().enumerate() {
+                        let item = match item {
+                            Ok(v) => v,
+                            Err(e) => {
+                                log::error!("each() item error at index {i}: {e}");
+                                continue;
+                            }
+                        };
+
+                        // Compute key: use key_fn if provided, else use index.
+                        let key = if let Some(ref kk) = key_key {
+                            let kf: LuaFunction = lua_clone.registry_value(kk).unwrap();
+                            kf.call::<String>(item.clone()).unwrap_or_else(|_| i.to_string())
+                        } else {
+                            i.to_string()
+                        };
+
+                        // Check cache for existing node with this key.
+                        if let Some(pos) = old_cache.iter().position(|(k, _)| k == &key) {
+                            let (k, node) = old_cache.remove(pos);
+                            new_children.push(node.clone());
+                            new_cache.push((k, node));
+                        } else {
+                            // Cache miss — render new node.
+                            match render_fn.call::<LuaAnyUserData>(item) {
+                                Ok(ud) => {
+                                    if let Ok(lua_node) = ud.borrow::<LuaNode>() {
+                                        let node = lua_node.0.clone();
+                                        new_children.push(node.clone());
+                                        new_cache.push((key, node));
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!("each() render_fn error: {e}");
+                                }
+                            }
+                        }
+                    }
+
+                    *old_cache = new_cache;
+                    new_children
+                });
+
+                Ok(LuaNode(Node::DynamicList {
+                    style: Prop::Static(StyleProps::default()),
+                    direction: Direction::Row,
+                    resolve,
+                    cached_children,
+                }))
+            },
+        )?;
+        lua.globals().set("each", each_fn)?;
+    }
+
     Ok(())
 }
 
