@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use calloop::channel;
 use mlua::prelude::*;
-use pulpkit_layout::{AnimationManager, Theme, Node, compute_layout, paint_tree};
+use pulpkit_layout::{AnimationManager, FadeAnimation, Theme, Node, compute_layout, paint_tree};
 use pulpkit_lua::{LuaNode, LuaVm, register_interval_fn, register_popup_fn, register_signal_api, register_widgets, register_window_fn};
 use pulpkit_lua::signals::DynValue;
 use pulpkit_reactive::{ReactiveRuntime, Signal};
@@ -321,6 +321,9 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
         height: u32,
         output: Option<pulpkit_wayland::output::OutputInfo>,
         needs_initial_render: bool,
+        opacity: f32,
+        fade_animation: Option<FadeAnimation>,
+        pending_destroy: bool,
     }
 
     let mut popups: Vec<ManagedPopup> = Vec::new();
@@ -375,6 +378,9 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                 height,
                 output,
                 needs_initial_render: false,
+                opacity: 1.0,
+                fade_animation: None,
+                pending_destroy: false,
             });
 
             log::info!("Popup '{}' registered (starts hidden)", popup_def.name);
@@ -415,7 +421,8 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     log::info!("Entering event loop");
     loop {
         let has_animations = surfaces.iter().any(|s| s.animations.has_active());
-        let dispatch_timeout = if has_animations {
+        let has_popup_animations = popups.iter().any(|p| p.fade_animation.is_some());
+        let dispatch_timeout = if has_animations || has_popup_animations {
             Duration::from_millis(16) // ~60fps while animating
         } else {
             intervals
@@ -473,6 +480,11 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                                         None,
                                         &mut no_anims,
                                     ));
+                                    // Apply current opacity (may be 0 at start of fade-in).
+                                    if popup.opacity < 1.0 {
+                                        apply_opacity(surface.get_buffer(), popup.opacity);
+                                        surface.commit();
+                                    }
                                     popup.needs_initial_render = false;
                                 } else {
                                     let old_w = surface.width();
@@ -754,6 +766,11 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                         None,
                         &mut no_anims,
                     ));
+                    // Apply fade opacity if animating.
+                    if popup.opacity < 1.0 {
+                        apply_opacity(surface.get_buffer(), popup.opacity);
+                        surface.commit();
+                    }
                 }
             }
         }
@@ -811,6 +828,11 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                             None,
                             &mut no_anims,
                         ));
+                        // Apply fade opacity if animating.
+                        if popup.opacity < 1.0 {
+                            apply_opacity(surface.get_buffer(), popup.opacity);
+                            surface.commit();
+                        }
                     }
                 }
             }
@@ -832,21 +854,63 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
             }
         }
 
+        // 9e. Tick popup fade animations.
+        for popup in &mut popups {
+            if let Some(ref anim) = popup.fade_animation {
+                let (opacity, done) = anim.current();
+                popup.opacity = opacity;
+
+                if done {
+                    popup.fade_animation = None;
+                    if popup.pending_destroy {
+                        // Fade-out complete — destroy the surface.
+                        log::info!("Popup '{}' fade-out complete, destroying surface", popup.name);
+                        popup.layer_surface = None;
+                        popup.layout = None;
+                        popup.visible = false;
+                        popup.pending_destroy = false;
+                        popup.opacity = 1.0;
+                        continue;
+                    }
+                }
+
+                // Re-render with current opacity.
+                if let Some(ref mut surface) = popup.layer_surface {
+                    let mut no_anims = AnimationManager::default();
+                    render_surface(
+                        surface,
+                        &popup.root_node,
+                        &text_renderer,
+                        &theme,
+                        None,
+                        &mut no_anims,
+                    );
+                    apply_opacity(surface.get_buffer(), popup.opacity);
+                    surface.commit();
+                }
+            }
+        }
+
         // 10. Check popup visibility signals — show/hide popups as needed.
         // This runs AFTER input dispatch so button handlers can toggle signals first.
         let mut popup_actions: Vec<(usize, bool)> = Vec::new();
         for (i, popup) in popups.iter().enumerate() {
             if let Some(ref sig) = popup.visible_signal {
                 let should_be_visible = matches!(sig.get(), DynValue::Bool(true));
-                if should_be_visible != popup.visible {
-                    popup_actions.push((i, should_be_visible));
+                // Show: signal true AND not visible AND not already fading out
+                if should_be_visible && !popup.visible {
+                    popup_actions.push((i, true));
+                }
+                // Hide: signal false AND visible AND not already pending destroy
+                if !should_be_visible && popup.visible && !popup.pending_destroy {
+                    popup_actions.push((i, false));
                 }
             }
         }
         for (i, should_show) in popup_actions {
             let popup = &mut popups[i];
             if should_show {
-                log::info!("Showing popup '{}'", popup.name);
+                log::info!("Showing popup '{}' (fade-in)", popup.name);
                 let parent_height = surfaces.first().map(|s| s.surface.height()).unwrap_or(36);
                 let margins = compute_popup_margins(
                     popup.popup_anchor,
@@ -873,11 +937,14 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
                     }
                 }
                 popup.visible = true;
+                popup.opacity = 0.0;
+                popup.fade_animation = Some(FadeAnimation::new(0.0, 1.0, 200));
+                popup.pending_destroy = false;
             } else {
-                log::info!("Hiding popup '{}'", popup.name);
-                popup.layer_surface = None;
-                popup.layout = None;
-                popup.visible = false;
+                // Start fade-out instead of immediate destroy.
+                log::info!("Hiding popup '{}' (fade-out)", popup.name);
+                popup.pending_destroy = true;
+                popup.fade_animation = Some(FadeAnimation::new(popup.opacity, 0.0, 150));
             }
         }
 
@@ -888,6 +955,25 @@ fn run_inner(shell_dir: &Path) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Apply a global opacity to a pixel buffer in ARGB8888 (BGRA in memory) format.
+///
+/// Multiplies every channel (B, G, R, A) by the opacity factor. This is correct
+/// for premultiplied alpha: both color and alpha channels must be scaled together.
+/// If opacity is >= 1.0, this is a no-op.
+fn apply_opacity(buffer: &mut [u8], opacity: f32) {
+    if opacity >= 1.0 {
+        return;
+    }
+    let alpha_mult = (opacity.clamp(0.0, 1.0) * 255.0) as u32;
+    // ARGB8888 format: bytes are [B, G, R, A] on little-endian
+    for pixel in buffer.chunks_exact_mut(4) {
+        pixel[0] = ((pixel[0] as u32 * alpha_mult) / 255) as u8; // B
+        pixel[1] = ((pixel[1] as u32 * alpha_mult) / 255) as u8; // G
+        pixel[2] = ((pixel[2] as u32 * alpha_mult) / 255) as u8; // R
+        pixel[3] = ((pixel[3] as u32 * alpha_mult) / 255) as u8; // A
+    }
 }
 
 /// Render a widget tree onto a layer surface and return the computed layout.

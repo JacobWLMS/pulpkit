@@ -7,7 +7,7 @@ pub mod tree;
 pub mod flex;
 pub mod paint;
 
-pub use animation::AnimationManager;
+pub use animation::{AnimationManager, FadeAnimation};
 pub use theme::Theme;
 pub use style::{StyleProps, SizeValue, FontWeight, AlignItems, JustifyContent};
 pub use tree::{Node, Direction, ButtonHandlers, SliderState, ToggleState};
