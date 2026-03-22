@@ -85,7 +85,8 @@ impl PopupAnchor {
             PopupAnchor::TopRight => SctkAnchor::TOP | SctkAnchor::RIGHT,
             PopupAnchor::BottomLeft => SctkAnchor::BOTTOM | SctkAnchor::LEFT,
             PopupAnchor::BottomRight => SctkAnchor::BOTTOM | SctkAnchor::RIGHT,
-            PopupAnchor::Center => SctkAnchor::empty(), // no edge anchor = centered by margins
+            // All 4 edges anchored + explicit size = compositor centers the surface.
+            PopupAnchor::Center => SctkAnchor::TOP | SctkAnchor::BOTTOM | SctkAnchor::LEFT | SctkAnchor::RIGHT,
         }
     }
 }
@@ -228,7 +229,9 @@ impl LayerSurface {
         layer.set_anchor(popup_anchor.to_sctk());
         layer.set_exclusive_zone(-1);
         let kb = if keyboard {
-            KeyboardInteractivity::OnDemand
+            // Exclusive grabs keyboard focus — compositor sends keyboard leave
+            // when user clicks outside, which we use for dismiss-on-outside.
+            KeyboardInteractivity::Exclusive
         } else {
             KeyboardInteractivity::None
         };

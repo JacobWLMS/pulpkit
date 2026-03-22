@@ -56,4 +56,8 @@ pub enum InputEvent {
         raw_code: u32,
         keysym: u32,
     },
+    /// Keyboard focus left a surface (user clicked outside).
+    KeyboardLeave {
+        surface_id: ObjectId,
+    },
 }

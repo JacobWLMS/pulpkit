@@ -529,10 +529,12 @@ impl KeyboardHandler for AppState {
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
         _keyboard: &wl_keyboard::WlKeyboard,
-        _surface: &wl_surface::WlSurface,
+        surface: &wl_surface::WlSurface,
         _serial: u32,
     ) {
+        let surface_id = surface.id();
         self.keyboard_surface = None;
+        self.input_events.push(InputEvent::KeyboardLeave { surface_id });
     }
 
     fn press_key(

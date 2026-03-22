@@ -149,6 +149,18 @@ pub fn run(
                             }
                         }
                     }
+                    InputEvent::KeyboardLeave { surface_id } => {
+                        // Keyboard focus lost on a popup → dismiss if dismiss_on_outside.
+                        for popup in popups.iter_mut() {
+                            if popup.surface_id().as_ref() == Some(surface_id) {
+                                if popup.config.dismiss_on_outside {
+                                    popup.dismiss();
+                                    any_handler_fired = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }

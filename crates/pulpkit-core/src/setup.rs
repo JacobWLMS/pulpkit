@@ -136,9 +136,11 @@ pub fn create_popups(
                 offset: popup_def.offset,
                 dismiss_on_outside: popup_def.dismiss_on_outside,
                 width: popup_def.width.unwrap_or(280),
-                height: popup_def.height.unwrap_or(0),
+                height: popup_def.height.unwrap_or(200),
                 output: client.state.outputs.first().cloned(),
-                keyboard: popup_def.keyboard,
+                // Keyboard grab enables dismiss-on-outside: when focus is
+                // lost (keyboard leave), the popup dismisses.
+                keyboard: popup_def.keyboard || popup_def.dismiss_on_outside,
             },
             visible_signal: popup_def.visible_signal.clone(),
             on_key,
