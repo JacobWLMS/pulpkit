@@ -15,7 +15,7 @@ return {
     warning   = "#f0c878",
   },
   spacing_scale = 4,
-  rounding = { sm = 4, md = 8, lg = 12, xl = 16, full = 9999 },
+  rounding = { sm = 0, md = 0, lg = 0, xl = 0, full = 0 },
   font_sizes = {
     xs = 10, sm = 12, base = 14, lg = 16, xl = 20,
   },
