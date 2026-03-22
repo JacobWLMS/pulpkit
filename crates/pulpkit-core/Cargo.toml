@@ -14,3 +14,6 @@ pulpkit-lua.workspace = true
 tokio.workspace = true
 calloop.workspace = true
 anyhow.workspace = true
+mlua.workspace = true
+log.workspace = true
+env_logger = "0.11"
