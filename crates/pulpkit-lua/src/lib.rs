@@ -1,9 +1,11 @@
 //! Pulpkit Lua scripting — VM setup and widget constructor functions.
 
+pub mod signals;
 pub mod vm;
 pub mod widgets;
 pub mod window;
 
+pub use signals::{DynValue, LuaComputed, LuaSignal, register_signal_api};
 pub use vm::LuaVm;
 pub use widgets::{LuaNode, register_widgets};
 pub use window::{MonitorTarget, WindowDef, WindowRegistry, register_window_fn};
@@ -12,6 +14,7 @@ pub use window::{MonitorTarget, WindowDef, WindowRegistry, register_window_fn};
 mod tests {
     use super::*;
     use pulpkit_layout::{Theme, tree::Node};
+    use pulpkit_reactive::ReactiveRuntime;
     use std::sync::Arc;
 
     #[test]
@@ -110,5 +113,129 @@ mod tests {
         assert!(defs[0].exclusive);
         assert_eq!(defs[0].height, Some(36));
         assert!(matches!(defs[0].monitor, MonitorTarget::All));
+    }
+
+    #[test]
+    fn lua_signal_get_set() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local count = signal(0)
+                assert(count:get() == 0)
+                count:set(42)
+                assert(count:get() == 42)
+            "#,
+                )
+                .exec()
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn lua_computed_tracks_signal() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local count = signal(5)
+                local doubled = computed(function()
+                    return count:get() * 2
+                end)
+                assert(doubled:get() == 10)
+                count:set(7)
+                assert(doubled:get() == 14)
+            "#,
+                )
+                .exec()
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn lua_effect_runs_on_signal_change() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            // Use globals so they survive across load() chunks.
+            vm.lua()
+                .load(
+                    r#"
+                count = signal(0)
+                observed = signal(-1)
+                effect(function()
+                    observed:set(count:get())
+                end)
+                assert(observed:get() == 0, "effect should run immediately")
+                count:set(5)
+            "#,
+                )
+                .exec()
+                .unwrap();
+
+            // Flush queued effects
+            rt.flush();
+
+            vm.lua()
+                .load(
+                    r#"
+                assert(observed:get() == 5, "effect should have re-run after flush")
+            "#,
+                )
+                .exec()
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn lua_signal_string_value() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local name = signal("hello")
+                assert(name:get() == "hello")
+                name:set("world")
+                assert(name:get() == "world")
+            "#,
+                )
+                .exec()
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn lua_signal_bool_value() {
+        let rt = ReactiveRuntime::new();
+        rt.enter(|| {
+            let vm = LuaVm::new().unwrap();
+            register_signal_api(vm.lua()).unwrap();
+
+            vm.lua()
+                .load(
+                    r#"
+                local flag = signal(false)
+                assert(flag:get() == false)
+                flag:set(true)
+                assert(flag:get() == true)
+            "#,
+                )
+                .exec()
+                .unwrap();
+        });
     }
 }
