@@ -79,6 +79,9 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     if !shell_path.exists() {
         anyhow::bail!("shell.lua not found in {}", shell_dir.display());
     }
+    // Set shell_dir global so Lua can find lib.lua etc.
+    lua.globals().set("shell_dir", shell_dir.to_string_lossy().as_ref())
+        .map_err(|e| anyhow::anyhow!("Failed to set shell_dir: {e}"))?;
     vm.load_file(&shell_path)
         .map_err(|e| anyhow::anyhow!("Failed to load shell.lua: {e}"))?;
     log::info!("shell.lua loaded successfully");
