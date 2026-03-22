@@ -67,9 +67,47 @@ pub struct AppState {
     cursor_theme: Option<CursorTheme>,
     /// Cursor surface for rendering the cursor.
     cursor_surface: Option<wl_surface::WlSurface>,
+    /// Last pointer enter serial (needed for set_cursor).
+    last_pointer_serial: u32,
+    /// Current cursor name (avoid redundant set_cursor calls).
+    current_cursor: String,
 
     /// Set to true when the compositor requests closing a layer surface.
     pub exit_requested: bool,
+}
+
+impl AppState {
+    /// Set the pointer cursor shape by name (e.g., "default", "pointer", "col-resize").
+    /// No-op if the cursor is already set to the requested shape.
+    pub fn set_cursor(&mut self, name: &str) {
+        if self.current_cursor == name {
+            return;
+        }
+        self.current_cursor = name.to_string();
+
+        let Some(theme) = &mut self.cursor_theme else {
+            return;
+        };
+        let Some(cursor_surface) = &self.cursor_surface else {
+            return;
+        };
+        let Some(cursor) = theme.get_cursor(name) else {
+            return;
+        };
+
+        let image = &cursor[0];
+        let (hx, hy) = image.hotspot();
+        let (w, h) = image.dimensions();
+        let wl_buffer: &wayland_client::protocol::wl_buffer::WlBuffer = image;
+        cursor_surface.attach(Some(wl_buffer), 0, 0);
+        cursor_surface.damage_buffer(0, 0, w as i32, h as i32);
+        cursor_surface.commit();
+
+        // Set on all active pointers.
+        for pointer in &self.pointers {
+            pointer.set_cursor(self.last_pointer_serial, Some(cursor_surface), hx as i32, hy as i32);
+        }
+    }
 }
 
 /// A configure event received for a layer surface.
@@ -122,6 +160,8 @@ impl WaylandClient {
             pointers: Vec::new(),
             cursor_theme,
             cursor_surface: Some(cursor_surface),
+            last_pointer_serial: 0,
+            current_cursor: "default".into(),
             exit_requested: false,
         };
 
@@ -356,6 +396,8 @@ impl PointerHandler for AppState {
                 PointerEventKind::Enter { serial, .. } => {
                     self.pointer_surface = Some(surface_id.clone());
                     self.pointer_position = Some((x, y));
+                    self.last_pointer_serial = *serial;
+                    self.current_cursor = String::new(); // force re-set
 
                     // Set the cursor to the default arrow.
                     if let (Some(theme), Some(cursor_surface)) =

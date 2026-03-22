@@ -173,6 +173,9 @@ fn dispatch_scroll_on_layout(
 
 /// Dispatch hover events — updates hovered_node, fires on_hover/on_hover_lost.
 ///
+/// Finds the nearest enclosing button with hover handlers (not the deepest
+/// hit node, which might be a text child inside the button).
+///
 /// Returns true if the hover state changed (surface needs re-render).
 pub fn dispatch_hover(
     surfaces: &mut [ManagedSurface],
@@ -190,17 +193,17 @@ pub fn dispatch_hover(
         }
 
         if let Some(ref layout) = surface.layout {
-            let hit = hit_test(layout, fx, fy);
-            if hit != surface.hovered_node {
-                // Fire on_hover_lost for the old node.
+            // Find the deepest Interactive::Button that contains the point
+            // (not the deepest node of any type).
+            let hover_target = find_hoverable_button(layout, fx, fy);
+            if hover_target != surface.hovered_node {
                 if let Some(old_idx) = surface.hovered_node {
                     fire_hover_handler(&layout.nodes[old_idx].source_node, false);
                 }
-                // Fire on_hover for the new node.
-                if let Some(new_idx) = hit {
+                if let Some(new_idx) = hover_target {
                     fire_hover_handler(&layout.nodes[new_idx].source_node, true);
                 }
-                surface.hovered_node = hit;
+                surface.hovered_node = hover_target;
                 surface.mark_dirty();
                 changed = true;
             }
@@ -229,6 +232,26 @@ pub fn dispatch_leave(surfaces: &mut [ManagedSurface], surface_id: &ObjectId) ->
         break;
     }
     changed
+}
+
+/// Find the deepest Interactive::Button node that contains the point and has
+/// hover handlers. Walks layout in reverse (deepest first).
+fn find_hoverable_button(layout: &LayoutResult, x: f32, y: f32) -> Option<usize> {
+    for (i, node) in layout.nodes.iter().enumerate().rev() {
+        if x < node.x || x > node.x + node.width || y < node.y || y > node.y + node.height {
+            continue;
+        }
+        if let Node::Interactive {
+            kind: InteractiveKind::Button { handlers },
+            ..
+        } = &node.source_node
+        {
+            if handlers.on_hover.is_some() || handlers.on_hover_lost.is_some() {
+                return Some(i);
+            }
+        }
+    }
+    None
 }
 
 /// Fire on_hover or on_hover_lost for an interactive node.

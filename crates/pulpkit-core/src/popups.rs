@@ -68,28 +68,67 @@ impl ManagedPopup {
     }
 
     /// Create the Wayland surface and transition to Creating state.
-    pub fn show(&mut self, app_state: &mut AppState, parent_height: u32) {
+    ///
+    /// Positions the popup below the click location. Auto-sizes height from
+    /// content layout if the configured height is 0.
+    pub fn show_at(
+        &mut self,
+        app_state: &mut AppState,
+        parent_height: u32,
+        parent_width: u32,
+        click_x: f64,
+        text_renderer: &TextRenderer,
+        theme: &Theme,
+    ) {
         if !matches!(self.state, PopupState::Hidden) {
             return;
         }
 
-        let margins = compute_popup_margins(
-            self.config.anchor,
-            parent_height,
-            self.config.offset,
-        );
+        let popup_width = self.config.width;
 
+        // Auto-size height: lay out the content to measure it.
+        let popup_height = if self.config.height == 0 {
+            let measured = compute_layout(
+                &self.root,
+                popup_width as f32,
+                10000.0,
+                text_renderer,
+                &theme.font_family,
+            );
+            let h = measured.nodes.first().map(|n| n.height).unwrap_or(200.0);
+            (h.ceil() as u32).max(40)
+        } else {
+            self.config.height
+        };
+
+        // Position: center popup horizontally under the click point, flush
+        // against the bar (no gap). Clamp so it stays on screen.
+        let popup_left = (click_x as i32 - popup_width as i32 / 2)
+            .max(0)
+            .min(parent_width as i32 - popup_width as i32);
+
+        let margins = SurfaceMargins {
+            top: parent_height as i32,
+            left: popup_left,
+            right: 0,
+            bottom: 0,
+        };
+
+        // Always use TopLeft anchor — we control position via left margin.
         match LayerSurface::new_popup(
             app_state,
-            self.config.anchor,
-            self.config.width,
-            self.config.height,
+            PopupAnchor::TopLeft,
+            popup_width,
+            popup_height,
             margins,
             format!("pulpkit-popup-{}", self.name),
             self.config.output.as_ref().map(|o| &o.wl_output),
         ) {
             Ok(surface) => {
-                log::info!("Showing popup '{}' (fade-in)", self.name);
+                log::info!(
+                    "Showing popup '{}' at x={} ({}x{})",
+                    self.name, popup_left, popup_width, popup_height,
+                );
                 self.state = PopupState::Creating { surface };
             }
             Err(e) => {
@@ -284,8 +323,10 @@ fn render_popup_surface(
 
     let buf = surface.get_buffer();
     if let Some(mut canvas) = Canvas::from_buffer(buf, w as i32, h as i32) {
-        let bg = theme.colors.get("base").copied().unwrap_or_default();
-        canvas.clear(bg);
+        // Clear to transparent — the Lua content provides its own background
+        // (e.g., bg-surface with rounded corners). A solid base fill would
+        // create a visible rectangle behind the rounded popup.
+        canvas.clear(pulpkit_render::Color::new(0, 0, 0, 0));
         paint_tree(&mut canvas, &layout, &theme.font_family);
         canvas.flush();
     }
