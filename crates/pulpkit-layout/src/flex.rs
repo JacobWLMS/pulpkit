@@ -206,6 +206,22 @@ fn collect_layout(
     }
 }
 
+/// Find the deepest (most specific) layout node at position (x, y).
+/// Returns the index into LayoutResult.nodes, or None if no node contains the point.
+/// Nodes are in pre-order depth-first order, so later nodes are children/deeper.
+/// We want the last (deepest) match.
+pub fn hit_test(layout: &LayoutResult, x: f32, y: f32) -> Option<usize> {
+    let mut result = None;
+    for (i, node) in layout.nodes.iter().enumerate() {
+        if x >= node.x && x <= node.x + node.width
+            && y >= node.y && y <= node.y + node.height
+        {
+            result = Some(i); // keep updating — last match is deepest
+        }
+    }
+    result
+}
+
 /// Convert `StyleProps` to a `taffy::Style`.
 fn to_taffy_style(
     props: &crate::style::StyleProps,

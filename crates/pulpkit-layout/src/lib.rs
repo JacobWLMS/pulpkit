@@ -9,7 +9,7 @@ pub mod paint;
 pub use theme::Theme;
 pub use style::{StyleProps, SizeValue, FontWeight, AlignItems, JustifyContent};
 pub use tree::{Node, Direction};
-pub use flex::{compute_layout, LayoutResult, LayoutNode};
+pub use flex::{compute_layout, hit_test, LayoutResult, LayoutNode};
 pub use paint::paint_tree;
 
 #[cfg(test)]
@@ -45,5 +45,24 @@ mod tests {
         // Last text node should be pushed to the right edge by the spacer
         let last = result.nodes.last().unwrap();
         assert!(last.x > 100.0, "spacer should push last child to right half, got x={}", last.x);
+    }
+
+    #[test]
+    fn hit_test_finds_node() {
+        use crate::flex::{LayoutResult, LayoutNode, hit_test};
+
+        // Create a simple layout with known positions
+        let layout = LayoutResult {
+            nodes: vec![
+                LayoutNode { x: 0.0, y: 0.0, width: 200.0, height: 36.0, source_node: Node::Spacer },
+                LayoutNode { x: 10.0, y: 5.0, width: 50.0, height: 26.0, source_node: Node::Spacer },
+            ],
+        };
+        // Point inside child
+        assert_eq!(hit_test(&layout, 20.0, 10.0), Some(1));
+        // Point outside child but inside parent
+        assert_eq!(hit_test(&layout, 150.0, 10.0), Some(0));
+        // Point outside everything
+        assert_eq!(hit_test(&layout, 300.0, 10.0), None);
     }
 }
