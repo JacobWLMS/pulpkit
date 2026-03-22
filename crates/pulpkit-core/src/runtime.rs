@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use calloop::channel;
 use pulpkit_lua::{
-    LuaVm, register_interval_fn, register_popup_fn, register_signal_api, register_widgets,
+    LuaVm, register_timer_api, register_popup_fn, register_signal_api, register_widgets,
     register_window_fn,
 };
 use pulpkit_reactive::ReactiveRuntime;
@@ -41,10 +41,9 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
 fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     let _ipc = IpcServer::new();
 
-    // 0. File watcher (hot-reload — Wave 2).
-    let watcher = watcher::FileWatcher::new(shell_dir)?;
-    log::info!("File watcher active on {}", shell_dir.display());
-    while watcher.poll().is_some() {}
+    // 0. File watcher disabled — causes spurious events from Lua I/O (Wave 2 fix).
+    // let watcher = watcher::FileWatcher::new(shell_dir)?;
+    // while watcher.poll().is_some() {}
 
     // 1. Lua VM.
     let vm = LuaVm::new().map_err(|e| anyhow::anyhow!("Failed to create Lua VM: {e}"))?;
@@ -59,6 +58,8 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to register widgets: {e}"))?;
     register_signal_api(lua)
         .map_err(|e| anyhow::anyhow!("Failed to register signal API: {e}"))?;
+    pulpkit_lua::register_system_api(lua)
+        .map_err(|e| anyhow::anyhow!("Failed to register system API: {e}"))?;
 
     let window_registry = pulpkit_lua::WindowRegistry::default();
     register_window_fn(lua, window_registry.clone())
@@ -68,9 +69,10 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     register_popup_fn(lua, popup_registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register popup fn: {e}"))?;
 
-    let interval_registry = pulpkit_lua::IntervalRegistry::default();
-    register_interval_fn(lua, interval_registry.clone())
-        .map_err(|e| anyhow::anyhow!("Failed to register set_interval fn: {e}"))?;
+    let timer_registry = pulpkit_lua::TimerRegistry::default();
+    let cancelled_timers = pulpkit_lua::CancelledTimers::default();
+    register_timer_api(lua, timer_registry.clone(), cancelled_timers.clone())
+        .map_err(|e| anyhow::anyhow!("Failed to register timer API: {e}"))?;
 
     // 4. Execute shell.lua.
     let shell_path = shell_dir.join("shell.lua");
@@ -119,14 +121,15 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     crate::dirty::wire_dirty_tracking(&surfaces, &wake_sender);
 
     let mut popups = setup::create_popups(&popup_registry.borrow(), lua, &client)?;
-    let mut intervals = setup::create_intervals(&interval_registry.borrow(), lua)?;
+    let mut timers = setup::create_timers(&timer_registry.borrow(), lua)?;
 
     // 8. Enter the event loop.
     event_loop::run(
         &mut client,
         &mut surfaces,
         &mut popups,
-        &mut intervals,
+        &mut timers,
+        &cancelled_timers,
         lua,
         &text_renderer,
         &theme,

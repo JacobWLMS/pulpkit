@@ -15,7 +15,7 @@ use pulpkit_wayland::{
 
 use crate::popups::{ManagedPopup, PopupConfig, PopupState};
 use crate::surfaces::ManagedSurface;
-use crate::timers::ActiveInterval;
+use crate::timers::ActiveTimer;
 
 pub fn create_surfaces(
     window_defs: &[pulpkit_lua::WindowDef],
@@ -144,32 +144,35 @@ pub fn create_popups(
     Ok(popups)
 }
 
-pub fn create_intervals(
-    interval_defs: &[pulpkit_lua::IntervalDef],
+pub fn create_timers(
+    timer_defs: &[pulpkit_lua::TimerDef],
     lua: &Lua,
-) -> anyhow::Result<Vec<ActiveInterval>> {
+) -> anyhow::Result<Vec<ActiveTimer>> {
     let now = Instant::now();
-    let mut intervals = Vec::new();
+    let mut timers = Vec::new();
 
-    for def in interval_defs {
+    for def in timer_defs {
         let interval = Duration::from_millis(def.interval_ms);
         let callback_key = lua
             .registry_value::<LuaFunction>(&def.callback_key)
             .and_then(|f| lua.create_registry_value(f))
-            .map_err(|e| anyhow::anyhow!("Failed to clone interval callback: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("Failed to clone timer callback: {e}"))?;
 
-        intervals.push(ActiveInterval {
+        timers.push(ActiveTimer {
+            id: def.id,
             callback_key,
             interval,
             next_fire: now + interval,
+            one_shot: def.one_shot,
+            cancelled: false,
         });
     }
 
-    if !intervals.is_empty() {
-        log::info!("{} interval(s) registered", intervals.len());
+    if !timers.is_empty() {
+        log::info!("{} timer(s) registered", timers.len());
     }
 
-    Ok(intervals)
+    Ok(timers)
 }
 
 fn resolve_outputs(

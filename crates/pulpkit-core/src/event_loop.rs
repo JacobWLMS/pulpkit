@@ -4,21 +4,23 @@ use std::time::Duration;
 
 use mlua::prelude::*;
 use pulpkit_layout::Theme;
+use pulpkit_layout::tree::{InteractiveKind, Node};
 use pulpkit_reactive::ReactiveRuntime;
 use pulpkit_render::TextRenderer;
-use pulpkit_wayland::{InputEvent, WaylandClient};
+use pulpkit_wayland::{AppState, InputEvent, WaylandClient};
 
 use crate::events::{self, ClickResult};
 use crate::popups::{ManagedPopup, PopupState};
 use crate::surfaces::ManagedSurface;
-use crate::timers::{self, ActiveInterval};
+use crate::timers::{self, ActiveTimer};
 
 /// Run the main event loop. Returns when the compositor requests exit.
 pub fn run(
     client: &mut WaylandClient,
     surfaces: &mut Vec<ManagedSurface>,
     popups: &mut Vec<ManagedPopup>,
-    intervals: &mut Vec<ActiveInterval>,
+    timers: &mut Vec<ActiveTimer>,
+    cancelled_timers: &pulpkit_lua::CancelledTimers,
     lua: &Lua,
     text_renderer: &TextRenderer,
     theme: &Theme,
@@ -33,7 +35,7 @@ pub fn run(
         let timeout = if animating {
             Duration::from_millis(16) // ~60fps
         } else {
-            timers::next_interval_timeout(intervals, Duration::from_secs(60))
+            timers::next_timer_timeout(timers, Duration::from_secs(60))
         };
 
         client
@@ -86,9 +88,11 @@ pub fn run(
                         x, y, surface_id, ..
                     } => {
                         events::dispatch_hover(surfaces, *x, *y, surface_id);
+                        update_cursor(surfaces, &mut client.state);
                     }
                     InputEvent::PointerLeave { surface_id, .. } => {
                         events::dispatch_leave(surfaces, surface_id);
+                        client.state.set_cursor("default");
                     }
                     InputEvent::PointerButton {
                         surface_id,
@@ -99,14 +103,16 @@ pub fn run(
                     } => {
                         // BTN_LEFT = 0x110
                         if *button == 0x110 {
+                            // Always dismiss popups on clicks outside the popup surface,
+                            // even if the click hit a bar button (the button's handler
+                            // runs too — e.g., toggle_popup closes all first).
+                            dismiss_popups_on_outside_click(popups, surface_id);
+
                             let result = events::dispatch_click(
                                 surfaces, popups, *x, *y, surface_id,
                             );
                             if result == ClickResult::Handled {
                                 any_handler_fired = true;
-                            } else {
-                                // Click missed all interactive widgets — dismiss popups.
-                                dismiss_popups_on_outside_click(popups, surface_id);
                             }
                         }
                     }
@@ -130,8 +136,18 @@ pub fn run(
             }
         }
 
-        // --- Fire interval callbacks ---
-        if timers::fire_due_intervals(intervals, lua) {
+        // --- Process timer cancellations from Lua ---
+        {
+            let mut cancelled = cancelled_timers.borrow_mut();
+            for id in cancelled.drain(..) {
+                if let Some(timer) = timers.iter_mut().find(|t| t.id == id) {
+                    timer.cancelled = true;
+                }
+            }
+        }
+
+        // --- Fire timer callbacks ---
+        if timers::fire_due_timers(timers, lua) {
             any_handler_fired = true;
         }
 
@@ -141,12 +157,16 @@ pub fn run(
         rt.flush();
 
         // --- Check popup visibility signals ---
+        let bar_info = surfaces.first().map(|s| {
+            (s.surface.height(), s.surface.width())
+        });
+        let click_x = client.state.pointer_position.map(|(x, _)| x).unwrap_or(0.0);
         for popup in popups.iter_mut() {
             let wants_visible = popup.should_be_visible();
             match &popup.state {
                 PopupState::Hidden if wants_visible => {
-                    let parent_h = surfaces.first().map(|s| s.surface.height()).unwrap_or(36);
-                    popup.show(&mut client.state, parent_h);
+                    let (parent_h, parent_w) = bar_info.unwrap_or((48, 1920));
+                    popup.show_at(&mut client.state, parent_h, parent_w, click_x, text_renderer, theme);
                 }
                 PopupState::Visible { .. } | PopupState::FadingIn { .. }
                     if !wants_visible =>
@@ -213,4 +233,25 @@ fn dismiss_popups_on_outside_click(
             _ => {}
         }
     }
+}
+
+/// Set the pointer cursor based on the currently hovered widget type.
+fn update_cursor(surfaces: &[ManagedSurface], app_state: &mut AppState) {
+    for surface in surfaces {
+        if let Some(idx) = surface.hovered_node {
+            if let Some(ref layout) = surface.layout {
+                if let Some(node) = layout.nodes.get(idx) {
+                    let cursor = match &node.source_node {
+                        Node::Interactive { kind: InteractiveKind::Button { .. }, .. } => "pointer",
+                        Node::Interactive { kind: InteractiveKind::Slider { .. }, .. } => "col-resize",
+                        Node::Interactive { kind: InteractiveKind::Toggle { .. }, .. } => "pointer",
+                        _ => "default",
+                    };
+                    app_state.set_cursor(cursor);
+                    return;
+                }
+            }
+        }
+    }
+    app_state.set_cursor("default");
 }
