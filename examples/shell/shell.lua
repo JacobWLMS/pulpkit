@@ -41,7 +41,6 @@ function init()
     bat_pct    = 0,
     bat_state  = "unknown",
     bright     = 50,
-    bright_max = 100,
     workspaces = {},
     wifi_ssid  = "",
     wifi_list  = {},
@@ -61,6 +60,25 @@ function update(state, msg)
 
   if t == "tick" then
     state.time = os.date("%H:%M")
+    -- Poll CPU/RAM on each tick via Lua io
+    local cpu_f = io.popen("top -bn1 | grep 'Cpu(s)' | awk '{print $8}'")
+    if cpu_f then
+      local idle = cpu_f:read("*l")
+      if idle then state.cpu = math.floor(100 - tonumber(idle)) end
+      cpu_f:close()
+    end
+    local ram_f = io.popen("free -m | awk '/Mem:/{print $2\" \"$3}'")
+    if ram_f then
+      local line = ram_f:read("*l")
+      if line then
+        local total, used = line:match("(%d+)%s+(%d+)")
+        if total then
+          state.ram_total = math.floor(tonumber(total) / 1024)
+          state.ram_used = math.floor(tonumber(used) / 1024)
+        end
+      end
+      ram_f:close()
+    end
   elseif t == "user" then state.user = msg.data or "?"
   elseif t == "host" then state.host = msg.data or "?"
 
@@ -87,13 +105,8 @@ function update(state, msg)
   -- Brightness
   elseif t == "bright_info" then
     if msg.data then
-      local b = msg.data:match("(%d+)")
-      if b then state.bright = tonumber(b) end
-    end
-  elseif t == "bright_max_info" then
-    if msg.data then
-      local m = msg.data:match("(%d+)")
-      if m then state.bright_max = tonumber(m) end
+      local pct = msg.data:match("(%d+)")
+      if pct then state.bright = tonumber(pct) end
     end
   elseif t == "set_bright" then
     local pct = math.floor(msg.data or state.bright)
@@ -124,36 +137,6 @@ function update(state, msg)
       if ssid and ssid ~= "" then state.wifi_ssid = ssid
       else state.wifi_ssid = "" end
     end
-  elseif t == "wifi_scan" then
-    if msg.data then
-      local list = {}
-      for line in msg.data:gmatch("[^\n]+") do
-        local ssid, sig, sec, active = line:match("^(.-):(%d+):(.-):(.-)$")
-        if ssid and ssid ~= "" then
-          table.insert(list, {
-            id = ssid,
-            ssid = ssid,
-            signal = tonumber(sig) or 0,
-            secure = sec ~= "",
-            active = active == "yes",
-          })
-        end
-      end
-      -- Deduplicate and sort
-      local seen = {}
-      local unique = {}
-      for _, net in ipairs(list) do
-        if not seen[net.ssid] then
-          seen[net.ssid] = true
-          table.insert(unique, net)
-        end
-      end
-      table.sort(unique, function(a, b)
-        if a.active ~= b.active then return a.active end
-        return a.signal > b.signal
-      end)
-      state.wifi_list = unique
-    end
   elseif t == "wifi_connect" then
     if msg.data then
       os.execute("nmcli dev wifi connect '" .. msg.data .. "' &")
@@ -161,26 +144,38 @@ function update(state, msg)
   elseif t == "wifi_disconnect" then
     os.execute("nmcli dev disconnect wlan0 &")
 
-  -- Resources
-  elseif t == "cpu_info" then
-    if msg.data then
-      local idle = msg.data:match("(%d+%.?%d*)")
-      if idle then state.cpu = math.floor(100 - tonumber(idle)) end
-    end
-  elseif t == "ram_info" then
-    if msg.data then
-      local total, used = msg.data:match("(%d+)%s+(%d+)")
-      if total and used then
-        state.ram_total = math.floor(tonumber(total) / 1024)
-        state.ram_used = math.floor(tonumber(used) / 1024)
-      end
-    end
-
   -- Popups
   elseif t == "toggle" then
     local name = msg.data
     if type(name) == "string" then
       state.popup = state.popup == name and nil or name
+      -- Scan wifi when opening wifi popup
+      if state.popup == "wifi" then
+        local f = io.popen("nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list 2>/dev/null")
+        if f then
+          local raw = f:read("*a")
+          f:close()
+          local list = {}
+          local seen = {}
+          for line in raw:gmatch("[^\n]+") do
+            local ssid, sig, sec, active = line:match("^(.-):(%d+):(.-):(.-)$")
+            if ssid and ssid ~= "" and not seen[ssid] then
+              seen[ssid] = true
+              table.insert(list, {
+                id = ssid, ssid = ssid,
+                signal = tonumber(sig) or 0,
+                secure = sec ~= "",
+                active = active == "yes",
+              })
+            end
+          end
+          table.sort(list, function(a, b)
+            if a.active ~= b.active then return a.active end
+            return a.signal > b.signal
+          end)
+          state.wifi_list = list
+        end
+      end
     end
   elseif t == "dismiss" then
     state.popup = nil
@@ -285,9 +280,6 @@ function view(state)
 
   -- === Brightness Popup ===
   if state.popup == "bright" then
-    local pct = state.bright_max > 0
-      and math.floor(state.bright / state.bright_max * 100)
-      or state.bright
     table.insert(surfaces, popup("bright", {
       anchor = "top right", width = 260, height = 120, dismiss_on_outside = true,
     },
@@ -296,9 +288,9 @@ function view(state)
           text({ style = "text-base text-muted" }, I.bright),
           text({ style = "text-sm text-fg font-bold" }, "Brightness"),
           spacer(),
-          text({ style = "text-xs text-muted" }, pct .. "%")
+          text({ style = "text-xs text-muted" }, state.bright .. "%")
         ),
-        slider({ value = pct, min = 0, max = 100, on_change = msg("set_bright") })
+        slider({ value = state.bright, min = 0, max = 100, on_change = msg("set_bright") })
       )
     ))
   end
@@ -393,17 +385,10 @@ function subscribe(state)
     exec("wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null", "audio_info"),
     exec("cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo 100", "bat_info"),
     exec("cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo Unknown", "bat_state_info"),
-    exec("brightnessctl g 2>/dev/null || echo 50", "bright_info"),
-    exec("brightnessctl m 2>/dev/null || echo 100", "bright_max_info"),
+    exec("brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d '%' || echo 50", "bright_info"),
     exec("niri msg -j workspaces 2>/dev/null", "ws_info"),
     exec("nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | grep '^yes' | head -1", "wifi_info"),
-    exec("top -bn1 | grep 'Cpu(s)' | awk '{print $8}'", "cpu_info"),
-    exec("free -m | awk '/Mem:/{print $2\" \"$3}'", "ram_info"),
     ipc("ipc_cmd"),
   }
-  -- Scan wifi when popup is open
-  if state.popup == "wifi" then
-    table.insert(subs, exec("nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list 2>/dev/null", "wifi_scan"))
-  end
   return subs
 end
