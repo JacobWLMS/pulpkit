@@ -1,3 +1,5 @@
+-- Pulpkit v3 interactive demo — workspace dots, volume popup, system info
+
 function init()
   return {
     time = os.date("%H:%M"),
@@ -5,6 +7,7 @@ function init()
     host = "...",
     vol = 50,
     popup_open = false,
+    workspaces = {},
   }
 end
 
@@ -21,8 +24,22 @@ function update(state, msg)
     state.popup_open = not state.popup_open
   elseif msg.type == "dismiss" then
     state.popup_open = false
-  elseif msg.type == "ipc_cmd" then
-    -- IPC commands can be anything — for now just log
+  elseif msg.type == "workspaces" then
+    -- Parse JSON workspace list from niri
+    local ws = {}
+    if msg.data then
+      -- Simple JSON array parsing for workspace objects
+      for id, idx, active in msg.data:gmatch('"id":(%d+).-"idx":(%d+).-"is_focused":(.-)[,}]') do
+        table.insert(ws, {
+          id = tostring(id),
+          idx = tonumber(idx),
+          active = active:find("true") ~= nil,
+        })
+      end
+    end
+    if #ws > 0 then
+      state.workspaces = ws
+    end
   end
   return state
 end
@@ -31,13 +48,21 @@ function view(state)
   local surfaces = {
     window("bar", { anchor = "top", height = 44, exclusive = true, monitor = "all" },
       row({ style = "bg-base w-full h-full items-center px-4 gap-4" },
-        -- Left: branding
-        text({ style = "text-lg text-primary font-bold" }, "\u{f313}"),
-        text({ style = "text-base text-primary font-bold" }, "pulpkit v3"),
+        -- Left: workspace dots
+        each(state.workspaces, "id", function(ws)
+          return button({
+            style = ws.active and "bg-primary rounded-full p-1" or "bg-muted rounded-full p-1",
+          },
+            text({ style = "text-xs text-base" }, tostring(ws.idx))
+          )
+        end),
+
+        -- Branding
+        text({ style = "text-base text-primary font-bold" }, "\u{f313} pulpkit"),
 
         spacer(),
 
-        -- Volume button (toggles popup)
+        -- Volume
         button({ on_click = msg("toggle_popup"), style = "p-2 hover:bg-surface rounded" },
           text({ style = "text-base text-fg" }, "\u{f028} " .. math.floor(state.vol))
         ),
@@ -49,7 +74,6 @@ function view(state)
     )
   }
 
-  -- Popup: volume control
   if state.popup_open then
     table.insert(surfaces, popup("vol", {
       anchor = "top right", width = 280, height = 120,
@@ -71,9 +95,10 @@ end
 
 function subscribe(state)
   return {
-    interval(60000, "tick"),
+    interval(1000, "tick"),
     exec("whoami", "user"),
     exec("hostname", "host"),
+    exec("niri msg -j workspaces", "workspaces"),
     ipc("ipc_cmd"),
   }
 end
