@@ -70,7 +70,7 @@ fn paint_element_recursive(
         }
         Element::Text { style, content } => {
             let color = style.text_color.unwrap_or(Color::new(200, 200, 200, 255));
-            let font_size = style.font_size.unwrap_or(21.0);
+            let font_size = style.font_size.unwrap_or(13.0);
             canvas.draw_text(content, node.x + style.padding_left, node.y + style.padding_top, font_size, font_family, color, text_renderer);
         }
         Element::Button { style, hover_style, children, .. } => {
@@ -128,7 +128,7 @@ fn paint_element_recursive(
             } else {
                 style.text_color.unwrap_or(Color::new(200, 200, 200, 255))
             };
-            let font_size = style.font_size.unwrap_or(21.0);
+            let font_size = style.font_size.unwrap_or(13.0);
             canvas.draw_text(display, node.x + style.padding_left, node.y + style.padding_top, font_size, font_family, color, text_renderer);
         }
         Element::Each { children, .. } => {
