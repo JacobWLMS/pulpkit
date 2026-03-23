@@ -1,8 +1,8 @@
 //! Paint pipeline — walks the element tree and issues draw calls using layout positions.
 
 use crate::damage::DamageRect;
-use crate::element::{Direction, Element, KeyedChild};
-use crate::flex::{LayoutNode, LayoutResult};
+use crate::element::Element;
+use crate::flex::LayoutResult;
 use pulpkit_render::{Canvas, Color, TextRenderer};
 
 /// Paint the laid-out elements onto the canvas.

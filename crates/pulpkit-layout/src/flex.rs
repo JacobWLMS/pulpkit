@@ -97,7 +97,7 @@ fn build_taffy_node(
     text_renderer: &TextRenderer,
     font_family: &str,
 ) -> NodeId {
-    let idx = flat.len();
+    let _idx = flat.len();
     flat.push(elem_idx);
 
     match element {

@@ -27,7 +27,7 @@ use wayland_client::{
     backend::ObjectId,
     globals::registry_queue_init,
     protocol::{
-        wl_compositor, wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface,
+        wl_keyboard, wl_output, wl_pointer, wl_seat, wl_surface,
     },
     Connection, Proxy, QueueHandle,
 };

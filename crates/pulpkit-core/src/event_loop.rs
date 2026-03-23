@@ -150,7 +150,7 @@ pub fn run(
                             active_drag = None;
                         }
                     }
-                    InputEvent::PointerAxis { x, y, surface_id, .. } => {
+                    InputEvent::PointerAxis { x: _, y: _, surface_id, .. } => {
                         // Scroll events — mark surface dirty for hover update
                         for surface in surfaces.iter_mut() {
                             if surface.surface.surface_id() == *surface_id {

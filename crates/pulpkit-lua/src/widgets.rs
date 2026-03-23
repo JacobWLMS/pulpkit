@@ -240,7 +240,7 @@ fn build_input(theme: &Theme, opts: &LuaTable) -> LuaResult<LuaElement> {
 
 fn build_each(
     _theme: &Theme,
-    lua: &Lua,
+    _lua: &Lua,
     list: &LuaTable,
     key_field: &str,
     render_fn: &LuaFunction,
@@ -292,7 +292,7 @@ fn build_surface(
     let exclusive: bool = opts.get("exclusive").unwrap_or(false);
     let dismiss_on_outside: bool = opts.get("dismiss_on_outside").unwrap_or(false);
     let monitor_str: String = opts.get("monitor").unwrap_or_else(|_| "primary".into());
-    let monitor = match monitor_str.as_str() {
+    let _monitor = match monitor_str.as_str() {
         "all" => MonitorTarget::All,
         "primary" => MonitorTarget::Primary,
         other => MonitorTarget::Named(other.into()),
@@ -345,6 +345,8 @@ pub fn lua_table_to_surface_def(table: &LuaTable) -> LuaResult<SurfaceDef> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use pulpkit_layout::Theme;
 
     fn setup() -> (Lua, Arc<Theme>) {
         let lua = Lua::new();

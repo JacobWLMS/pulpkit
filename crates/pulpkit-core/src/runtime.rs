@@ -8,7 +8,7 @@ use calloop::channel;
 use pulpkit_lua::{
     ElmBridge, LuaVm, register_msg_api, register_subscribe_api, register_widgets,
 };
-use pulpkit_layout::element::{Message, SurfaceDef, SurfaceKind, MonitorTarget};
+use pulpkit_layout::element::{SurfaceDef, SurfaceKind};
 use pulpkit_layout::Theme;
 use pulpkit_render::TextRenderer;
 use pulpkit_sub::{SubMessage, SubscriptionManager};
@@ -99,7 +99,7 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
     let mut sub_manager = SubscriptionManager::new(sub_sender);
 
     // Wake channel for non-subscription events (e.g., dirty tracking)
-    let (msg_sender, msg_channel) = channel::channel::<RuntimeMsg>();
+    let (_msg_sender, msg_channel) = channel::channel::<RuntimeMsg>();
     client.event_loop.handle()
         .insert_source(msg_channel, |event, _, _state| {
             if let channel::Event::Msg(RuntimeMsg::Redraw) = event {
@@ -163,7 +163,7 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
 fn create_surfaces(
     defs: &[SurfaceDef],
     client: &mut WaylandClient,
-    theme: &Theme,
+    _theme: &Theme,
 ) -> anyhow::Result<Vec<ManagedSurface>> {
     let mut surfaces = Vec::new();
     for def in defs {

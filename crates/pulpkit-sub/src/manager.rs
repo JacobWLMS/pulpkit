@@ -111,7 +111,7 @@ impl SubscriptionManager {
     /// Start a stream subscription (subprocess stdout).
     pub fn start_stream(
         &mut self,
-        cmd: String,
+        _cmd: String,
         msg_name: String,
         channel_token: calloop::RegistrationToken,
         child_pid: Option<u32>,

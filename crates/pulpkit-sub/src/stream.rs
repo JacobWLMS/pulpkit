@@ -25,7 +25,7 @@ pub fn spawn_stream(
         .ok()?;
 
     let pid = child.id();
-    let (line_sender, line_receiver) = channel::channel::<SubMessage>();
+    let (_line_sender, line_receiver) = channel::channel::<SubMessage>();
 
     let name = msg_name;
     std::thread::spawn(move || {

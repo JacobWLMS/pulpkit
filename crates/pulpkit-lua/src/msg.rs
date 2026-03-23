@@ -24,7 +24,7 @@ pub fn register_msg_api(lua: &Lua) -> LuaResult<()> {
         // Tag with metatable so we can identify msg tables
         let mt = lua.create_table()?;
         mt.set("__pulpkit_msg", true)?;
-        table.set_metatable(Some(mt));
+        let _ = table.set_metatable(Some(mt));
 
         Ok(table)
     })?;

@@ -154,7 +154,7 @@ impl Element {
             Element::Container { children, .. }
             | Element::Button { children, .. }
             | Element::Scroll { children, .. } => children,
-            Element::Each { children, .. } => {
+            Element::Each { children: _, .. } => {
                 // Each children are keyed — return empty; use keyed_children() instead.
                 &[]
             }

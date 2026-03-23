@@ -1,11 +1,9 @@
 //! Managed surfaces — pairs a SurfaceDef with a Wayland LayerSurface.
 
-use std::cell::Cell;
 
-use pulpkit_layout::element::{Element, SurfaceDef};
+use pulpkit_layout::element::SurfaceDef;
 use pulpkit_layout::flex::{LayoutResult, compute_layout};
 use pulpkit_layout::paint::paint_tree;
-use pulpkit_layout::damage::DamageRect;
 use pulpkit_render::{Canvas, Color, TextRenderer};
 use pulpkit_layout::Theme;
 use pulpkit_wayland::LayerSurface;
@@ -50,6 +48,13 @@ impl ManagedSurface {
             }
             canvas.clear(Color::new(0, 0, 0, 0)); // transparent
             paint_tree(&mut canvas, &layout, &elements, &theme.font_family, text_renderer, None, hovered_node);
+        }
+
+        // Debug: dump raw buffer for inspection
+        if std::env::var("PULPKIT_DUMP_BUFFER").is_ok() {
+            let path = "/tmp/pulpkit_buffer_dump.rgba";
+            std::fs::write(path, self.surface.get_buffer()).ok();
+            log::info!("Dumped {}x{} buffer ({} bytes) to {}", bw, bh, self.surface.get_buffer().len(), path);
         }
 
         self.layout = Some(layout);

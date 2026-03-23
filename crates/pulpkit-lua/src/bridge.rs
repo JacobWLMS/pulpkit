@@ -1,12 +1,10 @@
 //! Elm bridge — calls init/update/view/subscribe lifecycle functions in Lua.
 
 use std::path::Path;
-use std::sync::Arc;
 
 use mlua::prelude::*;
 
 use pulpkit_layout::element::{Message, SurfaceDef};
-use pulpkit_layout::Theme;
 
 use crate::msg::message_to_lua_table;
 use crate::subscribe::{SubscriptionDef, parse_subscriptions};
@@ -120,6 +118,8 @@ impl ElmBridge {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use pulpkit_layout::Theme;
     use crate::{register_msg_api, register_widgets};
     use crate::subscribe::register_subscribe_api;
 
