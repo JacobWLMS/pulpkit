@@ -197,6 +197,23 @@ impl<'a> Canvas<'a> {
     pub fn pixmap_ref(&self) -> PixmapRef<'_> {
         self.pixmap.as_ref()
     }
+
+    /// Draw text onto the canvas via the TextRenderer.
+    pub fn draw_text(
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        size: f32,
+        family: &str,
+        color: crate::Color,
+        renderer: &crate::TextRenderer,
+    ) {
+        // Apply current transform to the text position
+        let tx = x + self.transform.tx;
+        let ty = y + self.transform.ty;
+        renderer.draw_text(&mut self.pixmap, text, tx, ty, family, size, color);
+    }
 }
 
 #[cfg(test)]
