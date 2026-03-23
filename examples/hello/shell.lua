@@ -122,7 +122,7 @@ set_interval(function()
     local p, s = lib.poll_battery()
     if p then bat_pct:set(p); bat_status:set(s) end
   end
-end, 10000)
+end, 30000)
 set_interval(function() date_str:set(os.date("%A, %B %d")) end, 300000)
 
 -- ============================================================================
@@ -142,11 +142,8 @@ local cursor_blink   = signal(true)
 
 -- Blink only when launcher is open — no re-render when closed.
 set_interval(function()
-  if show_launcher:get() then
-    cursor_blink:set(not cursor_blink:get())
-  else
-    cursor_blink:set(true) -- reset to visible, no-op if already true (PartialEq skip)
-  end
+  if not show_launcher:get() then return end
+  cursor_blink:set(not cursor_blink:get())
 end, 530)
 
 function close_all_popups()
