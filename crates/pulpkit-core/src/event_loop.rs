@@ -130,20 +130,18 @@ pub fn run(
                         for surface in surfaces.iter() {
                             if surface.surface.surface_id() == *surface_id {
                                 if let Some(ref layout) = surface.layout {
-                                    let hit_idx = pulpkit_layout::hit_test(layout, *x as f32, *y as f32);
-                                    if let Some(idx) = hit_idx {
-                                        if let Some(element) = layout.elements.get(idx) {
-                                            match element {
-                                                pulpkit_layout::Element::Button { on_click: Some(msg), .. } => {
-                                                    msg_batch.push(msg.clone());
-                                                }
-                                                pulpkit_layout::Element::Toggle { on_toggle: Some(msg), checked, .. } => {
-                                                    let mut m = msg.clone();
-                                                    m.data = Some(pulpkit_layout::MessageData::Bool(!checked));
-                                                    msg_batch.push(m);
-                                                }
-                                                pulpkit_layout::Element::Slider { on_change: Some(msg), min, max, .. } => {
-                                                    let node = &layout.nodes[idx];
+                                    if let Some((idx, element)) = pulpkit_layout::flex::hit_test_interactive(layout, *x as f32, *y as f32) {
+                                        match element {
+                                            pulpkit_layout::Element::Button { on_click: Some(msg), .. } => {
+                                                msg_batch.push(msg.clone());
+                                            }
+                                            pulpkit_layout::Element::Toggle { on_toggle: Some(msg), checked, .. } => {
+                                                let mut m = msg.clone();
+                                                m.data = Some(pulpkit_layout::MessageData::Bool(!checked));
+                                                msg_batch.push(m);
+                                            }
+                                            pulpkit_layout::Element::Slider { on_change: Some(msg), min, max, .. } => {
+                                                let node = &layout.nodes[idx];
                                                     active_drag = Some(SliderDrag {
                                                         on_change: msg.clone(),
                                                         min: *min, max: *max,
@@ -156,8 +154,7 @@ pub fn run(
                                                     m.data = Some(pulpkit_layout::MessageData::Float(val));
                                                     msg_batch.push(m);
                                                 }
-                                                _ => {}
-                                            }
+                                            _ => {}
                                         }
                                     }
                                 }

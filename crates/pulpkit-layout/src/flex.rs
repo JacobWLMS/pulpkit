@@ -285,6 +285,31 @@ pub fn hit_test_element(layout: &LayoutResult, x: f32, y: f32) -> Option<&Elemen
     layout.elements.get(idx)
 }
 
+/// Hit-test for interactive elements — walks all matching nodes from deepest
+/// to shallowest, returning the first Button/Toggle/Slider found.
+pub fn hit_test_interactive(layout: &LayoutResult, x: f32, y: f32) -> Option<(usize, &Element)> {
+    // Collect all nodes containing the point (deepest last due to pre-order)
+    let mut candidates: Vec<usize> = Vec::new();
+    for (i, node) in layout.nodes.iter().enumerate() {
+        if x >= node.x && x < node.x + node.width && y >= node.y && y < node.y + node.height {
+            candidates.push(i);
+        }
+    }
+
+    // Walk from deepest to shallowest, return first interactive element
+    for &idx in candidates.iter().rev() {
+        if let Some(element) = layout.elements.get(idx) {
+            match element {
+                Element::Button { .. } | Element::Toggle { .. } | Element::Slider { .. } => {
+                    return Some((idx, element));
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
 /// Flatten an element tree into a pre-order list (same order as paint/layout walk).
 fn flatten_element(element: &Element, out: &mut Vec<Element>) {
     out.push(element.clone());
