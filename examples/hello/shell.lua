@@ -15,11 +15,59 @@ local volume      = signal(0)
 local muted       = signal(false)
 local bat_pct     = signal(0)
 local bat_status  = signal("")
+local brightness  = signal(50)
 local active_ws   = signal(1)
 local ws_count    = signal(5)
 local time_str    = signal(os.date("%H:%M"))
 local date_str    = signal(os.date("%A, %B %d"))
 local has_battery = lib.read_file("/sys/class/power_supply/BAT0/capacity") ~= nil
+
+-- WiFi networks (polled, not called during render)
+local wifi_list = {}  -- plain table, updated by poll
+local wifi_version = signal(0) -- increment to trigger re-render
+
+local function poll_wifi()
+  local raw = exec_output("nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list 2>/dev/null")
+  local seen = {}
+  wifi_list = {}
+  for line in raw:gmatch("[^\n]+") do
+    local ssid, sig, sec, active = line:match("^(.-):(%d+):(.-):(.-)$")
+    if ssid and ssid ~= "" and not seen[ssid] then
+      seen[ssid] = true
+      wifi_list[#wifi_list+1] = {
+        ssid = ssid, signal = tonumber(sig) or 0,
+        secure = sec ~= "", active = active == "yes",
+      }
+    end
+  end
+  table.sort(wifi_list, function(a, b)
+    if a.active ~= b.active then return a.active end
+    return a.signal > b.signal
+  end)
+  wifi_version:set(wifi_version:get() + 1)
+end
+
+-- Bluetooth devices (polled)
+local bt_list = {}
+local bt_version = signal(0)
+
+local function poll_bluetooth()
+  local raw = exec_output("bluetoothctl devices 2>/dev/null")
+  bt_list = {}
+  for line in raw:gmatch("[^\n]+") do
+    local mac, name = line:match("Device (%S+) (.+)")
+    if mac and name then
+      local info = exec_output("bluetoothctl info " .. mac .. " 2>/dev/null")
+      local connected = info:find("Connected: yes") ~= nil
+      bt_list[#bt_list+1] = { mac = mac, name = name, connected = connected }
+    end
+  end
+  table.sort(bt_list, function(a, b)
+    if a.connected ~= b.connected then return a.connected end
+    return a.name < b.name
+  end)
+  bt_version:set(bt_version:get() + 1)
+end
 
 -- ============================================================================
 -- Event Streams (push-based, near-zero CPU)
@@ -59,6 +107,10 @@ do
     local p, s = lib.poll_battery()
     if p then bat_pct:set(p); bat_status:set(s) end
   end
+  -- Brightness
+  local bg = tonumber(exec_output("brightnessctl g 2>/dev/null")) or 0
+  local bm = tonumber(exec_output("brightnessctl m 2>/dev/null")) or 1
+  if bm > 0 then brightness:set(math.floor(bg / bm * 100)) end
 end
 
 -- Slow polls for things without event streams
@@ -106,8 +158,8 @@ end
 function _toggle_launcher()  close_all_popups(); toggle_launcher() end
 function _toggle_power()     close_all_popups(); toggle_power() end
 function _toggle_audio()     close_all_popups(); toggle_audio() end
-function _toggle_network()   close_all_popups(); toggle_network() end
-function _toggle_bluetooth() close_all_popups(); toggle_bluetooth() end
+function _toggle_network()   close_all_popups(); poll_wifi(); toggle_network() end
+function _toggle_bluetooth() close_all_popups(); poll_bluetooth(); toggle_bluetooth() end
 function _toggle_battery()   close_all_popups(); toggle_battery() end
 function _toggle_calendar()  close_all_popups(); toggle_calendar() end
 
@@ -201,7 +253,7 @@ popup("audio", {
   visible = show_audio, dismiss_on_outside = true,
   width = 300, height = 180,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     row("items-center " .. S.item_gap, {
       text(T.icon_large .. " text-fg", function()
         return lib.vol_icon(volume:get(), muted:get())
@@ -233,7 +285,7 @@ popup("power", {
   keyboard = true,
   on_key = function(key) if key == "Escape" then close_all_popups() end end,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     lib.header(function() return date_str:get() end),
     lib.caption(function() return time_str:get() end),
     spacer(),
@@ -254,57 +306,50 @@ end)
 -- Network Popup
 -- ============================================================================
 
-local wifi_networks = signal("")  -- raw nmcli output, parsed in render
-
 popup("network", {
   parent = "bar", anchor = "top right",
   visible = show_network, dismiss_on_outside = true,
-  width = 320, height = 350,
+  width = 320, height = 400,
   keyboard = true,
   on_key = function(key) if key == "Escape" then close_all_popups() end end,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     row("items-center " .. S.item_gap, {
       text(T.icon_large .. " text-fg", icons.wifi_on),
       lib.header("Networks"),
+      spacer(),
+      lib.icon_btn("󰑓", {
+        on_click = function() poll_wifi() end,
+      }),
     }),
-    scroll("w-full h-64", {
+
+    scroll("w-full flex-1", {
       each(function()
-        local raw = exec_output("nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list 2>/dev/null")
-        local seen = {}
-        local nets = {}
-        for line in raw:gmatch("[^\n]+") do
-          local ssid, sig, sec, active = line:match("^(.-):(%d+):(.-):(.-)$")
-          if ssid and ssid ~= "" and not seen[ssid] then
-            seen[ssid] = true
-            nets[#nets+1] = {
-              ssid = ssid,
-              signal = tonumber(sig) or 0,
-              secure = sec ~= "",
-              active = active == "yes",
-            }
-          end
-        end
-        table.sort(nets, function(a, b)
-          if a.active ~= b.active then return a.active end
-          return a.signal > b.signal
-        end)
+        local _ = wifi_version:get() -- trigger re-render on poll
         local r = {}
-        for i = 1, math.min(#nets, 10) do r[#r+1] = nets[i] end
+        for i = 1, math.min(#wifi_list, 12) do r[#r+1] = wifi_list[i] end
         return r
       end, function(net)
-        local icon = net.secure and "󰌾" or " "
+        local sig_icon
+        if net.signal > 75 then sig_icon = "󰤨"
+        elseif net.signal > 50 then sig_icon = "󰤥"
+        elseif net.signal > 25 then sig_icon = "󰤢"
+        else sig_icon = "󰤟" end
+
         return lib.menu_item(
-          icons.wifi_on,
-          net.ssid .. " " .. icon .. " " .. net.signal .. "%",
+          sig_icon,
+          net.ssid .. (net.secure and " 󰌾" or ""),
           {
             text_style = net.active
               and (T.body .. " text-primary font-bold")
               or (T.body .. " text-fg"),
             on_click = function()
-              if not net.active then
+              if net.active then
+                exec("nmcli con down id '" .. net.ssid .. "'")
+              else
                 exec("nmcli dev wifi connect '" .. net.ssid .. "'")
               end
+              set_timeout(function() poll_wifi() end, 2000)
             end,
           }
         )
@@ -320,35 +365,29 @@ end)
 popup("bluetooth", {
   parent = "bar", anchor = "top right",
   visible = show_bluetooth, dismiss_on_outside = true,
-  width = 300, height = 280,
+  width = 300, height = 320,
   keyboard = true,
   on_key = function(key) if key == "Escape" then close_all_popups() end end,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     row("items-center " .. S.item_gap, {
       text(T.icon_large .. " text-fg", icons.bt_on),
       lib.header("Bluetooth"),
+      spacer(),
+      lib.icon_btn("󰑓", {
+        on_click = function() poll_bluetooth() end,
+      }),
     }),
-    scroll("w-full h-48", {
+
+    scroll("w-full flex-1", {
       each(function()
-        local raw = exec_output("bluetoothctl devices 2>/dev/null")
-        local devs = {}
-        for line in raw:gmatch("[^\n]+") do
-          local mac, name = line:match("Device (%S+) (.+)")
-          if mac and name then
-            local info = exec_output("bluetoothctl info " .. mac .. " 2>/dev/null")
-            local connected = info:find("Connected: yes") ~= nil
-            devs[#devs+1] = { mac = mac, name = name, connected = connected }
-          end
-        end
-        table.sort(devs, function(a, b)
-          if a.connected ~= b.connected then return a.connected end
-          return a.name < b.name
-        end)
-        return devs
+        local _ = bt_version:get()
+        local r = {}
+        for i = 1, #bt_list do r[#r+1] = bt_list[i] end
+        return r
       end, function(dev)
         return lib.menu_item(
-          dev.connected and icons.bt_on or icons.bt_off,
+          dev.connected and "󰂱" or icons.bt_off,
           dev.name,
           {
             text_style = dev.connected
@@ -360,11 +399,20 @@ popup("bluetooth", {
               else
                 exec("bluetoothctl connect " .. dev.mac)
               end
+              set_timeout(function() poll_bluetooth() end, 3000)
             end,
           }
         )
       end, function(dev) return dev.mac end),
     }),
+
+    -- No devices message
+    (function()
+      if #bt_list == 0 then
+        return text(T.small .. " text-muted", "No devices found")
+      end
+      return spacer()
+    end)(),
   })
 end)
 
@@ -382,11 +430,11 @@ end
 popup("battery-popup", {
   parent = "bar", anchor = "top right",
   visible = show_battery, dismiss_on_outside = true,
-  width = 280, height = 250,
+  width = 280, height = 340,
   keyboard = true,
   on_key = function(key) if key == "Escape" then close_all_popups() end end,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     row("items-center " .. S.item_gap, {
       text(T.icon_large .. " text-fg", function()
         return lib.bat_icon(bat_pct:get(), bat_status:get())
@@ -397,6 +445,15 @@ popup("battery-popup", {
           return bat_pct:get() .. "% — " .. bat_status:get()
         end),
       }),
+    }),
+
+    lib.separator(),
+
+    lib.slider_row("Brightness", brightness, {
+      on_change = function(v)
+        brightness:set(math.floor(v))
+        exec("brightnessctl s " .. math.floor(v) .. "%")
+      end,
     }),
 
     lib.separator(),
@@ -430,7 +487,7 @@ popup("calendar", {
     if key == "Escape" then close_all_popups() end
   end,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     -- Month/year header with nav
     row("items-center", {
       lib.icon_btn(icons.chevron_l, {
@@ -595,7 +652,7 @@ popup("launcher", {
     end
   end,
 }, function()
-  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+  return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     -- Search bar
     row("bg-base p-2 " .. S.item_gap .. " items-center", {
       text(T.icon .. " text-muted", icons.search),
