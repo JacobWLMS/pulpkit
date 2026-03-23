@@ -2,15 +2,12 @@
 -- ║  Pulpkit v3 Shell — Niri desktop bar            ║
 -- ╚══════════════════════════════════════════════════╝
 
--- Nerd Font icons
 local I = {
-  search   = "\u{f002}",
   circle   = "\u{f111}",
   circle_o = "\u{f10c}",
   clock    = "\u{f017}",
-  calendar = "\u{f073}",
   wifi     = "\u{f1eb}",
-  bt       = "\u{f294}",
+  wifi_off = "\u{f6ac}",
   vol_hi   = "\u{f028}",
   vol_lo   = "\u{f027}",
   vol_off  = "\u{f026}",
@@ -26,7 +23,8 @@ local I = {
   reboot   = "\u{f021}",
   shut     = "\u{f011}",
   suspend  = "\u{f186}",
-  nix      = "\u{f313}",
+  check    = "\u{f00c}",
+  signal   = "\u{f012}",
 }
 
 -- ============================================================================
@@ -35,23 +33,22 @@ local I = {
 
 function init()
   return {
-    -- System
-    time      = os.date("%H:%M"),
-    date      = os.date("%A, %B %d"),
-    user      = "...",
-    host      = "...",
-    -- Audio
-    vol       = 0,
-    muted     = false,
-    -- Battery
-    bat_pct   = 0,
-    bat_state = "unknown",
-    -- Brightness
-    bright    = 50,
-    -- Workspaces
+    time       = os.date("%H:%M"),
+    user       = "...",
+    host       = "...",
+    vol        = 0,
+    muted      = false,
+    bat_pct    = 0,
+    bat_state  = "unknown",
+    bright     = 50,
+    bright_max = 100,
     workspaces = {},
-    -- Popups
-    popup     = nil,  -- "audio" | "power" | "calendar" | nil
+    wifi_ssid  = "",
+    wifi_list  = {},
+    cpu        = 0,
+    ram_used   = 0,
+    ram_total  = 0,
+    popup      = nil,
   }
 end
 
@@ -62,12 +59,8 @@ end
 function update(state, msg)
   local t = msg.type
 
-  -- Timers
   if t == "tick" then
     state.time = os.date("%H:%M")
-    state.date = os.date("%A, %B %d")
-
-  -- System info
   elseif t == "user" then state.user = msg.data or "?"
   elseif t == "host" then state.host = msg.data or "?"
 
@@ -80,7 +73,7 @@ function update(state, msg)
     end
   elseif t == "set_vol" then
     state.vol = math.floor(msg.data or state.vol)
-    os.execute("wpctl set-volume @DEFAULT_AUDIO_SINK@ " .. (state.vol / 100))
+    os.execute("wpctl set-volume @DEFAULT_AUDIO_SINK@ " .. string.format("%.2f", state.vol / 100))
 
   -- Battery
   elseif t == "bat_info" then
@@ -89,7 +82,7 @@ function update(state, msg)
       if pct then state.bat_pct = tonumber(pct) end
     end
   elseif t == "bat_state_info" then
-    if msg.data then state.bat_state = msg.data end
+    if msg.data then state.bat_state = msg.data:match("%S+") or "unknown" end
 
   -- Brightness
   elseif t == "bright_info" then
@@ -97,9 +90,15 @@ function update(state, msg)
       local b = msg.data:match("(%d+)")
       if b then state.bright = tonumber(b) end
     end
+  elseif t == "bright_max_info" then
+    if msg.data then
+      local m = msg.data:match("(%d+)")
+      if m then state.bright_max = tonumber(m) end
+    end
   elseif t == "set_bright" then
-    state.bright = math.floor(msg.data or state.bright)
-    os.execute("brightnessctl set " .. state.bright .. "%")
+    local pct = math.floor(msg.data or state.bright)
+    state.bright = pct
+    os.execute("brightnessctl set " .. pct .. "% &")
 
   -- Workspaces
   elseif t == "ws_info" then
@@ -107,15 +106,77 @@ function update(state, msg)
       local ws = {}
       for id, idx, focused in msg.data:gmatch('"id":(%d+).-"idx":(%d+).-"is_focused":(.-)[,}]') do
         table.insert(ws, {
-          id = tostring(id),
-          idx = tonumber(idx),
+          id = tostring(id), idx = tonumber(idx),
           active = focused:find("true") ~= nil,
         })
       end
       if #ws > 0 then state.workspaces = ws end
     end
+  elseif t == "ws_focus" then
+    if msg.data then
+      os.execute("niri msg action focus-workspace " .. msg.data .. " &")
+    end
 
-  -- Popup toggle
+  -- WiFi
+  elseif t == "wifi_info" then
+    if msg.data then
+      local ssid = msg.data:match("^(.-):")
+      if ssid and ssid ~= "" then state.wifi_ssid = ssid
+      else state.wifi_ssid = "" end
+    end
+  elseif t == "wifi_scan" then
+    if msg.data then
+      local list = {}
+      for line in msg.data:gmatch("[^\n]+") do
+        local ssid, sig, sec, active = line:match("^(.-):(%d+):(.-):(.-)$")
+        if ssid and ssid ~= "" then
+          table.insert(list, {
+            id = ssid,
+            ssid = ssid,
+            signal = tonumber(sig) or 0,
+            secure = sec ~= "",
+            active = active == "yes",
+          })
+        end
+      end
+      -- Deduplicate and sort
+      local seen = {}
+      local unique = {}
+      for _, net in ipairs(list) do
+        if not seen[net.ssid] then
+          seen[net.ssid] = true
+          table.insert(unique, net)
+        end
+      end
+      table.sort(unique, function(a, b)
+        if a.active ~= b.active then return a.active end
+        return a.signal > b.signal
+      end)
+      state.wifi_list = unique
+    end
+  elseif t == "wifi_connect" then
+    if msg.data then
+      os.execute("nmcli dev wifi connect '" .. msg.data .. "' &")
+    end
+  elseif t == "wifi_disconnect" then
+    os.execute("nmcli dev disconnect wlan0 &")
+
+  -- Resources
+  elseif t == "cpu_info" then
+    if msg.data then
+      local idle = msg.data:match("(%d+%.?%d*)")
+      if idle then state.cpu = math.floor(100 - tonumber(idle)) end
+    end
+  elseif t == "ram_info" then
+    if msg.data then
+      local total, used = msg.data:match("(%d+)%s+(%d+)")
+      if total and used then
+        state.ram_total = math.floor(tonumber(total) / 1024)
+        state.ram_used = math.floor(tonumber(used) / 1024)
+      end
+    end
+
+  -- Popups
   elseif t == "toggle" then
     local name = msg.data
     if type(name) == "string" then
@@ -124,7 +185,7 @@ function update(state, msg)
   elseif t == "dismiss" then
     state.popup = nil
 
-  -- Power actions
+  -- Power
   elseif t == "lock"     then os.execute("loginctl lock-session &")
   elseif t == "logout"   then os.execute("niri msg action quit &")
   elseif t == "suspend"  then os.execute("systemctl suspend &")
@@ -139,8 +200,8 @@ end
 -- Helpers
 -- ============================================================================
 
-local function icon_btn(icon, action, extra_style)
-  return button({ on_click = action, style = "p-2 rounded-full hover:bg-surface " .. (extra_style or "") },
+local function icon_btn(icon, action)
+  return button({ on_click = action, style = "p-2 rounded-full hover:bg-surface" },
     text({ style = "text-base text-fg" }, icon)
   )
 end
@@ -152,11 +213,18 @@ local function vol_icon(vol, muted)
   return I.vol_off
 end
 
-local function bat_icon(pct, state)
-  if state == "Charging" then return I.bat_chrg end
+local function bat_icon(pct, st)
+  if st == "Charging" then return I.bat_chrg end
   if pct > 60 then return I.bat_full end
   if pct > 20 then return I.bat_half end
   return I.bat_low
+end
+
+local function menu_btn(icon, label, action, style_extra)
+  return button({ on_click = action, style = "px-3 py-2 rounded hover:bg-overlay items-center gap-3 " .. (style_extra or "") },
+    text({ style = "text-sm text-fg" }, icon),
+    text({ style = "text-sm text-fg" }, label)
+  )
 end
 
 -- ============================================================================
@@ -171,28 +239,26 @@ function view(state)
     anchor = "top", height = 40, exclusive = true, monitor = "all",
   },
     row({ style = "bg-base w-full h-full px-2 items-center gap-1" },
-
       -- Left: workspaces
       each(state.workspaces, "id", function(ws)
         return button({
-          on_click = msg("ws_focus", ws.id),
-          style = ws.active
-            and "p-1 rounded-full bg-primary"
-            or  "p-1 rounded-full hover:bg-surface",
+          on_click = msg("ws_focus", tostring(ws.idx)),
+          style = ws.active and "p-1 rounded-full bg-primary" or "p-1 rounded-full hover:bg-surface",
         },
-          text({ style = ws.active and "text-xs text-base" or "text-xs text-muted" },
-            tostring(ws.idx))
+          text({ style = ws.active and "text-xs text-base" or "text-xs text-muted" }, tostring(ws.idx))
         )
       end),
 
       spacer(),
-
-      -- Center: clock
       text({ style = "text-sm text-fg font-bold" }, state.time),
-
       spacer(),
 
+      -- Resource monitor
+      text({ style = "text-xs text-muted" }, "CPU " .. state.cpu .. "%"),
+      text({ style = "text-xs text-muted" }, "RAM " .. state.ram_used .. "/" .. state.ram_total .. "M"),
+
       -- Right: status icons
+      icon_btn(I.wifi, msg("toggle", "wifi")),
       icon_btn(I.bright, msg("toggle", "bright")),
       icon_btn(bat_icon(state.bat_pct, state.bat_state), msg("toggle", "battery")),
       icon_btn(vol_icon(state.vol, state.muted), msg("toggle", "audio")),
@@ -203,8 +269,7 @@ function view(state)
   -- === Audio Popup ===
   if state.popup == "audio" then
     table.insert(surfaces, popup("audio", {
-      anchor = "top right", width = 260, height = 120,
-      dismiss_on_outside = true,
+      anchor = "top right", width = 260, height = 120, dismiss_on_outside = true,
     },
       col({ style = "bg-surface w-full h-full rounded-lg p-4 gap-3" },
         row({ style = "items-center gap-2" },
@@ -218,39 +283,97 @@ function view(state)
     ))
   end
 
+  -- === Brightness Popup ===
+  if state.popup == "bright" then
+    local pct = state.bright_max > 0
+      and math.floor(state.bright / state.bright_max * 100)
+      or state.bright
+    table.insert(surfaces, popup("bright", {
+      anchor = "top right", width = 260, height = 120, dismiss_on_outside = true,
+    },
+      col({ style = "bg-surface w-full h-full rounded-lg p-4 gap-3" },
+        row({ style = "items-center gap-2" },
+          text({ style = "text-base text-muted" }, I.bright),
+          text({ style = "text-sm text-fg font-bold" }, "Brightness"),
+          spacer(),
+          text({ style = "text-xs text-muted" }, pct .. "%")
+        ),
+        slider({ value = pct, min = 0, max = 100, on_change = msg("set_bright") })
+      )
+    ))
+  end
+
+  -- === Battery Popup ===
+  if state.popup == "battery" then
+    table.insert(surfaces, popup("battery", {
+      anchor = "top right", width = 220, height = 100, dismiss_on_outside = true,
+    },
+      col({ style = "bg-surface w-full h-full rounded-lg p-4 gap-2" },
+        row({ style = "items-center gap-2" },
+          text({ style = "text-lg text-fg" }, bat_icon(state.bat_pct, state.bat_state)),
+          text({ style = "text-sm text-fg font-bold" }, "Battery")
+        ),
+        row({ style = "items-center gap-3" },
+          text({ style = "text-2xl text-fg font-bold" }, state.bat_pct .. "%"),
+          text({ style = "text-sm text-muted" }, state.bat_state)
+        )
+      )
+    ))
+  end
+
+  -- === WiFi Popup ===
+  if state.popup == "wifi" then
+    local wifi_children = {
+      row({ style = "items-center gap-2 px-1" },
+        text({ style = "text-base text-muted" }, I.wifi),
+        text({ style = "text-sm text-fg font-bold" }, "WiFi"),
+        spacer(),
+        text({ style = "text-xs text-muted" }, state.wifi_ssid ~= "" and state.wifi_ssid or "disconnected")
+      ),
+      row({ style = "w-full h-1 bg-base rounded" }),
+    }
+    -- Network list (up to 8)
+    local count = 0
+    for _, net in ipairs(state.wifi_list) do
+      if count >= 8 then break end
+      count = count + 1
+      local label = net.ssid
+      if net.active then label = label .. "  " .. I.check end
+      local action = net.active and msg("wifi_disconnect") or msg("wifi_connect", net.ssid)
+      table.insert(wifi_children,
+        button({ on_click = action, style = "px-2 py-1 rounded hover:bg-overlay items-center gap-2" },
+          text({ style = "text-xs text-muted" }, I.signal),
+          text({ style = "text-xs text-fg" }, label),
+          spacer(),
+          text({ style = "text-xs text-muted" }, net.signal .. "%")
+        )
+      )
+    end
+
+    table.insert(surfaces, popup("wifi", {
+      anchor = "top right", width = 280, height = 40 + count * 28, dismiss_on_outside = true,
+    },
+      col({ style = "bg-surface w-full h-full rounded-lg p-3 gap-1" },
+        table.unpack(wifi_children)
+      )
+    ))
+  end
+
   -- === Power Popup ===
   if state.popup == "power" then
     table.insert(surfaces, popup("power", {
-      anchor = "top right", width = 200, height = 220,
-      dismiss_on_outside = true,
+      anchor = "top right", width = 200, height = 220, dismiss_on_outside = true,
     },
       col({ style = "bg-surface w-full h-full rounded-lg p-3 gap-1" },
         row({ style = "items-center gap-2 px-2 py-1" },
           text({ style = "text-sm text-fg font-bold" }, state.user .. "@" .. state.host)
         ),
-        -- Divider
         row({ style = "w-full h-1 bg-base rounded" }),
-        -- Actions
-        button({ on_click = msg("lock"), style = "w-full px-2 py-2 rounded hover:bg-overlay items-center gap-3" },
-          text({ style = "text-sm text-fg" }, I.lock),
-          text({ style = "text-sm text-fg" }, "Lock")
-        ),
-        button({ on_click = msg("logout"), style = "w-full px-2 py-2 rounded hover:bg-overlay items-center gap-3" },
-          text({ style = "text-sm text-fg" }, I.logout),
-          text({ style = "text-sm text-fg" }, "Log Out")
-        ),
-        button({ on_click = msg("suspend"), style = "w-full px-2 py-2 rounded hover:bg-overlay items-center gap-3" },
-          text({ style = "text-sm text-fg" }, I.suspend),
-          text({ style = "text-sm text-fg" }, "Suspend")
-        ),
-        button({ on_click = msg("reboot"), style = "w-full px-2 py-2 rounded hover:bg-overlay items-center gap-3" },
-          text({ style = "text-sm text-fg" }, I.reboot),
-          text({ style = "text-sm text-fg" }, "Restart")
-        ),
-        button({ on_click = msg("shutdown"), style = "w-full px-2 py-2 rounded hover:bg-overlay items-center gap-3" },
-          text({ style = "text-sm text-error" }, I.shut),
-          text({ style = "text-sm text-error" }, "Shut Down")
-        )
+        menu_btn(I.lock,    "Lock",      msg("lock")),
+        menu_btn(I.logout,  "Log Out",   msg("logout")),
+        menu_btn(I.suspend, "Suspend",   msg("suspend")),
+        menu_btn(I.reboot,  "Restart",   msg("reboot")),
+        menu_btn(I.shut,    "Shut Down", msg("shutdown"), "text-error")
       )
     ))
   end
@@ -263,7 +386,7 @@ end
 -- ============================================================================
 
 function subscribe(state)
-  return {
+  local subs = {
     interval(1000, "tick"),
     exec("whoami", "user"),
     exec("hostname", "host"),
@@ -271,7 +394,16 @@ function subscribe(state)
     exec("cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo 100", "bat_info"),
     exec("cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo Unknown", "bat_state_info"),
     exec("brightnessctl g 2>/dev/null || echo 50", "bright_info"),
+    exec("brightnessctl m 2>/dev/null || echo 100", "bright_max_info"),
     exec("niri msg -j workspaces 2>/dev/null", "ws_info"),
+    exec("nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | grep '^yes' | head -1", "wifi_info"),
+    exec("top -bn1 | grep 'Cpu(s)' | awk '{print $8}'", "cpu_info"),
+    exec("free -m | awk '/Mem:/{print $2\" \"$3}'", "ram_info"),
     ipc("ipc_cmd"),
   }
+  -- Scan wifi when popup is open
+  if state.popup == "wifi" then
+    table.insert(subs, exec("nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list 2>/dev/null", "wifi_scan"))
+  end
+  return subs
 end
