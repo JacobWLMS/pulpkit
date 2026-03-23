@@ -37,6 +37,11 @@ impl ManagedSurface {
         let elements = vec![self.def.root.clone()];
         let layout = compute_layout(&elements, w as f32, h as f32, text_renderer, &theme.font_family);
 
+        // Debug: log layout node positions
+        for (i, node) in layout.nodes.iter().enumerate() {
+            log::debug!("  layout[{}]: x={:.1} y={:.1} w={:.1} h={:.1}", i, node.x, node.y, node.width, node.height);
+        }
+
         // Paint into the buffer
         let buffer = self.surface.get_buffer();
         if let Some(mut canvas) = Canvas::from_buffer(buffer, bw, bh) {

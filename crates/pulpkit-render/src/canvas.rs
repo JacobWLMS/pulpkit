@@ -146,6 +146,7 @@ impl<'a> Canvas<'a> {
     }
 
     /// Clip all subsequent drawing to the given rectangle.
+    /// Coordinates are in logical space — the current transform is applied.
     pub fn clip_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         let width = self.pixmap.width();
         let height = self.pixmap.height();
@@ -160,7 +161,7 @@ impl<'a> Canvas<'a> {
                 &clip_path,
                 FillRule::Winding,
                 false,
-                Transform::identity(),
+                self.transform,
             );
         } else {
             let mut mask = Mask::new(width, height).unwrap();
@@ -168,7 +169,7 @@ impl<'a> Canvas<'a> {
                 &clip_path,
                 FillRule::Winding,
                 false,
-                Transform::identity(),
+                self.transform,
             );
             self.clip = Some(mask);
         }
@@ -209,10 +210,13 @@ impl<'a> Canvas<'a> {
         color: crate::Color,
         renderer: &crate::TextRenderer,
     ) {
-        // Apply current transform to the text position
-        let tx = x + self.transform.tx;
-        let ty = y + self.transform.ty;
-        renderer.draw_text(&mut self.pixmap, text, tx, ty, family, size, color);
+        // Apply full transform (scale + translation) to position and font size.
+        // The transform matrix is: [sx 0 tx; 0 sy ty; 0 0 1]
+        // So transformed point = (x * sx + tx, y * sy + ty)
+        let tx = x * self.transform.sx + self.transform.tx;
+        let ty = y * self.transform.sy + self.transform.ty;
+        let scaled_size = size * self.transform.sy;
+        renderer.draw_text(&mut self.pixmap, text, tx, ty, family, scaled_size, color);
     }
 }
 
