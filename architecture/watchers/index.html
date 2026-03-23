@@ -1,0 +1,2756 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Wayland desktop shell framework — your UI is just HTML/CSS/JS">
+      
+      
+      
+        <link rel="canonical" href="https://jacobwlms.github.io/pulpkit/architecture/watchers/">
+      
+      
+        <link rel="prev" href="../overview/">
+      
+      
+        <link rel="next" href="../state-fields/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Watchers - Pulpkit</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#watchers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Pulpkit" class="md-header__button md-logo" aria-label="Pulpkit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Pulpkit
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Watchers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/JacobWLMS/pulpkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    JacobWLMS/pulpkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../overview/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../shell-dev/structure/" class="md-tabs__link">
+          
+  
+  
+  Shell Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/state-fields/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../zenith/" class="md-tabs__link">
+          
+  
+  
+  Zenith
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Pulpkit" class="md-nav__button md-logo" aria-label="Pulpkit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Pulpkit
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/JacobWLMS/pulpkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    JacobWLMS/pulpkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your First Shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Watchers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Watchers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#watcher-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watcher Table
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Watcher Table">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#audio-4-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio (4 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-3-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network (3 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bluetooth-1-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bluetooth (1 watcher)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#media-1-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Media (1 watcher)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#battery-power-4-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Battery / Power (4 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#display-3-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Display (3 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-8-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System (8 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-2-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session (2 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gaming-4-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gaming (4 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-5-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desktop (5 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring-6-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring (6 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#services-3-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Services (3 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-9-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other (9 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-poller-in-mainrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background Poller (in main.rs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-add-a-new-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Add a New Watcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to Add a New Watcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-the-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Create the module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-add-state-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Add state fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-register-the-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Register the module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-start-the-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Start the watcher
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../protocols/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wayland Protocols
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../surfaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surfaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shell Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Shell Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../shell-dev/structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shell Structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../shell-dev/state-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../shell-dev/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../shell-dev/themes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Themes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../shell-dev/toasts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Toast Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../shell-dev/lock-screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lock Screen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/state-fields/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All State Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    All Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config Options
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/dbus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DBus Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zenith
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Zenith
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../zenith/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../zenith/panels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Panels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../zenith/customization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Customization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#watcher-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watcher Table
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Watcher Table">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#audio-4-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Audio (4 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-3-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network (3 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bluetooth-1-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bluetooth (1 watcher)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#media-1-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Media (1 watcher)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#battery-power-4-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Battery / Power (4 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#display-3-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Display (3 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#system-8-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        System (8 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-2-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session (2 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gaming-4-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gaming (4 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#desktop-5-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Desktop (5 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitoring-6-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Monitoring (6 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#services-3-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Services (3 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-9-watchers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other (9 watchers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#background-poller-in-mainrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background Poller (in main.rs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mechanism-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-add-a-new-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to Add a New Watcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to Add a New Watcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-create-the-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Create the module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-add-state-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Add state fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-register-the-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Register the module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-start-the-watcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Start the watcher
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="watchers">Watchers<a class="headerlink" href="#watchers" title="Permanent link">&para;</a></h1>
+<p>Pulpkit uses 53 watcher modules to collect system state. Each watcher runs in its own <code>std::thread</code>, holds <code>Arc&lt;Mutex&lt;FullState&gt;&gt;</code> and <code>Arc&lt;AtomicBool&gt;</code> (dirty flag), and updates fields when data changes.</p>
+<h2 id="watcher-table">Watcher Table<a class="headerlink" href="#watcher-table" title="Permanent link">&para;</a></h2>
+<h3 id="audio-4-watchers">Audio (4 watchers)<a class="headerlink" href="#audio-4-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>audio</strong></td>
+<td><code>watchers::audio</code></td>
+<td><code>pactl subscribe</code> stream</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>vol</code>, <code>muted</code>, <code>audio_device</code></td>
+</tr>
+<tr>
+<td><strong>audio_devices</strong></td>
+<td><code>watchers::audio_devices</code></td>
+<td><code>pactl subscribe</code> stream</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>audio_sinks</code>, <code>audio_sources</code></td>
+</tr>
+<tr>
+<td><strong>audio_streams</strong></td>
+<td><code>watchers::audio_streams</code></td>
+<td><code>pactl subscribe</code> stream</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>audio_streams</code></td>
+</tr>
+<tr>
+<td><strong>mic</strong></td>
+<td><code>watchers::mic</code></td>
+<td><code>pactl subscribe</code> stream</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>mic_muted</code>, <code>mic_volume</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="network-3-watchers">Network (3 watchers)<a class="headerlink" href="#network-3-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>network</strong></td>
+<td><code>watchers::network</code></td>
+<td>DBus signals (<code>org.freedesktop.NetworkManager</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>wifi</code>, <code>net_signal</code>, <code>net_ip</code></td>
+</tr>
+<tr>
+<td><strong>net_speed</strong></td>
+<td><code>watchers::net_speed</code></td>
+<td>sysfs poll (<code>/proc/net/dev</code>)</td>
+<td style="text-align: center;">No</td>
+<td>2s</td>
+<td><code>net_rx_bytes_sec</code>, <code>net_tx_bytes_sec</code></td>
+</tr>
+<tr>
+<td><strong>vpn</strong></td>
+<td><code>watchers::vpn</code></td>
+<td>DBus signals (NetworkManager) + fallback <code>ip link</code></td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>vpn_active</code>, <code>vpn_name</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="bluetooth-1-watcher">Bluetooth (1 watcher)<a class="headerlink" href="#bluetooth-1-watcher" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>bluetooth</strong></td>
+<td><code>watchers::bluetooth</code></td>
+<td>DBus signals (<code>org.bluez</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>bt_powered</code>, <code>bt_connected</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="media-1-watcher">Media (1 watcher)<a class="headerlink" href="#media-1-watcher" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>mpris</strong></td>
+<td><code>watchers::mpris</code></td>
+<td>DBus signals (session bus, MPRIS2)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>media_playing</code>, <code>media_title</code>, <code>media_artist</code>, <code>media_album</code>, <code>media_art_url</code>, <code>media_player</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="battery-power-4-watchers">Battery / Power (4 watchers)<a class="headerlink" href="#battery-power-4-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>upower</strong></td>
+<td><code>watchers::upower</code></td>
+<td>DBus PropertiesChanged (<code>org.freedesktop.UPower</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>bat</code>, <code>bat_status</code>, <code>has_bat</code></td>
+</tr>
+<tr>
+<td><strong>ac_power</strong></td>
+<td><code>watchers::ac_power</code></td>
+<td><code>udevadm monitor --subsystem-match=power_supply</code></td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>ac_plugged</code></td>
+</tr>
+<tr>
+<td><strong>power_profiles</strong></td>
+<td><code>watchers::power_profiles</code></td>
+<td>DBus PropertiesChanged (<code>net.hadess.PowerProfiles</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>power_profile</code></td>
+</tr>
+<tr>
+<td><strong>power_draw</strong></td>
+<td><code>watchers::power_draw</code></td>
+<td>sysfs poll (<code>/sys/class/power_supply/BAT0/power_now</code>)</td>
+<td style="text-align: center;">No</td>
+<td>3s</td>
+<td><code>power_draw_watts</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="display-3-watchers">Display (3 watchers)<a class="headerlink" href="#display-3-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>brightness</strong></td>
+<td><code>watchers::brightness</code></td>
+<td><code>udevadm monitor --subsystem-match=backlight</code></td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>bright</code></td>
+</tr>
+<tr>
+<td><strong>outputs</strong></td>
+<td><code>watchers::outputs</code></td>
+<td><code>niri msg -j outputs</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>10s</td>
+<td><code>outputs</code></td>
+</tr>
+<tr>
+<td><strong>night_light</strong></td>
+<td><code>watchers::night_light</code></td>
+<td><code>pgrep</code> poll (wlsunset/gammastep/redshift)</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>night_light_active</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="system-8-watchers">System (8 watchers)<a class="headerlink" href="#system-8-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>thermal</strong></td>
+<td><code>watchers::thermal</code></td>
+<td>sysfs poll (<code>/sys/class/thermal/thermal_zone*/temp</code>)</td>
+<td style="text-align: center;">No</td>
+<td>3s</td>
+<td><code>cpu_temp</code></td>
+</tr>
+<tr>
+<td><strong>fan</strong></td>
+<td><code>watchers::fan</code></td>
+<td>sysfs poll (<code>/sys/class/hwmon/*/fan1_input</code>)</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>fan_rpm</code></td>
+</tr>
+<tr>
+<td><strong>load_avg</strong></td>
+<td><code>watchers::load_avg</code></td>
+<td><code>/proc/loadavg</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>load_1</code>, <code>load_5</code>, <code>load_15</code></td>
+</tr>
+<tr>
+<td><strong>swap</strong></td>
+<td><code>watchers::swap</code></td>
+<td><code>/proc/meminfo</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>swap_used_mb</code>, <code>swap_total_mb</code></td>
+</tr>
+<tr>
+<td><strong>top_procs</strong></td>
+<td><code>watchers::top_procs</code></td>
+<td><code>ps aux --sort=-%cpu</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>top_procs</code></td>
+</tr>
+<tr>
+<td><strong>compositor</strong></td>
+<td><code>watchers::compositor</code></td>
+<td>Env var detection (one-shot)</td>
+<td style="text-align: center;">--</td>
+<td>--</td>
+<td><code>compositor</code></td>
+</tr>
+<tr>
+<td><strong>user_info</strong></td>
+<td><code>watchers::user_info</code></td>
+<td>DBus one-shot (<code>org.freedesktop.Accounts</code>)</td>
+<td style="text-align: center;">--</td>
+<td>--</td>
+<td><code>user_icon</code></td>
+</tr>
+<tr>
+<td><strong>keyboard</strong></td>
+<td><code>watchers::keyboard</code></td>
+<td><code>setxkbmap -query</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>3s</td>
+<td><code>kb_layout</code>, <code>kb_variant</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="session-2-watchers">Session (2 watchers)<a class="headerlink" href="#session-2-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>logind</strong></td>
+<td><code>watchers::logind</code></td>
+<td>DBus signals (<code>org.freedesktop.login1</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>session_locked</code>, <code>session_idle</code>, <code>preparing_sleep</code></td>
+</tr>
+<tr>
+<td><strong>inhibitors</strong></td>
+<td><code>watchers::inhibitors</code></td>
+<td>DBus poll (<code>login1.Manager.ListInhibitors</code>)</td>
+<td style="text-align: center;">No</td>
+<td>10s</td>
+<td><code>inhibitors</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="gaming-4-watchers">Gaming (4 watchers)<a class="headerlink" href="#gaming-4-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>gamemode</strong></td>
+<td><code>watchers::gamemode</code></td>
+<td>DBus signals (<code>com.feralinteractive.GameMode</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>gamemode_active</code></td>
+</tr>
+<tr>
+<td><strong>gpu</strong></td>
+<td><code>watchers::gpu</code></td>
+<td>sysfs poll (<code>/sys/class/drm/card*/device/</code>)</td>
+<td style="text-align: center;">No</td>
+<td>2s</td>
+<td><code>gpu_usage</code>, <code>gpu_temp</code>, <code>vram_used_mb</code>, <code>vram_total_mb</code></td>
+</tr>
+<tr>
+<td><strong>gamescope</strong></td>
+<td><code>watchers::gamescope</code></td>
+<td><code>pgrep</code> + env var poll</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>gamescope_active</code></td>
+</tr>
+<tr>
+<td><strong>discord</strong></td>
+<td><code>watchers::discord</code></td>
+<td>File existence poll (<code>$XDG_RUNTIME_DIR/discord-ipc-*</code>)</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>discord_activity</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="desktop-5-watchers">Desktop (5 watchers)<a class="headerlink" href="#desktop-5-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>niri</strong></td>
+<td><code>watchers::niri</code></td>
+<td><code>niri msg event-stream</code> (stdout stream)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>ws</code>, <code>windows</code>, <code>active_title</code>, <code>active_app_id</code></td>
+</tr>
+<tr>
+<td><strong>clipboard</strong></td>
+<td><code>watchers::clipboard</code></td>
+<td><code>wl-paste --watch</code> (stdout stream)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>clipboard_text</code></td>
+</tr>
+<tr>
+<td><strong>tray</strong></td>
+<td><code>watchers::tray</code></td>
+<td>StatusNotifierWatcher (async, tokio)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>tray_items</code> (via separate <code>Arc&lt;Mutex&lt;Vec&gt;&gt;</code>)</td>
+</tr>
+<tr>
+<td><strong>trash</strong></td>
+<td><code>watchers::trash</code></td>
+<td><code>inotifywait</code> on <code>~/.local/share/Trash/files</code></td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>trash_count</code></td>
+</tr>
+<tr>
+<td><strong>polkit</strong></td>
+<td><code>watchers::polkit</code></td>
+<td>DBus signals (<code>org.freedesktop.PolicyKit1</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>polkit_pending</code>, <code>polkit_message</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="monitoring-6-watchers">Monitoring (6 watchers)<a class="headerlink" href="#monitoring-6-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>systemd</strong></td>
+<td><code>watchers::systemd</code></td>
+<td>DBus signals (<code>org.freedesktop.systemd1</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>failed_units</code>, <code>failed_unit_count</code></td>
+</tr>
+<tr>
+<td><strong>systemd_timers</strong></td>
+<td><code>watchers::systemd_timers</code></td>
+<td><code>systemctl list-timers</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>60s</td>
+<td><code>timers</code></td>
+</tr>
+<tr>
+<td><strong>journal</strong></td>
+<td><code>watchers::journal</code></td>
+<td><code>journalctl -p 3 -n 10</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>30s</td>
+<td><code>journal_errors</code></td>
+</tr>
+<tr>
+<td><strong>containers</strong></td>
+<td><code>watchers::containers</code></td>
+<td><code>podman ps</code> / <code>docker ps</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>10s</td>
+<td><code>containers</code></td>
+</tr>
+<tr>
+<td><strong>ssh_sessions</strong></td>
+<td><code>watchers::ssh_sessions</code></td>
+<td><code>ss -tn sport = :22</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>10s</td>
+<td><code>ssh_sessions</code></td>
+</tr>
+<tr>
+<td><strong>screen_share</strong></td>
+<td><code>watchers::screen_share</code></td>
+<td><code>pw-cli ls Node</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>3s</td>
+<td><code>screen_sharing</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="services-3-watchers">Services (3 watchers)<a class="headerlink" href="#services-3-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>notifications</strong></td>
+<td><code>watchers::notifications</code></td>
+<td>DBus service (<code>org.freedesktop.Notifications</code>, tokio)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>notifications</code>, <code>notif_count</code></td>
+</tr>
+<tr>
+<td><strong>dbus_service</strong></td>
+<td><code>watchers::dbus_service</code></td>
+<td>DBus service (<code>org.pulpkit.Shell</code>, tokio)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td>(API-only, no direct fields)</td>
+</tr>
+<tr>
+<td><strong>input_method</strong></td>
+<td><code>watchers::input_method</code></td>
+<td>DBus signals (fcitx5 or ibus)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>im_active</code>, <code>im_name</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="other-9-watchers">Other (9 watchers)<a class="headerlink" href="#other-9-watchers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Watcher</th>
+<th>Module</th>
+<th>Mechanism</th>
+<th style="text-align: center;">Event-driven?</th>
+<th>Interval</th>
+<th>State fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>weather</strong></td>
+<td><code>watchers::weather</code></td>
+<td><code>curl wttr.in</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>900s</td>
+<td><code>weather_temp</code>, <code>weather_condition</code>, <code>weather_icon</code></td>
+</tr>
+<tr>
+<td><strong>sunrise</strong></td>
+<td><code>watchers::sunrise</code></td>
+<td><code>curl wttr.in</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>3600s</td>
+<td><code>sunrise</code>, <code>sunset</code></td>
+</tr>
+<tr>
+<td><strong>calendar</strong></td>
+<td><code>watchers::calendar</code></td>
+<td>iCal file scan poll</td>
+<td style="text-align: center;">No</td>
+<td>300s</td>
+<td><code>calendar_events</code></td>
+</tr>
+<tr>
+<td><strong>recent_files</strong></td>
+<td><code>watchers::recent_files</code></td>
+<td><code>recently-used.xbel</code> file poll</td>
+<td style="text-align: center;">No</td>
+<td>30s</td>
+<td><code>recent_files</code></td>
+</tr>
+<tr>
+<td><strong>packagekit</strong></td>
+<td><code>watchers::packagekit</code></td>
+<td><code>checkupdates</code> / <code>apt</code> / <code>dnf</code> poll</td>
+<td style="text-align: center;">No</td>
+<td>1800s</td>
+<td><code>updates_available</code></td>
+</tr>
+<tr>
+<td><strong>timezone</strong></td>
+<td><code>watchers::timezone</code></td>
+<td>DBus PropertiesChanged (<code>org.freedesktop.timedate1</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>timezone</code></td>
+</tr>
+<tr>
+<td><strong>focus_tracker</strong></td>
+<td><code>watchers::focus_tracker</code></td>
+<td>Internal timer (reads <code>active_app_id</code> from state)</td>
+<td style="text-align: center;">No</td>
+<td>1s</td>
+<td><code>focused_app_time_secs</code></td>
+</tr>
+<tr>
+<td><strong>caffeine</strong></td>
+<td><code>watchers::caffeine</code></td>
+<td>File existence poll (<code>$XDG_RUNTIME_DIR/pulpkit-caffeine</code>)</td>
+<td style="text-align: center;">No</td>
+<td>5s</td>
+<td><code>caffeine_active</code></td>
+</tr>
+<tr>
+<td><strong>udisks</strong></td>
+<td><code>watchers::udisks</code></td>
+<td>DBus signals (<code>org.freedesktop.UDisks2</code>)</td>
+<td style="text-align: center;">Yes</td>
+<td>--</td>
+<td><code>drives</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="background-poller-in-mainrs">Background Poller (in main.rs)<a class="headerlink" href="#background-poller-in-mainrs" title="Permanent link">&para;</a></h3>
+<p>In addition to the watcher modules, a single background thread polls the remaining system metrics:</p>
+<table>
+<thead>
+<tr>
+<th>Fields</th>
+<th>Mechanism</th>
+<th>Interval</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cpu</code>, <code>mem</code>, <code>disk_used</code>, <code>disk_total</code>, <code>disk_pct</code>, <code>uptime</code></td>
+<td><code>/proc/stat</code>, <code>/proc/meminfo</code>, <code>df</code>, <code>uptime</code></td>
+<td>3s</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mechanism-summary">Mechanism Summary<a class="headerlink" href="#mechanism-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Count</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DBus signals</strong></td>
+<td>17</td>
+<td>Subscribe to <code>PropertiesChanged</code> or service-specific signals via <code>zbus::blocking::MessageIterator</code></td>
+</tr>
+<tr>
+<td><strong>Stream (stdout)</strong></td>
+<td>6</td>
+<td>Spawn child process, read lines from stdout (<code>pactl subscribe</code>, <code>niri msg event-stream</code>, <code>wl-paste --watch</code>, <code>udevadm monitor</code>, <code>inotifywait</code>)</td>
+</tr>
+<tr>
+<td><strong>sysfs/procfs poll</strong></td>
+<td>10</td>
+<td>Read files from <code>/sys/</code> or <code>/proc/</code> on a timer</td>
+</tr>
+<tr>
+<td><strong>Shell command poll</strong></td>
+<td>11</td>
+<td>Run a shell command and parse output on a timer</td>
+</tr>
+<tr>
+<td><strong>DBus service</strong></td>
+<td>3</td>
+<td>Expose a DBus interface using tokio + <code>zbus::ConnectionBuilder</code></td>
+</tr>
+<tr>
+<td><strong>File existence poll</strong></td>
+<td>3</td>
+<td>Check if a file/socket exists on disk</td>
+</tr>
+<tr>
+<td><strong>One-shot</strong></td>
+<td>2</td>
+<td>Read once at startup, never poll again</td>
+</tr>
+<tr>
+<td><strong>Internal</strong></td>
+<td>1</td>
+<td>Reads other state fields on a 1s timer</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-to-add-a-new-watcher">How to Add a New Watcher<a class="headerlink" href="#how-to-add-a-new-watcher" title="Permanent link">&para;</a></h2>
+<h3 id="1-create-the-module">1. Create the module<a class="headerlink" href="#1-create-the-module" title="Permanent link">&para;</a></h3>
+<p>Create <code>poc/src/watchers/my_watcher.rs</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">atomic</span><span class="p">::{</span><span class="n">AtomicBool</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">};</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::{</span><span class="n">Arc</span><span class="p">,</span><span class="w"> </span><span class="n">Mutex</span><span class="p">};</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">use</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">state</span><span class="p">::</span><span class="n">FullState</span><span class="p">;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">fn</span><span class="w"> </span><span class="nf">start_my_watcher</span><span class="p">(</span><span class="n">state</span><span class="p">:</span><span class="w"> </span><span class="nc">Arc</span><span class="o">&lt;</span><span class="n">Mutex</span><span class="o">&lt;</span><span class="n">FullState</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">dirty</span><span class="p">:</span><span class="w"> </span><span class="nc">Arc</span><span class="o">&lt;</span><span class="n">AtomicBool</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">std</span><span class="p">::</span><span class="n">thread</span><span class="p">::</span><span class="n">spawn</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="c1">// Initial read</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">read_my_data</span><span class="p">();</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">lock</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">            </span><span class="n">s</span><span class="p">.</span><span class="n">my_field</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="p">;</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="n">dirty</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span><span class="p">::</span><span class="n">Relaxed</span><span class="p">);</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">        </span><span class="c1">// Option A: Event-driven (DBus signals)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">        </span><span class="c1">// let conn = zbus::blocking::Connection::system().unwrap();</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">        </span><span class="c1">// let rule = zbus::MatchRule::builder()...build();</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="c1">// let iter = zbus::blocking::MessageIterator::for_match_rule(rule, &amp;conn, Some(16)).unwrap();</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="c1">// for _msg in iter { update_state(&amp;state, &amp;dirty); }</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">        </span><span class="c1">// Option B: Poll loop</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">        </span><span class="c1">// loop {</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="w">        </span><span class="c1">//     let value = read_my_data();</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">        </span><span class="c1">//     if let Ok(mut s) = state.lock() { s.my_field = value; }</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="w">        </span><span class="c1">//     dirty.store(true, Ordering::Relaxed);</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">        </span><span class="c1">//     std::thread::sleep(std::time::Duration::from_secs(5));</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="w">        </span><span class="c1">// }</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">        </span><span class="c1">// Option C: Stream (stdout from child process)</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="w">        </span><span class="c1">// let mut child = Command::new(&quot;my-tool&quot;).arg(&quot;--watch&quot;)</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">        </span><span class="c1">//     .stdout(Stdio::piped()).spawn().unwrap();</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="c1">// let reader = BufReader::new(child.stdout.take().unwrap());</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="w">        </span><span class="c1">// for line in reader.lines().flatten() { update_state(&amp;state, &amp;dirty); }</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">    </span><span class="p">});</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="2-add-state-fields">2. Add state fields<a class="headerlink" href="#2-add-state-fields" title="Permanent link">&para;</a></h3>
+<p>Add your fields to <code>FullState</code> in <code>poc/src/state.rs</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">FullState</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="c1">// ... existing fields ...</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">my_field</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="3-register-the-module">3. Register the module<a class="headerlink" href="#3-register-the-module" title="Permanent link">&para;</a></h3>
+<p>Add to <code>poc/src/watchers/mod.rs</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">mod</span><span class="w"> </span><span class="nn">my_watcher</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="4-start-the-watcher">4. Start the watcher<a class="headerlink" href="#4-start-the-watcher" title="Permanent link">&para;</a></h3>
+<p>Add to the watcher startup block in <code>poc/src/main.rs</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">watchers</span><span class="p">::</span><span class="n">my_watcher</span><span class="p">::</span><span class="n">start_my_watcher</span><span class="p">(</span><span class="n">polled_state</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span><span class="w"> </span><span class="n">dirty_flag</span><span class="p">.</span><span class="n">clone</span><span class="p">());</span>
+</code></pre></div>
+<h3 id="key-patterns">Key patterns<a class="headerlink" href="#key-patterns" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Always do an initial read</strong> before entering the event loop so state is populated before the first render.</li>
+<li><strong>Prefer event-driven</strong> mechanisms (DBus signals, streams) over polling.</li>
+<li><strong>Use <code>zbus::blocking</code></strong> for watchers that only read properties -- no need for tokio.</li>
+<li><strong>Use tokio</strong> only when you need to <em>serve</em> a DBus interface (notifications, shell service, tray).</li>
+<li><strong>Set the dirty flag</strong> after every state update so the render loop picks up changes.</li>
+<li><strong>Gracefully handle missing services</strong> -- log a warning and return if a DBus service is unavailable.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.tabs", "navigation.top", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
