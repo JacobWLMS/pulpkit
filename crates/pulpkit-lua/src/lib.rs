@@ -10,7 +10,7 @@ pub mod window;
 pub use signals::{LuaComputed, LuaSignal, register_signal_api};
 pub use pulpkit_reactive::DynValue;
 pub use timers::{TimerDef, TimerRegistry, CancelledTimers, register_timer_api};
-pub use system::register_system_api;
+pub use system::{register_system_api, StreamDef, StreamRegistry};
 pub use vm::LuaVm;
 pub use widgets::{LuaNode, register_widgets};
 pub use window::{MonitorTarget, PopupDef, PopupRegistry, WindowDef, WindowRegistry, register_popup_fn, register_window_fn};

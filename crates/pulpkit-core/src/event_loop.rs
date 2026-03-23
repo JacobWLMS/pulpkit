@@ -22,6 +22,8 @@ pub fn run(
     timers: &mut Vec<ActiveTimer>,
     cancelled_timers: &pulpkit_lua::CancelledTimers,
     ipc_commands: &std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+    stream_events: &std::rc::Rc<std::cell::RefCell<Vec<(u64, String)>>>,
+    stream_callbacks: &std::collections::HashMap<u64, mlua::RegistryKey>,
     lua: &Lua,
     text_renderer: &TextRenderer,
     theme: &Theme,
@@ -211,6 +213,23 @@ pub fn run(
                     log::error!("IPC command error: {e}");
                 }
                 any_handler_fired = true;
+            }
+        }
+
+        // --- Dispatch exec_stream() output lines to Lua callbacks ---
+        // NOTE: don't set any_handler_fired here — stream callbacks update
+        // signals, which trigger dirty-tracking Effects automatically.
+        // Force-rendering on every stream line would be wasteful.
+        {
+            let events: Vec<(u64, String)> = stream_events.borrow_mut().drain(..).collect();
+            for (stream_id, line) in events {
+                if let Some(cb_key) = stream_callbacks.get(&stream_id) {
+                    if let Ok(cb) = lua.registry_value::<mlua::Function>(cb_key) {
+                        if let Err(e) = cb.call::<()>(line) {
+                            log::error!("Stream {} callback error: {e}", stream_id);
+                        }
+                    }
+                }
             }
         }
 

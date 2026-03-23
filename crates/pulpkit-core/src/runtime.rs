@@ -55,7 +55,8 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to register widgets: {e}"))?;
     register_signal_api(lua)
         .map_err(|e| anyhow::anyhow!("Failed to register signal API: {e}"))?;
-    pulpkit_lua::register_system_api(lua)
+    let stream_registry = pulpkit_lua::StreamRegistry::default();
+    pulpkit_lua::register_system_api(lua, stream_registry.clone())
         .map_err(|e| anyhow::anyhow!("Failed to register system API: {e}"))?;
 
     let window_registry = pulpkit_lua::WindowRegistry::default();
@@ -143,6 +144,78 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
     let mut popups = setup::create_popups(&popup_registry.borrow(), lua, &client)?;
     let mut timers = setup::create_timers(&timer_registry.borrow(), lua)?;
 
+    // 7b. Spawn exec_stream() subprocesses.
+    // Stream events arrive via calloop channel, waking the loop immediately.
+    let stream_events: std::rc::Rc<std::cell::RefCell<Vec<(u64, String)>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut stream_callbacks: std::collections::HashMap<u64, mlua::RegistryKey> =
+        std::collections::HashMap::new();
+    {
+        let stream_defs = stream_registry.borrow();
+        if !stream_defs.is_empty() {
+            let (stream_sender, stream_channel) = channel::channel::<(u64, String)>();
+            let evts = stream_events.clone();
+            client
+                .event_loop
+                .handle()
+                .insert_source(stream_channel, move |event, _, _state| {
+                    if let channel::Event::Msg(msg) = event {
+                        evts.borrow_mut().push(msg);
+                    }
+                })
+                .map_err(|e| anyhow::anyhow!("Failed to insert stream channel: {e}"))?;
+
+            for def in stream_defs.iter() {
+                let id = def.id;
+                let cmd = def.cmd.clone();
+                let sender = stream_sender.clone();
+
+                // Clone the callback key for the event loop.
+                let cb_key = lua
+                    .registry_value::<mlua::Function>(&def.callback_key)
+                    .and_then(|f| lua.create_registry_value(f))
+                    .map_err(|e| anyhow::anyhow!("Failed to clone stream callback: {e}"))?;
+                stream_callbacks.insert(id, cb_key);
+
+                // Spawn background thread: runs command, reads stdout line-by-line.
+                std::thread::spawn(move || {
+                    use std::io::BufRead;
+                    let child = std::process::Command::new("sh")
+                        .arg("-c")
+                        .arg(&cmd)
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::null())
+                        .spawn();
+
+                    match child {
+                        Ok(mut child) => {
+                            if let Some(stdout) = child.stdout.take() {
+                                let reader = std::io::BufReader::new(stdout);
+                                for line in reader.lines() {
+                                    match line {
+                                        Ok(line) => {
+                                            if sender.send((id, line)).is_err() {
+                                                break; // channel closed
+                                            }
+                                        }
+                                        Err(_) => break,
+                                    }
+                                }
+                            }
+                            let _ = child.wait();
+                        }
+                        Err(e) => {
+                            log::error!("exec_stream failed to spawn '{}': {e}", cmd);
+                        }
+                    }
+                    log::info!("Stream {} ('{}') ended", id, cmd);
+                });
+
+                log::info!("Stream {} spawned: {}", id, def.cmd);
+            }
+        }
+    }
+
     // 8. Enter the event loop.
     event_loop::run(
         &mut client,
@@ -151,6 +224,8 @@ fn run_inner(shell_dir: &Path, rt: &ReactiveRuntime) -> anyhow::Result<()> {
         &mut timers,
         &cancelled_timers,
         &ipc_commands,
+        &stream_events,
+        &stream_callbacks,
         lua,
         &text_renderer,
         &theme,

@@ -106,18 +106,17 @@ impl ManagedPopup {
             self.config.height
         };
 
-        // Position based on anchor type.
+        // Position based on anchor type. All coordinates are in LOGICAL pixels
+        // (physical / scale) — this is what the compositor expects for margins.
         let margins = if self.config.anchor == PopupAnchor::Center {
-            // Center on screen using output dimensions.
             let (screen_w, screen_h) = self.config.output
                 .as_ref()
-                .map(|o| (o.width as i32, o.height as i32))
+                .map(|o| (o.logical_width() as i32, o.logical_height() as i32))
                 .unwrap_or((parent_width as i32, 1080));
             let left = ((screen_w - popup_width as i32) / 2 + self.config.offset.0).max(0);
             let top = ((screen_h - popup_height as i32) / 2 + self.config.offset.1).max(0);
             SurfaceMargins { top, left, right: 0, bottom: 0 }
         } else {
-            // Position below click point, flush against bar.
             let popup_left = (click_x as i32 - popup_width as i32 / 2)
                 .max(0)
                 .min(parent_width as i32 - popup_width as i32);

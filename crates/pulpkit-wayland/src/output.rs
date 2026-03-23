@@ -46,4 +46,15 @@ impl OutputInfo {
             wl_output,
         }
     }
+
+    /// Logical width (physical pixels / scale factor).
+    /// This is what the compositor uses for surface positioning.
+    pub fn logical_width(&self) -> u32 {
+        if self.scale > 0 { self.width / self.scale as u32 } else { self.width }
+    }
+
+    /// Logical height (physical pixels / scale factor).
+    pub fn logical_height(&self) -> u32 {
+        if self.scale > 0 { self.height / self.scale as u32 } else { self.height }
+    }
 }

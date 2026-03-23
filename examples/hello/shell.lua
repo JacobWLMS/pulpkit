@@ -22,10 +22,37 @@ local date_str    = signal(os.date("%A, %B %d"))
 local has_battery = lib.read_file("/sys/class/power_supply/BAT0/capacity") ~= nil
 
 -- ============================================================================
--- Polling (only set signals when values actually change — skips re-render)
+-- Event Streams (push-based, near-zero CPU)
 -- ============================================================================
 
-local function refresh_system()
+-- Niri workspace events — instant updates, no polling
+if env("NIRI_SOCKET") then
+  exec_stream("niri msg event-stream", function(line)
+    if line:find("^Workspaces changed:") then
+      -- Parse workspace data from rust debug format
+      local count = 0
+      local focused = 1
+      for block in line:gmatch("Workspace {(.-)}") do
+        count = count + 1
+        local idx = block:match("idx: (%d+)")
+        if block:find("is_focused: true") and idx then
+          focused = tonumber(idx)
+        end
+      end
+      if count > 0 then ws_count:set(count) end
+      active_ws:set(focused)
+    end
+  end)
+else
+  -- Fallback: poll if not on niri
+  set_interval(function()
+    local a, c = lib.poll_niri_workspaces()
+    active_ws:set(a); ws_count:set(c)
+  end, 3000)
+end
+
+-- Initial system state
+do
   local v, m = lib.poll_volume()
   volume:set(v); muted:set(m)
   if has_battery then
@@ -34,17 +61,16 @@ local function refresh_system()
   end
 end
 
-local function refresh_workspaces()
-  local a, c = lib.poll_niri_workspaces()
-  active_ws:set(a); ws_count:set(c)
-end
-
-refresh_system()
-refresh_workspaces()
-
+-- Slow polls for things without event streams
 set_interval(function() time_str:set(os.date("%H:%M")) end, 10000)
-set_interval(function() refresh_workspaces() end, 3000)
-set_interval(function() refresh_system() end, 10000)
+set_interval(function()
+  local v, m = lib.poll_volume()
+  volume:set(v); muted:set(m)
+  if has_battery then
+    local p, s = lib.poll_battery()
+    if p then bat_pct:set(p); bat_status:set(s) end
+  end
+end, 10000)
 set_interval(function() date_str:set(os.date("%A, %B %d")) end, 300000)
 
 -- ============================================================================
