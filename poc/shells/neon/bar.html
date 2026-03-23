@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @keyframes glow-pulse { 0%,100%{text-shadow:0 0 6px currentColor} 50%{text-shadow:0 0 16px currentColor} }
+  @keyframes scan { 0%{background-position:0 0} 100%{background-position:0 4px} }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrainsMono Nerd Font', monospace;
+    font-size: 11px;
+    background: #000;
+    color: #0ff;
+    height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+    /* Scanlines */
+    background-image: repeating-linear-gradient(transparent 0px, transparent 2px, rgba(0,255,255,0.015) 2px, rgba(0,255,255,0.015) 4px);
+    animation: scan 0.5s linear infinite;
+  }
+
+  .bar {
+    display: flex; width: calc(100% - 16px); height: calc(100% - 8px);
+    align-items: stretch; gap: 8px;
+    padding: 0 4px;
+  }
+
+  /* Three islands */
+  .island {
+    border: 1px solid rgba(0,255,255,0.15);
+    background: rgba(0,255,255,0.03);
+    display: flex; align-items: center; padding: 0 12px; gap: 6px;
+    position: relative;
+  }
+  .island::before {
+    content: ''; position: absolute; top: -1px; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,255,0.4), transparent);
+  }
+
+  .island-left { flex: 1; }
+  .island-center { }
+  .island-right { flex: 1; justify-content: flex-end; }
+
+  .workspaces { display: flex; gap: 2px; }
+  .ws {
+    width: 32px; height: 32px;
+    border: 1px solid rgba(0,255,255,0.2);
+    font-size: 10px; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; letter-spacing: 1px;
+    color: rgba(0,255,255,0.3);
+  }
+  .ws:hover { border-color: #0ff; color: #0ff; background: rgba(0,255,255,0.05); }
+  .ws.active {
+    border-color: #0ff; color: #0ff;
+    background: rgba(0,255,255,0.1);
+    text-shadow: 0 0 10px #0ff;
+    box-shadow: 0 0 10px rgba(0,255,255,0.2), inset 0 0 10px rgba(0,255,255,0.05);
+  }
+
+  .taskbar { display: flex; gap: 2px; margin-left: 6px; }
+  .task {
+    padding: 4px; cursor: pointer; opacity: 0.3;
+    transition: all 0.2s; border: 1px solid transparent;
+  }
+  .task:hover { opacity: 0.8; border-color: rgba(0,255,255,0.2); }
+  .task.focused { opacity: 1; border-color: #0ff; box-shadow: 0 0 6px rgba(0,255,255,0.2); }
+  .task img { width: 20px; height: 20px; filter: brightness(1.3) saturate(0.5); }
+  .task .fallback { font-size: 9px; }
+
+  .clock {
+    font-size: 16px; font-weight: 700;
+    letter-spacing: 3px; color: #0ff;
+    text-shadow: 0 0 12px rgba(0,255,255,0.6);
+    animation: glow-pulse 3s ease infinite;
+  }
+  .clock-sec { font-size: 10px; color: rgba(0,255,255,0.4); margin-left: 4px; }
+
+  .tray { display: flex; gap: 6px; margin-right: 4px; }
+  .tray-icon { width: 14px; height: 14px; opacity: 0.5; filter: hue-rotate(160deg) brightness(1.5); }
+
+  .mod {
+    padding: 4px 10px;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .mod:hover { text-shadow: 0 0 12px currentColor; box-shadow: 0 0 12px rgba(0,255,255,0.15); }
+  .mod-mem   { color: #f0f; border-color: rgba(255,0,255,0.2); }
+  .mod-net   { color: #0f0; border-color: rgba(0,255,0,0.2); }
+  .mod-vol   { color: #ff0; border-color: rgba(255,255,0,0.2); }
+  .mod-bat   { color: #f60; border-color: rgba(255,102,0,0.2); }
+  .mod-power { color: #f33; border-color: rgba(255,51,51,0.2); }
+
+  .sep-v { width: 1px; height: 60%; background: rgba(0,255,255,0.1); margin: 0 4px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="island island-left">
+    <span class="mod" style="color:#0ff;border-color:rgba(0,255,255,0.2);font-size:13px" onclick="send({cmd:'popup',data:'launcher'})">⟐</span>
+    <span class="sep-v"></span>
+    <div class="workspaces" id="workspaces"></div>
+    <span class="sep-v"></span>
+    <div class="taskbar" id="taskbar"></div>
+  </div>
+
+  <div class="island island-center">
+    <span class="clock" id="clock"></span><span class="clock-sec" id="clock-sec"></span>
+  </div>
+
+  <div class="island island-right">
+    <div class="tray" id="tray"></div>
+    <span class="sep-v"></span>
+    <span class="mod mod-mem" id="memory" onclick="send({cmd:'popup',data:'config'})"></span>
+    <span class="mod mod-net" id="network" onclick="send({cmd:'popup',data:'wifi'})"></span>
+    <span class="mod mod-vol" id="volume" onclick="send({cmd:'popup',data:'settings'})"></span>
+    <span class="mod mod-bat" id="battery"></span>
+    <span class="sep-v"></span>
+    <span class="mod mod-power" onclick="send({cmd:'popup',data:'power'})">⏻</span>
+  </div>
+</div>
+<script>
+function send(o){window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o))}
+
+function updateClock(){
+  const d=new Date();
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  const s=String(d.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent=h+':'+m;
+  document.getElementById('clock-sec').textContent=':'+s;
+}
+updateClock();setInterval(updateClock,1000);
+
+function updateState(s){
+  const ws=document.getElementById('workspaces');ws.innerHTML='';
+  s.ws.forEach(w=>{
+    const e=document.createElement('span');e.className='ws'+(w.active?' active':'');
+    e.textContent=String(w.idx).padStart(2,'0');
+    e.onclick=()=>send({cmd:'ws_go',data:w.idx});ws.appendChild(e);
+  });
+  const tb=document.getElementById('taskbar');tb.innerHTML='';
+  (s.windows||[]).forEach(w=>{
+    const e=document.createElement('span');e.className='task'+(w.focused?' focused':'');e.title=w.title;
+    if(w.icon){const img=document.createElement('img');img.src=w.icon;img.draggable=false;e.appendChild(img);}
+    else{const t=document.createElement('span');t.className='fallback';t.textContent=w.app_id.split('.').pop()||'?';e.appendChild(t);}
+    e.onclick=()=>send({cmd:'focus_window',data:w.id});tb.appendChild(e);
+  });
+  const tray=document.getElementById('tray');tray.innerHTML='';
+  (s.tray_items||[]).forEach(t=>{
+    const wrap=document.createElement('span');wrap.style.cursor='pointer';
+    wrap.onclick=()=>send({cmd:'tray_activate',data:{address:t.address,click:'left'}});
+    wrap.oncontextmenu=(e)=>{e.preventDefault();send({cmd:'tray_activate',data:{address:t.address,click:'right'}});};
+    if(t.icon){const img=document.createElement('img');img.className='tray-icon';img.src=t.icon;img.draggable=false;wrap.appendChild(img);}
+    tray.appendChild(wrap);
+  });
+  document.getElementById('memory').textContent='MEM:'+s.mem+'%';
+  document.getElementById('network').textContent=s.wifi?'NET:ON':'NET:OFF';
+  document.getElementById('volume').textContent=s.muted?'MUTE':'VOL:'+s.vol;
+  const b=document.getElementById('battery');
+  if(s.has_bat){b.textContent='BAT:'+s.bat+'%';b.classList.remove('hidden');}
+  else{b.classList.add('hidden');}
+}
+</script>
+</body>
+</html>

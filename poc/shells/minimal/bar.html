@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Iosevka', 'JetBrainsMono Nerd Font', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: #c0caf5;
+    height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+
+  /* Centered floating dock */
+  .dock {
+    display: flex; align-items: center;
+    background: #16161e;
+    border: 1px solid #1a1b26;
+    padding: 4px 8px;
+    gap: 2px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+
+  .section { display: flex; align-items: center; gap: 2px; padding: 0 4px; }
+  .divider { width: 1px; height: 20px; background: #24283b; margin: 0 6px; }
+
+  /* Workspace: tiny dots */
+  .ws {
+    width: 6px; height: 6px; margin: 0 3px;
+    background: #24283b; border-radius: 50%;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .ws:hover { background: #565f89; }
+  .ws.active { background: #7aa2f7; box-shadow: 0 0 6px rgba(122,162,247,0.5); }
+
+  /* App icons in dock */
+  .dock-app {
+    padding: 4px; cursor: pointer;
+    transition: all 0.2s ease; position: relative;
+  }
+  .dock-app:hover { transform: translateY(-4px) scale(1.15); }
+  .dock-app.focused::after {
+    content: ''; position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: #7aa2f7;
+  }
+  .dock-app img { width: 24px; height: 24px; }
+  .dock-app .fallback {
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+    background: #24283b; font-size: 10px; color: #565f89;
+  }
+
+  /* Status text: ultra-minimal */
+  .stat {
+    font-size: 11px; color: #565f89; padding: 4px 8px;
+    cursor: pointer; transition: color 0.2s; white-space: nowrap;
+  }
+  .stat:hover { color: #c0caf5; }
+  .stat.active { color: #c0caf5; }
+  .stat.warn { color: #e0af68; }
+  .stat.crit { color: #f7768e; }
+
+  .clock {
+    font-size: 12px; font-weight: 600; color: #c0caf5;
+    padding: 4px 10px; letter-spacing: 0.5px;
+  }
+
+  .tray { display: flex; gap: 4px; }
+  .tray-icon { width: 14px; height: 14px; opacity: 0.5; }
+
+  .icon-btn {
+    font-family: 'JetBrainsMono Nerd Font'; font-size: 14px;
+    padding: 4px 8px; color: #565f89; cursor: pointer;
+    transition: color 0.2s;
+  }
+  .icon-btn:hover { color: #c0caf5; }
+  .icon-btn.accent { color: #7aa2f7; }
+  .icon-btn.danger { color: #f7768e; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="dock">
+  <!-- Launcher -->
+  <span class="icon-btn accent" onclick="send({cmd:'popup',data:'launcher'})">󰍉</span>
+
+  <span class="divider"></span>
+
+  <!-- Workspaces as dots -->
+  <div class="section" id="workspaces"></div>
+
+  <span class="divider"></span>
+
+  <!-- Running apps as dock icons -->
+  <div class="section" id="taskbar"></div>
+
+  <span class="divider"></span>
+
+  <!-- Clock -->
+  <span class="clock" id="clock"></span>
+
+  <span class="divider"></span>
+
+  <!-- Tray -->
+  <div class="tray" id="tray"></div>
+
+  <!-- Status -->
+  <span class="stat" id="network" onclick="send({cmd:'popup',data:'wifi'})"></span>
+  <span class="stat" id="volume" onclick="send({cmd:'popup',data:'settings'})" oncontextmenu="event.preventDefault();send({cmd:'vol_mute'})"></span>
+  <span class="stat" id="memory" onclick="send({cmd:'popup',data:'config'})"></span>
+  <span class="stat" id="battery"></span>
+
+  <span class="divider"></span>
+
+  <!-- Power -->
+  <span class="icon-btn danger" onclick="send({cmd:'popup',data:'power'})">⏻</span>
+</div>
+<script>
+function send(o){window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o))}
+
+function updateClock(){
+  const d=new Date();
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent=days[d.getDay()]+' '+h+':'+m;
+}
+updateClock();setInterval(updateClock,1000);
+
+function updateState(s){
+  // Workspaces as dots
+  const ws=document.getElementById('workspaces');ws.innerHTML='';
+  s.ws.forEach(w=>{
+    const e=document.createElement('span');e.className='ws'+(w.active?' active':'');
+    e.onclick=()=>send({cmd:'ws_go',data:w.idx});ws.appendChild(e);
+  });
+
+  // Taskbar: dock-style icons with hover magnify
+  const tb=document.getElementById('taskbar');tb.innerHTML='';
+  (s.windows||[]).forEach(w=>{
+    const e=document.createElement('span');e.className='dock-app'+(w.focused?' focused':'');e.title=w.title;
+    if(w.icon){const img=document.createElement('img');img.src=w.icon;img.draggable=false;e.appendChild(img);}
+    else{const fb=document.createElement('span');fb.className='fallback';fb.textContent=(w.app_id.split('.').pop()||'?')[0].toUpperCase();e.appendChild(fb);}
+    e.onclick=()=>send({cmd:'focus_window',data:w.id});tb.appendChild(e);
+  });
+
+  // Tray
+  const tray=document.getElementById('tray');tray.innerHTML='';
+  (s.tray_items||[]).forEach(t=>{
+    const wrap=document.createElement('span');wrap.style.cursor='pointer';
+    wrap.onclick=()=>send({cmd:'tray_activate',data:{address:t.address,click:'left'}});
+    wrap.oncontextmenu=(e)=>{e.preventDefault();send({cmd:'tray_activate',data:{address:t.address,click:'right'}});};
+    if(t.icon){const img=document.createElement('img');img.className='tray-icon';img.src=t.icon;img.draggable=false;wrap.appendChild(img);}
+    tray.appendChild(wrap);
+  });
+
+  // Status
+  const n=document.getElementById('network');
+  n.textContent=s.wifi||'offline';
+  n.className='stat'+(s.wifi?' active':'');
+
+  const v=document.getElementById('volume');
+  v.textContent=s.muted?'muted':'vol '+s.vol;
+  v.className='stat'+(s.muted?' warn':'');
+
+  document.getElementById('memory').textContent='mem '+s.mem;
+  document.getElementById('memory').className='stat'+(s.mem>80?' crit':s.mem>60?' warn':'');
+
+  const b=document.getElementById('battery');
+  if(s.has_bat){
+    b.textContent='bat '+s.bat;
+    b.className='stat'+(s.bat<=20?' crit':s.bat<=50?' warn':'');
+    b.classList.remove('hidden');
+  }else{b.classList.add('hidden');}
+}
+</script>
+</body>
+</html>

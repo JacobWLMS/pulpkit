@@ -6,7 +6,7 @@ members = [
     "crates/pulpkit-wayland",
     "crates/pulpkit-lua",
     "crates/pulpkit-sub",
-    "crates/pulpkit-core",
+    "crates/pulpkit-core", "poc", "mcp",
 ]
 
 [workspace.package]

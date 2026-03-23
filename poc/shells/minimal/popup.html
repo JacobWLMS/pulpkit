@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Iosevka', 'JetBrainsMono Nerd Font', monospace;
+    font-size: 13px; background: transparent; color: #c0caf5;
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+  .panel {
+    background: #16161e; border: 1px solid #1a1b26;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    padding: 16px; display: none; flex-direction: column;
+    gap: 10px; width: 100%; height: 100vh; overflow-y: auto;
+    animation: slideUp 0.2s ease;
+  }
+  .panel.active { display: flex; }
+  .panel::-webkit-scrollbar { width: 2px; }
+  .panel::-webkit-scrollbar-thumb { background: #24283b; }
+
+  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .panel-title {
+    font-size: 12px; font-weight: 500; color: #565f89;
+    padding-bottom: 8px; border-bottom: 1px solid #24283b;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title .flex { flex: 1; }
+  .panel-title .subtitle { font-size: 11px; color: #414868; }
+
+  .tiles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tile {
+    flex: 1; min-width: 70px; padding: 10px 6px;
+    background: #1a1b26; display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tile:hover { background: #24283b; }
+  .tile.active { background: #24283b; color: #7aa2f7; }
+  .tile .icon { font-size: 16px; }
+  .tile .label { font-size: 9px; color: #414868; }
+  .tile.active .label { color: #7aa2f7; }
+
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-row .icon { font-size: 14px; color: #414868; width: 18px; text-align: center; }
+  .slider-row input[type=range] { flex: 1; height: 3px; -webkit-appearance: none; background: #24283b; outline: none; }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px;
+    background: #7aa2f7; border-radius: 50%; cursor: pointer;
+  }
+  .slider-row .val { font-size: 10px; color: #414868; width: 32px; text-align: right; }
+
+  .sep { height: 1px; background: #24283b; }
+
+  .menu-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 10px; cursor: pointer; transition: all 0.15s;
+    font-size: 12px; color: #565f89;
+  }
+  .menu-item:hover { background: #1a1b26; color: #c0caf5; }
+  .menu-item .icon { font-size: 14px; width: 18px; text-align: center; }
+  .menu-item .text { flex: 1; }
+  .menu-item.danger { color: #f7768e; }
+
+  .sys-info { text-align: center; padding: 8px 0; }
+  .sys-info .host { font-size: 13px; font-weight: 500; color: #7aa2f7; }
+  .sys-info .detail { font-size: 10px; color: #414868; }
+
+  .wifi-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; cursor: pointer; transition: all 0.15s; font-size: 12px;
+  }
+  .wifi-item:hover { background: #1a1b26; }
+  .wifi-item .icon { font-size: 13px; width: 16px; text-align: center; }
+  .wifi-item .ssid { flex: 1; }
+  .wifi-item .meta { font-size: 10px; color: #414868; }
+  .wifi-item.connected { color: #9ece6a; }
+
+  .search-input {
+    width: 100%; padding: 8px 12px;
+    background: #1a1b26; border: 1px solid #24283b;
+    color: #c0caf5; font-family: inherit; font-size: 13px;
+    outline: none;
+  }
+  .search-input:focus { border-color: #7aa2f7; }
+  .search-input::placeholder { color: #414868; }
+
+  .app-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; cursor: pointer; transition: all 0.1s; font-size: 12px;
+  }
+  .app-item:hover, .app-item.selected { background: #1a1b26; }
+  .app-item.selected { border-left: 2px solid #7aa2f7; }
+  .app-item img { width: 22px; height: 22px; }
+  .app-item .app-icon-fallback {
+    width: 22px; height: 22px; background: #24283b;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #414868;
+  }
+  .app-list { overflow-y: auto; max-height: 360px; display: flex; flex-direction: column; gap: 1px; }
+  .no-results { text-align: center; padding: 16px; color: #414868; font-size: 11px; }
+
+  .config-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+  .config-row .label { font-size: 12px; color: #414868; display: flex; align-items: center; gap: 6px; }
+  .config-row .label .icon { font-size: 13px; }
+  .config-row .value { font-size: 12px; }
+  .config-row .value.clickable { cursor: pointer; color: #7aa2f7; }
+  .config-section { font-size: 10px; color: #565f89; font-weight: 500; padding-top: 2px; }
+</style>
+</head>
+<body>
+<div class="panel" id="panel-settings">
+  <div class="panel-title">settings</div>
+  <div class="tiles">
+    <div class="tile" id="tile-wifi" onclick="send({cmd:'popup',data:'wifi'})"><span class="icon" id="tile-wifi-icon">󰤨</span><span class="label">wifi</span></div>
+    <div class="tile" id="tile-bt" onclick="send({cmd:'toggle_bt'})"><span class="icon">󰂯</span><span class="label">bt</span></div>
+    <div class="tile" id="tile-dnd" onclick="send({cmd:'toggle_dnd'})"><span class="icon">󰍶</span><span class="label">dnd</span></div>
+    <div class="tile" id="tile-night" onclick="send({cmd:'toggle_night'})"><span class="icon">󰌵</span><span class="label">night</span></div>
+    <div class="tile" id="tile-mute" onclick="send({cmd:'vol_mute'})"><span class="icon" id="tile-mute-icon">󰕾</span><span class="label">mute</span></div>
+  </div>
+  <div class="sep"></div>
+  <div class="slider-row"><span class="icon" id="vol-icon">󰕾</span><input type="range" id="vol-slider" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="vol-val">50</span></div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="bri-slider" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="bri-val">50</span></div>
+  <div id="bat-section" style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#414868;padding-top:4px;"><span>󰁹</span><span id="bat-info">100%</span></div>
+</div>
+<div class="panel" id="panel-power">
+  <div class="panel-title">session</div>
+  <div class="sys-info"><div class="host" id="pw-host"></div><div class="detail" id="pw-kernel"></div><div class="detail" id="pw-uptime"></div></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_lock'})"><span class="icon">󰌾</span><span class="text">lock</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_suspend'})"><span class="icon">󰤄</span><span class="text">suspend</span></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_reboot'})"><span class="icon">󰜉</span><span class="text">restart</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_shutdown'})"><span class="icon">󰐦</span><span class="text">shutdown</span></div>
+  <div class="sep"></div>
+  <div class="menu-item danger" onclick="send({cmd:'power_logout'})"><span class="icon">󰗼</span><span class="text">logout</span></div>
+</div>
+<div class="panel" id="panel-wifi">
+  <div class="panel-title"><span style="font-family:'JetBrainsMono Nerd Font'">󰤨</span><span>networks</span><span class="flex"></span><span id="wifi-status" class="subtitle"></span></div>
+  <div id="wifi-list" style="display:flex;flex-direction:column;gap:1px;"></div>
+</div>
+<div class="panel" id="panel-launcher" style="gap:8px;">
+  <input class="search-input" id="search" placeholder="search..." oninput="filterApps()" autocomplete="off" spellcheck="false">
+  <div class="app-list" id="app-list"></div>
+</div>
+<div class="panel" id="panel-config">
+  <div class="panel-title"><span style="font-family:'JetBrainsMono Nerd Font'">󰒓</span><span>config</span></div>
+  <div class="config-section">display</div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="cfg-bri" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="cfg-bri-val">50</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌵</span>night</span><span class="value clickable" onclick="send({cmd:'toggle_night'})">toggle</span></div>
+  <div class="sep"></div>
+  <div class="config-section">audio</div>
+  <div class="slider-row"><span class="icon" id="cfg-vol-icon">󰕾</span><input type="range" id="cfg-vol" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="cfg-vol-val">50</span></div>
+  <div class="sep"></div>
+  <div class="config-section">network</div>
+  <div class="config-row"><span class="label"><span class="icon">󰤨</span>wifi</span><span class="value clickable" id="cfg-wifi" onclick="send({cmd:'popup',data:'wifi'})">—</span></div>
+  <div class="sep"></div>
+  <div class="config-section">system</div>
+  <div class="config-row"><span class="label"><span class="icon">󰍛</span>mem</span><span class="value" id="cfg-mem">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰁹</span>bat</span><span class="value" id="cfg-bat">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰅐</span>up</span><span class="value" id="cfg-uptime">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌽</span>kern</span><span class="value" id="cfg-kernel">—</span></div>
+</div>
+<script>
+function send(o){window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o))}
+function volIcon(v,m){if(m)return'󰝟';if(v>50)return'󰕾';if(v>0)return'󰖀';return'󰕿'}
+function wifiSigIcon(s){if(s>75)return'󰤨';if(s>50)return'󰤥';if(s>25)return'󰤢';return'󰤟'}
+let _sliderTimers={};function sendThrottled(k,o){if(_sliderTimers[k])return;send(o);_sliderTimers[k]=setTimeout(()=>{delete _sliderTimers[k]},80);}
+let allApps=[],selectedIdx=0;
+function filterApps(){const q=document.getElementById('search').value.toLowerCase();const list=document.getElementById('app-list');list.innerHTML='';const filtered=allApps.filter(a=>a.name.toLowerCase().includes(q)).slice(0,20);selectedIdx=0;if(!filtered.length){list.innerHTML='<div class="no-results">nothing found</div>';return;}filtered.forEach((app,i)=>{const div=document.createElement('div');div.className='app-item'+(i===0?' selected':'');if(app.icon){const img=document.createElement('img');img.src=app.icon;img.draggable=false;img.onerror=function(){const fb=document.createElement('span');fb.className='app-icon-fallback';fb.textContent=app.name.charAt(0);this.replaceWith(fb);};div.appendChild(img);}else{const fb=document.createElement('span');fb.className='app-icon-fallback';fb.textContent=app.name.charAt(0);div.appendChild(fb);}const name=document.createElement('span');name.textContent=app.name;div.appendChild(name);div.onclick=()=>send({cmd:'launch',data:app.exec});list.appendChild(div);});}
+function moveSelection(d){const items=document.querySelectorAll('.app-item');if(!items.length)return;items[selectedIdx]?.classList.remove('selected');selectedIdx=Math.max(0,Math.min(items.length-1,selectedIdx+d));items[selectedIdx]?.classList.add('selected');items[selectedIdx]?.scrollIntoView({block:'nearest'});}
+function updateState(s){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));const panel=document.getElementById('panel-'+s.popup);if(panel)panel.classList.add('active');if(s.popup==='settings'){document.getElementById('vol-slider').value=s.vol;document.getElementById('vol-val').textContent=s.vol;document.getElementById('vol-icon').textContent=volIcon(s.vol,s.muted);document.getElementById('tile-mute-icon').textContent=volIcon(s.vol,s.muted);document.getElementById('tile-mute').classList.toggle('active',s.muted);document.getElementById('bri-slider').value=s.bright;document.getElementById('bri-val').textContent=s.bright;document.getElementById('tile-wifi-icon').textContent=s.wifi?'󰤨':'󰤭';document.getElementById('tile-wifi').classList.toggle('active',!!s.wifi);const bs=document.getElementById('bat-section');if(s.has_bat){document.getElementById('bat-info').textContent=s.bat+'%';bs.style.display='';}else{bs.style.display='none';}}if(s.popup==='power'){document.getElementById('pw-host').textContent=(s.user||'')+'@'+(s.host||'');document.getElementById('pw-kernel').textContent=s.kernel||'';document.getElementById('pw-uptime').textContent=s.uptime?'up '+s.uptime:'';}if(s.popup==='wifi'){document.getElementById('wifi-status').textContent=s.wifi||'offline';const list=document.getElementById('wifi-list');list.innerHTML='';(s.wifi_nets||[]).slice(0,12).forEach(net=>{const div=document.createElement('div');div.className='wifi-item'+(net.active?' connected':'');div.innerHTML='<span class="icon">'+wifiSigIcon(net.signal)+'</span><span class="ssid">'+net.ssid+(net.secure?' 󰌾':'')+'</span><span class="meta">'+(net.active?'connected':net.signal+'%')+'</span>';div.onclick=()=>send(net.active?{cmd:'wifi_dis'}:{cmd:'wifi_con',data:net.ssid});list.appendChild(div);});}if(s.popup==='launcher'){allApps=s.apps||[];const input=document.getElementById('search');if(!input.value)filterApps();setTimeout(()=>{input.focus();},50);}if(s.popup==='config'){document.getElementById('cfg-bri').value=s.bright;document.getElementById('cfg-bri-val').textContent=s.bright;document.getElementById('cfg-vol').value=s.vol;document.getElementById('cfg-vol-val').textContent=s.vol;document.getElementById('cfg-vol-icon').textContent=volIcon(s.vol,s.muted);document.getElementById('cfg-wifi').textContent=s.wifi||'offline';document.getElementById('cfg-mem').textContent=s.mem+'%';document.getElementById('cfg-bat').textContent=s.has_bat?s.bat+'%':'n/a';document.getElementById('cfg-uptime').textContent=s.uptime||'—';document.getElementById('cfg-kernel').textContent=s.kernel||'—';}}
+document.addEventListener('keydown',e=>{const p=document.querySelector('.panel.active');if(!p)return;if(e.key==='Escape'){send({cmd:'dismiss'});return;}if(p.id==='panel-launcher'){if(e.key==='ArrowDown'){e.preventDefault();moveSelection(1);}else if(e.key==='ArrowUp'){e.preventDefault();moveSelection(-1);}else if(e.key==='Tab'){e.preventDefault();moveSelection(e.shiftKey?-1:1);}else if(e.key==='Enter'){e.preventDefault();const sel=document.querySelector('.app-item.selected');if(sel)sel.click();}}});
+</script>
+</body>
+</html>

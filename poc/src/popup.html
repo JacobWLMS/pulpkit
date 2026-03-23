@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  /* ── Theme definitions (same as bar) ───────────── */
+  :root, [data-theme="mocha"] {
+    --bg: #181825; --bg-surface: #1e1e2e; --bg-overlay: #313244;
+    --fg: #cdd6f4; --fg-muted: #a6adc8; --fg-dim: #585b70;
+    --accent: #cba6f7; --blue: #89b4fa; --green: #a6e3a1;
+    --red: #f38ba8; --yellow: #f9e2af; --peach: #fab387;
+    --teal: #94e2d5; --pink: #f2cdcd; --mauve: #cba6f7;
+    --text-on-color: #181825;
+  }
+  [data-theme="macchiato"] {
+    --bg: #1e2030; --bg-surface: #24273a; --bg-overlay: #363a4f;
+    --fg: #cad3f5; --fg-muted: #a5adcb; --fg-dim: #5b6078;
+    --accent: #c6a0f6; --blue: #8aadf4; --green: #a6da95;
+    --red: #ed8796; --yellow: #eed49f; --peach: #f5a97f;
+    --teal: #8bd5ca; --pink: #f0c6c6; --mauve: #c6a0f6;
+    --text-on-color: #1e2030;
+  }
+  [data-theme="frappe"] {
+    --bg: #292c3c; --bg-surface: #303446; --bg-overlay: #414559;
+    --fg: #c6d0f5; --fg-muted: #a5adce; --fg-dim: #626880;
+    --accent: #ca9ee6; --blue: #8caaee; --green: #a6d189;
+    --red: #e78284; --yellow: #e5c890; --peach: #ef9f76;
+    --teal: #81c8be; --pink: #eebebe; --mauve: #ca9ee6;
+    --text-on-color: #292c3c;
+  }
+  [data-theme="latte"] {
+    --bg: #e6e9ef; --bg-surface: #eff1f5; --bg-overlay: #ccd0da;
+    --fg: #4c4f69; --fg-muted: #6c6f85; --fg-dim: #9ca0b0;
+    --accent: #8839ef; --blue: #1e66f5; --green: #40a02b;
+    --red: #d20f39; --yellow: #df8e1d; --peach: #fe640b;
+    --teal: #179299; --pink: #ea76cb; --mauve: #8839ef;
+    --text-on-color: #eff1f5;
+  }
+  [data-theme="tokyonight"] {
+    --bg: #1a1b26; --bg-surface: #16161e; --bg-overlay: #24283b;
+    --fg: #c0caf5; --fg-muted: #565f89; --fg-dim: #414868;
+    --accent: #7aa2f7; --blue: #7aa2f7; --green: #9ece6a;
+    --red: #f7768e; --yellow: #e0af68; --peach: #ff9e64;
+    --teal: #73daca; --pink: #bb9af7; --mauve: #bb9af7;
+    --text-on-color: #1a1b26;
+  }
+  [data-theme="nord"] {
+    --bg: #2e3440; --bg-surface: #3b4252; --bg-overlay: #434c5e;
+    --fg: #eceff4; --fg-muted: #d8dee9; --fg-dim: #4c566a;
+    --accent: #88c0d0; --blue: #81a1c1; --green: #a3be8c;
+    --red: #bf616a; --yellow: #ebcb8b; --peach: #d08770;
+    --teal: #8fbcbb; --pink: #b48ead; --mauve: #b48ead;
+    --text-on-color: #2e3440;
+  }
+  [data-theme="gruvbox"] {
+    --bg: #1d2021; --bg-surface: #282828; --bg-overlay: #3c3836;
+    --fg: #ebdbb2; --fg-muted: #a89984; --fg-dim: #665c54;
+    --accent: #d79921; --blue: #458588; --green: #98971a;
+    --red: #cc241d; --yellow: #d79921; --peach: #d65d0e;
+    --teal: #689d6a; --pink: #b16286; --mauve: #b16286;
+    --text-on-color: #1d2021;
+  }
+  [data-theme="rosepine"] {
+    --bg: #191724; --bg-surface: #1f1d2e; --bg-overlay: #26233a;
+    --fg: #e0def4; --fg-muted: #908caa; --fg-dim: #6e6a86;
+    --accent: #c4a7e7; --blue: #9ccfd8; --green: #31748f;
+    --red: #eb6f92; --yellow: #f6c177; --peach: #f6c177;
+    --teal: #9ccfd8; --pink: #ebbcba; --mauve: #c4a7e7;
+    --text-on-color: #191724;
+  }
+  [data-theme="onedark"] {
+    --bg: #1e2127; --bg-surface: #282c34; --bg-overlay: #353b45;
+    --fg: #abb2bf; --fg-muted: #7f848e; --fg-dim: #545862;
+    --accent: #c678dd; --blue: #61afef; --green: #98c379;
+    --red: #e06c75; --yellow: #e5c07b; --peach: #d19a66;
+    --teal: #56b6c2; --pink: #c678dd; --mauve: #c678dd;
+    --text-on-color: #1e2127;
+  }
+  [data-theme="dracula"] {
+    --bg: #21222c; --bg-surface: #282a36; --bg-overlay: #44475a;
+    --fg: #f8f8f2; --fg-muted: #bfbfbf; --fg-dim: #6272a4;
+    --accent: #bd93f9; --blue: #8be9fd; --green: #50fa7b;
+    --red: #ff5555; --yellow: #f1fa8c; --peach: #ffb86c;
+    --teal: #8be9fd; --pink: #ff79c6; --mauve: #bd93f9;
+    --text-on-color: #282a36;
+  }
+  [data-theme="solarized"] {
+    --bg: #002b36; --bg-surface: #073642; --bg-overlay: #0a4050;
+    --fg: #839496; --fg-muted: #657b83; --fg-dim: #586e75;
+    --accent: #268bd2; --blue: #268bd2; --green: #859900;
+    --red: #dc322f; --yellow: #b58900; --peach: #cb4b16;
+    --teal: #2aa198; --pink: #d33682; --mauve: #6c71c4;
+    --text-on-color: #002b36;
+  }
+  [data-theme="flexoki"] {
+    --bg: #100f0f; --bg-surface: #1c1b1a; --bg-overlay: #282726;
+    --fg: #cecdc3; --fg-muted: #878580; --fg-dim: #575653;
+    --accent: #da702c; --blue: #4385be; --green: #879a39;
+    --red: #d14d41; --yellow: #d0a215; --peach: #da702c;
+    --teal: #3aa99f; --pink: #ce5d97; --mauve: #8b7ec8;
+    --text-on-color: #100f0f;
+  }
+
+  /* ── Base styles ───────────────────────────────── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrainsMono Nerd Font', monospace;
+    font-size: 13px; background: transparent; color: var(--fg);
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+    transition: color 0.3s;
+  }
+  .panel {
+    background: var(--bg-surface); border: 1px solid var(--bg-overlay);
+    padding: 20px; display: none; flex-direction: column;
+    gap: 14px; width: 100%; height: 100vh; overflow-y: auto;
+    animation: fadeIn 0.15s ease; transition: background 0.3s;
+  }
+  .panel.active { display: flex; }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--fg-dim); }
+  @keyframes fadeIn { from{opacity:0;transform:scale(0.98)} to{opacity:1;transform:scale(1)} }
+
+  .panel-title {
+    font-size: 15px; font-weight: 700; color: var(--fg);
+    padding-bottom: 10px; border-bottom: 1px solid var(--bg-overlay);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-title .flex { flex: 1; }
+  .panel-title .subtitle { font-size: 11px; font-weight: 400; color: var(--fg-muted); }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile {
+    padding: 14px 8px; background: var(--bg-overlay);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  .tile:hover { filter: brightness(1.2); }
+  .tile.active { background: var(--accent); color: var(--text-on-color); }
+  .tile .icon { font-size: 20px; }
+  .tile .label { font-size: 10px; color: var(--fg-muted); }
+  .tile.active .label { color: var(--text-on-color); }
+
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-row .icon { font-size: 16px; color: var(--fg-muted); width: 22px; text-align: center; }
+  .slider-row input[type=range] {
+    flex: 1; height: 6px; -webkit-appearance: none;
+    background: var(--bg-overlay); outline: none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    background: var(--accent); border-radius: 50%; cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  .slider-row .val { font-size: 11px; color: var(--fg-muted); width: 36px; text-align: right; }
+
+  .sep { height: 1px; background: var(--bg-overlay); margin: 2px 0; }
+
+  .menu-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px; cursor: pointer; transition: all 0.15s ease;
+  }
+  .menu-item:hover { background: var(--bg-overlay); }
+  .menu-item .icon { font-size: 18px; width: 22px; text-align: center; }
+  .menu-item .text { flex: 1; }
+  .menu-item .shortcut { font-size: 10px; color: var(--fg-dim); }
+  .menu-item.danger { color: var(--red); }
+  .menu-item.danger:hover { background: rgba(255,50,50,0.08); }
+
+  .sys-info { text-align: center; padding: 12px 0; }
+  .sys-info .host { font-size: 15px; font-weight: 700; color: var(--accent); }
+  .sys-info .detail { font-size: 11px; color: var(--fg-muted); margin-top: 2px; }
+
+  .wifi-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; cursor: pointer; transition: all 0.15s ease;
+  }
+  .wifi-item:hover { background: var(--bg-overlay); }
+  .wifi-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .wifi-item .ssid { flex: 1; font-size: 13px; }
+  .wifi-item .meta { font-size: 11px; color: var(--fg-muted); }
+  .wifi-item.connected { color: var(--green); }
+  .wifi-item.connected .ssid { font-weight: 600; }
+
+  .search-input {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg-overlay); border: 1px solid var(--fg-dim);
+    color: var(--fg); font-family: inherit; font-size: 14px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--fg-dim); }
+
+  .app-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px; cursor: pointer; transition: all 0.1s; font-size: 13px;
+  }
+  .app-item:hover, .app-item.selected { background: var(--bg-overlay); }
+  .app-item.selected { border-left: 3px solid var(--accent); }
+  .app-item img { width: 28px; height: 28px; flex-shrink: 0; }
+  .app-item .app-icon-fallback {
+    width: 28px; height: 28px; flex-shrink: 0;
+    background: var(--bg-overlay); display: flex; align-items: center;
+    justify-content: center; font-size: 13px; color: var(--fg-muted);
+  }
+  .app-list { overflow-y: auto; max-height: 380px; display: flex; flex-direction: column; gap: 2px; }
+  .no-results { text-align: center; padding: 20px; color: var(--fg-dim); font-size: 12px; }
+
+  .config-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 0;
+  }
+  .config-row .label { font-size: 13px; color: var(--fg-muted); display: flex; align-items: center; gap: 8px; }
+  .config-row .label .icon { font-size: 15px; }
+  .config-row .value { font-size: 13px; color: var(--fg); }
+  .config-row .value.clickable { cursor: pointer; color: var(--blue); }
+  .config-row .value.clickable:hover { text-decoration: underline; }
+  .config-section { font-size: 11px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding-top: 4px; }
+
+  /* Theme picker */
+  .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .theme-swatch {
+    padding: 8px 4px; cursor: pointer; text-align: center;
+    font-size: 9px; color: var(--fg-muted);
+    border: 2px solid transparent; transition: all 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .theme-swatch:hover { border-color: var(--fg-dim); }
+  .theme-swatch.active { border-color: var(--accent); color: var(--fg); }
+  .theme-swatch .dots { display: flex; gap: 3px; }
+  .theme-swatch .dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<div class="panel" id="panel-settings">
+  <div class="panel-title">Quick Settings</div>
+  <div class="tiles">
+    <div class="tile" id="tile-wifi" onclick="send({cmd:'popup',data:'wifi'})"><span class="icon" id="tile-wifi-icon">󰤨</span><span class="label">WiFi</span></div>
+    <div class="tile" id="tile-bt" onclick="send({cmd:'toggle_bt'})"><span class="icon">󰂯</span><span class="label">Bluetooth</span></div>
+    <div class="tile" id="tile-dnd" onclick="send({cmd:'toggle_dnd'})"><span class="icon">󰍶</span><span class="label">DND</span></div>
+    <div class="tile" id="tile-night" onclick="send({cmd:'toggle_night'})"><span class="icon">󰌵</span><span class="label">Night</span></div>
+    <div class="tile" id="tile-mute" onclick="send({cmd:'vol_mute'})"><span class="icon" id="tile-mute-icon">󰕾</span><span class="label">Mute</span></div>
+    <div class="tile" onclick="send({cmd:'popup',data:'config'})"><span class="icon">󰒓</span><span class="label">Settings</span></div>
+  </div>
+  <div class="sep"></div>
+  <div class="slider-row"><span class="icon" id="vol-icon">󰕾</span><input type="range" id="vol-slider" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="vol-val">50%</span></div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="bri-slider" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="bri-val">50%</span></div>
+  <div class="sep"></div>
+  <div id="bat-section" style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="font-size:14px">󰁹</span><span id="bat-info" style="font-size:12px;color:var(--fg-muted)">100%</span></div>
+</div>
+
+<div class="panel" id="panel-power">
+  <div class="panel-title">Session</div>
+  <div class="sys-info"><div class="host" id="pw-host"></div><div class="detail" id="pw-kernel"></div><div class="detail" id="pw-uptime"></div></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_lock'})"><span class="icon">󰌾</span><span class="text">Lock Screen</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_suspend'})"><span class="icon">󰤄</span><span class="text">Suspend</span></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_reboot'})"><span class="icon">󰜉</span><span class="text">Restart</span><span class="shortcut">systemctl reboot</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_shutdown'})"><span class="icon">󰐦</span><span class="text">Shut Down</span><span class="shortcut">systemctl poweroff</span></div>
+  <div class="sep"></div>
+  <div class="menu-item danger" onclick="send({cmd:'power_logout'})"><span class="icon">󰗼</span><span class="text">Log Out</span><span class="shortcut">niri quit</span></div>
+</div>
+
+<div class="panel" id="panel-wifi">
+  <div class="panel-title"><span>󰤨</span><span>Networks</span><span class="flex"></span><span id="wifi-status" class="subtitle"></span></div>
+  <div id="wifi-list" style="display:flex;flex-direction:column;gap:2px;"></div>
+</div>
+
+<div class="panel" id="panel-launcher" style="gap:10px;">
+  <input class="search-input" id="search" placeholder="Search applications..." oninput="filterApps()" autocomplete="off" spellcheck="false">
+  <div class="app-list" id="app-list"></div>
+</div>
+
+<div class="panel" id="panel-config">
+  <div class="panel-title"><span>󰒓</span><span>Settings</span></div>
+
+  <div class="config-section">󰏘 Theme</div>
+  <div class="theme-grid" id="theme-grid"></div>
+
+  <div class="sep"></div>
+  <div class="config-section">󰃟 Display</div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="cfg-bri" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="cfg-bri-val">50%</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌵</span> Night Light</span><span class="value clickable" onclick="send({cmd:'toggle_night'})">Toggle</span></div>
+
+  <div class="sep"></div>
+  <div class="config-section">󰕾 Audio</div>
+  <div class="slider-row"><span class="icon" id="cfg-vol-icon">󰕾</span><input type="range" id="cfg-vol" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="cfg-vol-val">50%</span></div>
+
+  <div class="sep"></div>
+  <div class="config-section">󰤨 Network</div>
+  <div class="config-row"><span class="label"><span class="icon">󰤨</span> WiFi</span><span class="value clickable" id="cfg-wifi" onclick="send({cmd:'popup',data:'wifi'})">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰂯</span> Bluetooth</span><span class="value clickable" onclick="send({cmd:'toggle_bt'})">Toggle</span></div>
+
+  <div class="sep"></div>
+  <div class="config-section">󰍛 System</div>
+  <div class="config-row"><span class="label"><span class="icon">󰍛</span> Memory</span><span class="value" id="cfg-mem">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰁹</span> Battery</span><span class="value" id="cfg-bat">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰅐</span> Uptime</span><span class="value" id="cfg-uptime">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌽</span> Kernel</span><span class="value" id="cfg-kernel">—</span></div>
+</div>
+
+<script>
+function send(o){window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o))}
+function volIcon(v,m){if(m)return'󰝟';if(v>50)return'󰕾';if(v>0)return'󰖀';return'󰕿'}
+function wifiSigIcon(s){if(s>75)return'󰤨';if(s>50)return'󰤥';if(s>25)return'󰤢';return'󰤟'}
+
+let _sliderTimers={};
+function sendThrottled(k,o){if(_sliderTimers[k])return;send(o);_sliderTimers[k]=setTimeout(()=>{delete _sliderTimers[k]},80);}
+
+// ── Theme system ──
+const themes = [
+  {id:'mocha',     name:'Mocha',      dots:['#cba6f7','#89b4fa','#a6e3a1','#f38ba8']},
+  {id:'macchiato', name:'Macchiato',   dots:['#c6a0f6','#8aadf4','#a6da95','#ed8796']},
+  {id:'frappe',    name:'Frappé',      dots:['#ca9ee6','#8caaee','#a6d189','#e78284']},
+  {id:'latte',     name:'Latte',       dots:['#8839ef','#1e66f5','#40a02b','#d20f39']},
+  {id:'tokyonight',name:'Tokyo Night', dots:['#7aa2f7','#bb9af7','#9ece6a','#f7768e']},
+  {id:'nord',      name:'Nord',        dots:['#88c0d0','#81a1c1','#a3be8c','#bf616a']},
+  {id:'gruvbox',   name:'Gruvbox',     dots:['#d79921','#458588','#98971a','#cc241d']},
+  {id:'rosepine',  name:'Rosé Pine',   dots:['#c4a7e7','#9ccfd8','#31748f','#eb6f92']},
+  {id:'onedark',   name:'One Dark',    dots:['#c678dd','#61afef','#98c379','#e06c75']},
+  {id:'dracula',   name:'Dracula',     dots:['#bd93f9','#8be9fd','#50fa7b','#ff5555']},
+  {id:'solarized', name:'Solarized',   dots:['#268bd2','#2aa198','#859900','#dc322f']},
+  {id:'flexoki',   name:'Flexoki',     dots:['#da702c','#4385be','#879a39','#d14d41']},
+];
+
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('pulpkit-theme', t);
+  send({cmd: 'set_theme', data: t});
+  renderThemeGrid();
+}
+(function(){const t=localStorage.getItem('pulpkit-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+
+function renderThemeGrid() {
+  const grid = document.getElementById('theme-grid');
+  if (!grid) return;
+  const current = localStorage.getItem('pulpkit-theme') || 'mocha';
+  grid.innerHTML = '';
+  themes.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'theme-swatch' + (t.id === current ? ' active' : '');
+    el.innerHTML = '<div class="dots">' + t.dots.map(c => '<span class="dot" style="background:'+c+'"></span>').join('') + '</div><span>' + t.name + '</span>';
+    el.onclick = () => setTheme(t.id);
+    grid.appendChild(el);
+  });
+}
+
+let allApps=[],selectedIdx=0;
+function filterApps(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const list=document.getElementById('app-list');list.innerHTML='';
+  const filtered=allApps.filter(a=>a.name.toLowerCase().includes(q)).slice(0,20);selectedIdx=0;
+  if(!filtered.length){list.innerHTML='<div class="no-results">No applications found</div>';return;}
+  filtered.forEach((app,i)=>{
+    const div=document.createElement('div');div.className='app-item'+(i===0?' selected':'');
+    if(app.icon){const img=document.createElement('img');img.src=app.icon;img.draggable=false;img.onerror=function(){const fb=document.createElement('span');fb.className='app-icon-fallback';fb.textContent=app.name.charAt(0).toUpperCase();this.replaceWith(fb);};div.appendChild(img);}
+    else{const fb=document.createElement('span');fb.className='app-icon-fallback';fb.textContent=app.name.charAt(0).toUpperCase();div.appendChild(fb);}
+    const name=document.createElement('span');name.textContent=app.name;div.appendChild(name);
+    div.onclick=()=>send({cmd:'launch',data:app.exec});list.appendChild(div);
+  });
+}
+function moveSelection(d){const items=document.querySelectorAll('.app-item');if(!items.length)return;items[selectedIdx]?.classList.remove('selected');selectedIdx=Math.max(0,Math.min(items.length-1,selectedIdx+d));items[selectedIdx]?.classList.add('selected');items[selectedIdx]?.scrollIntoView({block:'nearest'});}
+
+function updateState(s){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const panel=document.getElementById('panel-'+s.popup);if(panel)panel.classList.add('active');
+
+  if(s.popup==='settings'){
+    document.getElementById('vol-slider').value=s.vol;document.getElementById('vol-val').textContent=s.vol+'%';
+    document.getElementById('vol-icon').textContent=volIcon(s.vol,s.muted);
+    document.getElementById('tile-mute-icon').textContent=volIcon(s.vol,s.muted);
+    document.getElementById('tile-mute').classList.toggle('active',s.muted);
+    document.getElementById('bri-slider').value=s.bright;document.getElementById('bri-val').textContent=s.bright+'%';
+    document.getElementById('tile-wifi-icon').textContent=s.wifi?'󰤨':'󰤭';
+    document.getElementById('tile-wifi').classList.toggle('active',!!s.wifi);
+    const bs=document.getElementById('bat-section');
+    if(s.has_bat){document.getElementById('bat-info').textContent=s.bat+'% · '+s.bat_status;bs.style.display='';}
+    else{bs.style.display='none';}
+  }
+  if(s.popup==='power'){
+    document.getElementById('pw-host').textContent=(s.user||'')+'@'+(s.host||'');
+    document.getElementById('pw-kernel').textContent=s.kernel||'';
+    document.getElementById('pw-uptime').textContent=s.uptime?'Up '+s.uptime:'';
+  }
+  if(s.popup==='wifi'){
+    document.getElementById('wifi-status').textContent=s.wifi||'Disconnected';
+    const list=document.getElementById('wifi-list');list.innerHTML='';
+    (s.wifi_nets||[]).slice(0,12).forEach(net=>{
+      const div=document.createElement('div');div.className='wifi-item'+(net.active?' connected':'');
+      div.innerHTML='<span class="icon">'+wifiSigIcon(net.signal)+'</span><span class="ssid">'+net.ssid+(net.secure?' 󰌾':'')+'</span><span class="meta">'+(net.active?'󰄬 Connected':net.signal+'%')+'</span>';
+      div.onclick=()=>send(net.active?{cmd:'wifi_dis'}:{cmd:'wifi_con',data:net.ssid});list.appendChild(div);
+    });
+  }
+  if(s.popup==='launcher'){allApps=s.apps||[];const input=document.getElementById('search');if(!input.value)filterApps();setTimeout(()=>{input.focus();},50);}
+  if(s.popup==='config'){
+    renderThemeGrid();
+    document.getElementById('cfg-bri').value=s.bright;document.getElementById('cfg-bri-val').textContent=s.bright+'%';
+    document.getElementById('cfg-vol').value=s.vol;document.getElementById('cfg-vol-val').textContent=s.vol+'%';
+    document.getElementById('cfg-vol-icon').textContent=volIcon(s.vol,s.muted);
+    document.getElementById('cfg-wifi').textContent=s.wifi||'Disconnected';
+    document.getElementById('cfg-mem').textContent=s.mem+'%';
+    document.getElementById('cfg-bat').textContent=s.has_bat?s.bat+'% · '+s.bat_status:'N/A';
+    document.getElementById('cfg-uptime').textContent=s.uptime||'—';
+    document.getElementById('cfg-kernel').textContent=s.kernel||'—';
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  const p=document.querySelector('.panel.active');if(!p)return;
+  if(e.key==='Escape'){send({cmd:'dismiss'});return;}
+  if(p.id==='panel-launcher'){
+    if(e.key==='ArrowDown'){e.preventDefault();moveSelection(1);}
+    else if(e.key==='ArrowUp'){e.preventDefault();moveSelection(-1);}
+    else if(e.key==='Tab'){e.preventDefault();moveSelection(e.shiftKey?-1:1);}
+    else if(e.key==='Enter'){e.preventDefault();const sel=document.querySelector('.app-item.selected');if(sel)sel.click();}
+  }
+});
+</script>
+</body>
+</html>

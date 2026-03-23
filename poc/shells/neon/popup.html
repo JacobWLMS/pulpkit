@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @keyframes scan { 0%{background-position:0 0} 100%{background-position:0 4px} }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrainsMono Nerd Font', monospace;
+    font-size: 12px; background: transparent; color: #0ff;
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+  .panel {
+    background: #000;
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 20px; display: none; flex-direction: column;
+    gap: 12px; width: 100%; height: 100vh; overflow-y: auto;
+    background-image: repeating-linear-gradient(transparent 0px, transparent 2px, rgba(0,255,255,0.01) 2px, rgba(0,255,255,0.01) 4px);
+    animation: scan 0.5s linear infinite, fadeIn 0.15s ease;
+  }
+  .panel.active { display: flex; }
+  .panel::before {
+    content: ''; position: fixed; top: -1px; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,255,0.5), transparent);
+  }
+  .panel::-webkit-scrollbar { width: 2px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(0,255,255,0.3); }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .panel-title {
+    font-size: 12px; font-weight: 700; color: #0ff;
+    text-transform: uppercase; letter-spacing: 2px;
+    padding-bottom: 10px; border-bottom: 1px solid rgba(0,255,255,0.15);
+    display: flex; align-items: center; gap: 10px;
+    text-shadow: 0 0 8px rgba(0,255,255,0.4);
+  }
+  .panel-title .flex { flex: 1; }
+  .panel-title .subtitle { font-size: 10px; letter-spacing: 0; color: rgba(0,255,255,0.4); font-weight: 400; }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tile {
+    padding: 12px 6px; border: 1px solid rgba(0,255,255,0.1);
+    background: rgba(0,255,255,0.02);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .tile:hover { border-color: rgba(0,255,255,0.3); background: rgba(0,255,255,0.05); }
+  .tile.active { border-color: #0ff; background: rgba(0,255,255,0.1); text-shadow: 0 0 8px #0ff; }
+  .tile .icon { font-size: 18px; }
+  .tile .label { font-size: 9px; color: rgba(0,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+  .tile.active .label { color: #0ff; }
+
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-row .icon { font-size: 14px; color: rgba(0,255,255,0.5); width: 20px; text-align: center; }
+  .slider-row input[type=range] { flex: 1; height: 2px; -webkit-appearance: none; background: rgba(0,255,255,0.15); outline: none; }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px;
+    background: #0ff; border-radius: 0; cursor: pointer;
+    box-shadow: 0 0 8px rgba(0,255,255,0.5);
+  }
+  .slider-row .val { font-size: 10px; color: rgba(0,255,255,0.5); width: 36px; text-align: right; font-weight: 700; }
+
+  .sep { height: 1px; background: rgba(0,255,255,0.1); }
+
+  .menu-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border: 1px solid transparent;
+    cursor: pointer; transition: all 0.15s; font-size: 11px; letter-spacing: 0.5px;
+  }
+  .menu-item:hover { border-color: rgba(0,255,255,0.2); background: rgba(0,255,255,0.03); }
+  .menu-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .menu-item .text { flex: 1; }
+  .menu-item .shortcut { font-size: 9px; color: rgba(0,255,255,0.3); }
+  .menu-item.danger { color: #f33; }
+  .menu-item.danger:hover { border-color: rgba(255,51,51,0.3); background: rgba(255,51,51,0.03); }
+
+  .sys-info { text-align: center; padding: 12px 0; }
+  .sys-info .host { font-size: 13px; font-weight: 700; color: #0ff; text-shadow: 0 0 10px rgba(0,255,255,0.5); letter-spacing: 2px; }
+  .sys-info .detail { font-size: 10px; color: rgba(0,255,255,0.4); margin-top: 2px; }
+
+  .wifi-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border: 1px solid transparent;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .wifi-item:hover { border-color: rgba(0,255,0,0.2); background: rgba(0,255,0,0.03); }
+  .wifi-item .icon { font-size: 14px; width: 18px; text-align: center; color: #0f0; }
+  .wifi-item .ssid { flex: 1; font-size: 12px; }
+  .wifi-item .meta { font-size: 10px; color: rgba(0,255,255,0.4); }
+  .wifi-item.connected { color: #0f0; text-shadow: 0 0 6px rgba(0,255,0,0.3); }
+
+  .search-input {
+    width: 100%; padding: 10px 14px;
+    background: rgba(0,255,255,0.03); border: 1px solid rgba(0,255,255,0.15);
+    color: #0ff; font-family: inherit; font-size: 13px; letter-spacing: 1px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: #0ff; box-shadow: 0 0 8px rgba(0,255,255,0.2); }
+  .search-input::placeholder { color: rgba(0,255,255,0.2); }
+
+  .app-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 12px; border: 1px solid transparent;
+    cursor: pointer; transition: all 0.15s; font-size: 12px;
+  }
+  .app-item:hover, .app-item.selected { border-color: rgba(0,255,255,0.2); background: rgba(0,255,255,0.03); }
+  .app-item.selected { border-left: 2px solid #0ff; }
+  .app-item img { width: 24px; height: 24px; flex-shrink: 0; filter: brightness(1.2) saturate(0.5); }
+  .app-item .app-icon-fallback {
+    width: 24px; height: 24px; flex-shrink: 0; border: 1px solid rgba(0,255,255,0.2);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; color: rgba(0,255,255,0.5);
+  }
+  .app-list { overflow-y: auto; max-height: 380px; display: flex; flex-direction: column; gap: 2px; }
+  .no-results { text-align: center; padding: 20px; color: rgba(0,255,255,0.2); font-size: 11px; letter-spacing: 1px; }
+
+  .config-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+  .config-row .label { font-size: 11px; color: rgba(0,255,255,0.5); display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px; }
+  .config-row .label .icon { font-size: 14px; }
+  .config-row .value { font-size: 11px; font-weight: 700; }
+  .config-row .value.clickable { cursor: pointer; color: #0f0; }
+  .config-section { font-size: 10px; color: #f0f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; padding-top: 4px; text-shadow: 0 0 6px rgba(255,0,255,0.3); }
+</style>
+</head>
+<body>
+<div class="panel" id="panel-settings">
+  <div class="panel-title">// SYS.CTRL</div>
+  <div class="tiles">
+    <div class="tile" id="tile-wifi" onclick="send({cmd:'popup',data:'wifi'})"><span class="icon" id="tile-wifi-icon">󰤨</span><span class="label">WiFi</span></div>
+    <div class="tile" id="tile-bt" onclick="send({cmd:'toggle_bt'})"><span class="icon">󰂯</span><span class="label">BT</span></div>
+    <div class="tile" id="tile-dnd" onclick="send({cmd:'toggle_dnd'})"><span class="icon">󰍶</span><span class="label">DND</span></div>
+    <div class="tile" id="tile-night" onclick="send({cmd:'toggle_night'})"><span class="icon">󰌵</span><span class="label">Night</span></div>
+    <div class="tile" id="tile-mute" onclick="send({cmd:'vol_mute'})"><span class="icon" id="tile-mute-icon">󰕾</span><span class="label">Mute</span></div>
+    <div class="tile" onclick="send({cmd:'popup',data:'config'})"><span class="icon">󰒓</span><span class="label">CFG</span></div>
+  </div>
+  <div class="sep"></div>
+  <div class="slider-row"><span class="icon" id="vol-icon">󰕾</span><input type="range" id="vol-slider" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="vol-val">50%</span></div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="bri-slider" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="bri-val">50%</span></div>
+  <div class="sep"></div>
+  <div id="bat-section" style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;"><span>󰁹</span><span id="bat-info" style="color:rgba(0,255,255,0.5)">100%</span></div>
+</div>
+<div class="panel" id="panel-power">
+  <div class="panel-title">// SESSION</div>
+  <div class="sys-info"><div class="host" id="pw-host"></div><div class="detail" id="pw-kernel"></div><div class="detail" id="pw-uptime"></div></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_lock'})"><span class="icon">󰌾</span><span class="text">LOCK</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_suspend'})"><span class="icon">󰤄</span><span class="text">SUSPEND</span></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_reboot'})"><span class="icon">󰜉</span><span class="text">RESTART</span><span class="shortcut">systemctl reboot</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_shutdown'})"><span class="icon">󰐦</span><span class="text">SHUTDOWN</span><span class="shortcut">systemctl poweroff</span></div>
+  <div class="sep"></div>
+  <div class="menu-item danger" onclick="send({cmd:'power_logout'})"><span class="icon">󰗼</span><span class="text">LOGOUT</span></div>
+</div>
+<div class="panel" id="panel-wifi">
+  <div class="panel-title"><span>󰤨</span><span>// NET.SCAN</span><span class="flex"></span><span id="wifi-status" class="subtitle"></span></div>
+  <div id="wifi-list" style="display:flex;flex-direction:column;gap:2px;"></div>
+</div>
+<div class="panel" id="panel-launcher" style="gap:10px;">
+  <input class="search-input" id="search" placeholder="SEARCH..." oninput="filterApps()" autocomplete="off" spellcheck="false">
+  <div class="app-list" id="app-list"></div>
+</div>
+<div class="panel" id="panel-config">
+  <div class="panel-title"><span>󰒓</span><span>// SYS.CONFIG</span></div>
+  <div class="config-section">DISPLAY</div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="cfg-bri" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="cfg-bri-val">50%</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌵</span> NIGHT</span><span class="value clickable" onclick="send({cmd:'toggle_night'})">TOGGLE</span></div>
+  <div class="sep"></div>
+  <div class="config-section">AUDIO</div>
+  <div class="slider-row"><span class="icon" id="cfg-vol-icon">󰕾</span><input type="range" id="cfg-vol" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="cfg-vol-val">50%</span></div>
+  <div class="sep"></div>
+  <div class="config-section">NETWORK</div>
+  <div class="config-row"><span class="label"><span class="icon">󰤨</span> WIFI</span><span class="value clickable" id="cfg-wifi" onclick="send({cmd:'popup',data:'wifi'})">—</span></div>
+  <div class="sep"></div>
+  <div class="config-section">SYSTEM</div>
+  <div class="config-row"><span class="label"><span class="icon">󰍛</span> MEM</span><span class="value" id="cfg-mem">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰁹</span> BAT</span><span class="value" id="cfg-bat">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰅐</span> UP</span><span class="value" id="cfg-uptime">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌽</span> KERN</span><span class="value" id="cfg-kernel">—</span></div>
+</div>
+<script>
+function send(o){window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o))}
+function volIcon(v,m){if(m)return'󰝟';if(v>50)return'󰕾';if(v>0)return'󰖀';return'󰕿'}
+function wifiSigIcon(s){if(s>75)return'󰤨';if(s>50)return'󰤥';if(s>25)return'󰤢';return'󰤟'}
+let _sliderTimers={};function sendThrottled(k,o){if(_sliderTimers[k])return;send(o);_sliderTimers[k]=setTimeout(()=>{delete _sliderTimers[k]},80);}
+let allApps=[],selectedIdx=0;
+function filterApps(){const q=document.getElementById('search').value.toLowerCase();const list=document.getElementById('app-list');list.innerHTML='';const filtered=allApps.filter(a=>a.name.toLowerCase().includes(q)).slice(0,20);selectedIdx=0;if(!filtered.length){list.innerHTML='<div class="no-results">NO MATCH</div>';return;}filtered.forEach((app,i)=>{const div=document.createElement('div');div.className='app-item'+(i===0?' selected':'');if(app.icon){const img=document.createElement('img');img.src=app.icon;img.draggable=false;img.onerror=function(){const fb=document.createElement('span');fb.className='app-icon-fallback';fb.textContent=app.name.charAt(0);this.replaceWith(fb);};div.appendChild(img);}else{const fb=document.createElement('span');fb.className='app-icon-fallback';fb.textContent=app.name.charAt(0);div.appendChild(fb);}const name=document.createElement('span');name.textContent=app.name;div.appendChild(name);div.onclick=()=>send({cmd:'launch',data:app.exec});list.appendChild(div);});}
+function moveSelection(d){const items=document.querySelectorAll('.app-item');if(!items.length)return;items[selectedIdx]?.classList.remove('selected');selectedIdx=Math.max(0,Math.min(items.length-1,selectedIdx+d));items[selectedIdx]?.classList.add('selected');items[selectedIdx]?.scrollIntoView({block:'nearest'});}
+function updateState(s){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));const panel=document.getElementById('panel-'+s.popup);if(panel)panel.classList.add('active');if(s.popup==='settings'){document.getElementById('vol-slider').value=s.vol;document.getElementById('vol-val').textContent=s.vol+'%';document.getElementById('vol-icon').textContent=volIcon(s.vol,s.muted);document.getElementById('tile-mute-icon').textContent=volIcon(s.vol,s.muted);document.getElementById('tile-mute').classList.toggle('active',s.muted);document.getElementById('bri-slider').value=s.bright;document.getElementById('bri-val').textContent=s.bright+'%';document.getElementById('tile-wifi-icon').textContent=s.wifi?'󰤨':'󰤭';document.getElementById('tile-wifi').classList.toggle('active',!!s.wifi);const bs=document.getElementById('bat-section');if(s.has_bat){document.getElementById('bat-info').textContent=s.bat+'% · '+s.bat_status;bs.style.display='';}else{bs.style.display='none';}}if(s.popup==='power'){document.getElementById('pw-host').textContent=(s.user||'')+'@'+(s.host||'');document.getElementById('pw-kernel').textContent=s.kernel||'';document.getElementById('pw-uptime').textContent=s.uptime?'UP '+s.uptime:'';}if(s.popup==='wifi'){document.getElementById('wifi-status').textContent=s.wifi||'OFFLINE';const list=document.getElementById('wifi-list');list.innerHTML='';(s.wifi_nets||[]).slice(0,12).forEach(net=>{const div=document.createElement('div');div.className='wifi-item'+(net.active?' connected':'');div.innerHTML='<span class="icon">'+wifiSigIcon(net.signal)+'</span><span class="ssid">'+net.ssid+(net.secure?' 󰌾':'')+'</span><span class="meta">'+(net.active?'LINKED':net.signal+'%')+'</span>';div.onclick=()=>send(net.active?{cmd:'wifi_dis'}:{cmd:'wifi_con',data:net.ssid});list.appendChild(div);});}if(s.popup==='launcher'){allApps=s.apps||[];const input=document.getElementById('search');if(!input.value)filterApps();setTimeout(()=>{input.focus();},50);}if(s.popup==='config'){document.getElementById('cfg-bri').value=s.bright;document.getElementById('cfg-bri-val').textContent=s.bright+'%';document.getElementById('cfg-vol').value=s.vol;document.getElementById('cfg-vol-val').textContent=s.vol+'%';document.getElementById('cfg-vol-icon').textContent=volIcon(s.vol,s.muted);document.getElementById('cfg-wifi').textContent=s.wifi||'OFFLINE';document.getElementById('cfg-mem').textContent=s.mem+'%';document.getElementById('cfg-bat').textContent=s.has_bat?s.bat+'%':'N/A';document.getElementById('cfg-uptime').textContent=s.uptime||'—';document.getElementById('cfg-kernel').textContent=s.kernel||'—';}}
+document.addEventListener('keydown',e=>{const p=document.querySelector('.panel.active');if(!p)return;if(e.key==='Escape'){send({cmd:'dismiss'});return;}if(p.id==='panel-launcher'){if(e.key==='ArrowDown'){e.preventDefault();moveSelection(1);}else if(e.key==='ArrowUp'){e.preventDefault();moveSelection(-1);}else if(e.key==='Tab'){e.preventDefault();moveSelection(e.shiftKey?-1:1);}else if(e.key==='Enter'){e.preventDefault();const sel=document.querySelector('.app-item.selected');if(sel)sel.click();}}});
+</script>
+</body>
+</html>

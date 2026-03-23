@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html data-theme="gruvbox">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="theme.css">
+<style>
+  :root {
+    --grv-bg-hard: #1d2021;
+    --grv-bg: #282828;
+    --grv-bg1: #3c3836;
+    --grv-bg2: #504945;
+    --grv-bg3: #665c54;
+    --grv-bg4: #7c6f64;
+    --grv-fg: #ebdbb2;
+    --grv-fg1: #d5c4a1;
+    --grv-fg2: #bdae93;
+    --grv-fg-dim: #a89984;
+    --grv-fg-dark: #665c54;
+    --grv-red: #fb4934;
+    --grv-green: #b8bb26;
+    --grv-yellow: #fabd2f;
+    --grv-blue: #83a598;
+    --grv-purple: #d3869b;
+    --grv-aqua: #8ec07c;
+    --grv-orange: #fe8019;
+    --grv-orange-dim: #d65d0e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', monospace;
+    font-size: 13px;
+    background: transparent;
+    color: var(--grv-fg);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .panel {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    height: 100vh;
+    padding: 16px;
+    overflow-y: auto;
+    background: var(--grv-bg);
+    border: 1px solid var(--grv-bg1);
+    border-radius: 12px;
+  }
+  .panel.active { display: flex; }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--grv-bg3); border-radius: 2px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── Panel Header ── */
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--grv-bg1);
+  }
+  .panel-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--grv-fg);
+    flex: 1;
+  }
+  .panel-close, .panel-back {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--grv-fg-dim);
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .panel-close:hover, .panel-back:hover {
+    background: var(--grv-bg1);
+    color: var(--grv-fg);
+  }
+
+  /* ── Section Label ── */
+  .section-label {
+    font-size: 10px;
+    color: var(--grv-fg-dark);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 2px 0;
+  }
+
+  /* ── Slider Row ── */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .slider-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .slider-track {
+    flex: 1;
+    height: 6px;
+    background: var(--grv-bg2);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .slider-fill {
+    height: 100%;
+    border-radius: 3px;
+    pointer-events: none;
+    transition: width 0.05s;
+  }
+  .slider-val {
+    font-size: 12px;
+    color: var(--grv-fg1);
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  /* ── Toggle Grid ── */
+  .toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .toggle-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 6px;
+    background: var(--grv-bg1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toggle-btn:hover { background: var(--grv-bg2); }
+  .toggle-btn.on { background: var(--grv-orange-dim); }
+  .toggle-icon { font-size: 20px; }
+  .toggle-label { font-size: 10px; color: var(--grv-fg-dim); }
+  .toggle-btn.on .toggle-label { color: var(--grv-fg); }
+
+  /* ── Profile Switcher ── */
+  .profile-row { display: flex; gap: 6px; }
+  .profile-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    background: var(--grv-bg1);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--grv-fg-dim);
+    transition: all 0.15s;
+  }
+  .profile-btn:hover { background: var(--grv-bg2); color: var(--grv-fg); }
+  .profile-btn.active { background: var(--grv-orange-dim); color: var(--grv-fg); }
+
+  /* ── Info Row ── */
+  .info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+  .info-label { color: var(--grv-fg-dim); }
+  .info-value { color: var(--grv-fg1); }
+
+  /* ── User Card ── */
+  .user-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px;
+    background: var(--grv-bg1);
+    border-radius: 8px;
+  }
+  .user-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--grv-orange-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: var(--grv-fg);
+  }
+  .user-name { font-size: 13px; font-weight: 600; }
+  .user-host { font-size: 11px; color: var(--grv-fg-dim); }
+
+  /* ── WiFi ── */
+  .wifi-connected {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px; background: var(--grv-bg1);
+    border-radius: 8px; border-left: 3px solid var(--grv-green);
+  }
+  .wifi-net {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 6px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .wifi-net:hover { background: var(--grv-bg1); }
+  .wifi-ssid { flex: 1; font-size: 13px; }
+  .wifi-signal { font-size: 16px; color: var(--grv-fg-dim); }
+  .wifi-lock { font-size: 12px; color: var(--grv-fg-dark); }
+  .wifi-check { color: var(--grv-green); font-size: 14px; }
+  .wifi-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
+
+  /* ── Power Grid ── */
+  .power-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 16px 0;
+  }
+  .power-btn {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding: 20px 12px;
+    background: var(--grv-bg1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .power-btn:hover { background: var(--grv-bg2); transform: scale(1.04); }
+  .power-icon { font-size: 28px; }
+  .power-label { font-size: 11px; color: var(--grv-fg-dim); }
+  .power-btn:hover .power-label { color: var(--grv-fg); }
+  .power-btn.danger:hover { background: #3c2020; }
+
+  /* ── Launcher ── */
+  .launcher-search {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--grv-bg1);
+    border-radius: 8px;
+    border: 1px solid var(--grv-bg2);
+    transition: border-color 0.15s;
+  }
+  .launcher-search:focus-within { border-color: var(--grv-orange); }
+  .launcher-search-icon { font-size: 16px; color: var(--grv-fg-dim); }
+  .launcher-input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--grv-fg); font-family: inherit; font-size: 13px;
+  }
+  .launcher-input::placeholder { color: var(--grv-fg-dark); }
+  .launcher-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .launcher-app {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    padding: 10px 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .launcher-app:hover { background: var(--grv-bg1); }
+  .launcher-app img { width: 36px; height: 36px; }
+  .launcher-app .app-name {
+    font-size: 10px; color: var(--grv-fg-dim);
+    text-align: center;
+    max-width: 80px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .launcher-app:hover .app-name { color: var(--grv-fg); }
+  .app-placeholder {
+    width: 36px; height: 36px;
+    background: var(--grv-bg2); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--grv-fg-dim);
+  }
+
+  /* ── Disconnect row ── */
+  .disconnect-row {
+    padding-top: 8px;
+    border-top: 1px solid var(--grv-bg1);
+    margin-top: 4px;
+  }
+  .disconnect-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: var(--grv-bg1);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--grv-fg-dim);
+    transition: all 0.15s;
+  }
+  .disconnect-btn:hover { background: #3c2020; color: var(--grv-red); }
+</style>
+</head>
+<body>
+  <div id="panel-settings" class="panel"></div>
+  <div id="panel-wifi" class="panel"></div>
+  <div id="panel-power" class="panel"></div>
+  <div id="panel-launcher" class="panel"></div>
+  <div id="panel-config" class="panel"></div>
+
+  <script>
+    function send(o) { window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o)); }
+    function sendThrottled(key, o) {
+      if (window['_t_'+key]) return;
+      send(o);
+      window['_t_'+key] = setTimeout(() => { delete window['_t_'+key]; }, 80);
+    }
+    let _st = {};
+    let _launcherQuery = '';
+    // Icon map — defined inline so encoding is correct
+    const I = {
+      vol_hi:   String.fromCodePoint(0xF057E),
+      vol_md:   String.fromCodePoint(0xF0580),
+      vol_lo:   String.fromCodePoint(0xF057F),
+      vol_x:    String.fromCodePoint(0xF075F),
+      wf_4:     String.fromCodePoint(0xF0928),
+      wf_3:     String.fromCodePoint(0xF0925),
+      wf_2:     String.fromCodePoint(0xF0922),
+      wf_1:     String.fromCodePoint(0xF091F),
+      wf_x:     String.fromCodePoint(0xF092D),
+      bat_f:    String.fromCodePoint(0xF0079),
+      bat_8:    String.fromCodePoint(0xF0082),
+      bat_5:    String.fromCodePoint(0xF007E),
+      bat_2:    String.fromCodePoint(0xF007B),
+      bat_1:    String.fromCodePoint(0xF007A),
+      bat_c:    String.fromCodePoint(0xF0084),
+      cpu:      String.fromCodePoint(0xF035B),
+      bri:      String.fromCodePoint(0xF00DF),
+      power:    String.fromCodePoint(0xF0425),
+      lock:     String.fromCodePoint(0xF033E),
+      suspend:  String.fromCodePoint(0xF05FC),
+      logout:   String.fromCodePoint(0xF0426),
+      reboot:   String.fromCodePoint(0xF0709),
+      shutdown: String.fromCodePoint(0xF0904),
+      bt:       String.fromCodePoint(0xF00AF),
+      night:    String.fromCodePoint(0xF0335),
+      dnd:      String.fromCodePoint(0xF0376),
+      gear:     String.fromCodePoint(0xF0493),
+      search:   String.fromCodePoint(0xF0349),
+      check:    String.fromCodePoint(0xF012C),
+      arch:     String.fromCodePoint(0xF303),
+    };
+
+    // Slider drag support via event delegation
+    let _sliderDrag = null;
+    document.addEventListener('mousedown', e => {
+      const track = e.target.closest('.slider-track');
+      if (track && track.dataset.type) {
+        _sliderDrag = track.dataset.type;
+        _handleSlider(e, track);
+      }
+    });
+    document.addEventListener('mousemove', e => {
+      if (_sliderDrag) {
+        const track = document.querySelector('.slider-track[data-type="'+_sliderDrag+'"]');
+        if (track) _handleSlider(e, track);
+      }
+    });
+    document.addEventListener('mouseup', () => { _sliderDrag = null; });
+
+    function _handleSlider(e, track) {
+      const rect = track.getBoundingClientRect();
+      const pct = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
+      const t = track.dataset.type;
+      if (t === 'vol') sendThrottled('vol', {cmd:'vol_set', data:pct});
+      else if (t === 'bri') sendThrottled('bri', {cmd:'bri_set', data:pct});
+    }
+  </script>
+  <script src="panels/settings.js"></script>
+  <script src="panels/wifi.js"></script>
+  <script src="panels/power.js"></script>
+  <script src="panels/launcher.js"></script>
+  <script src="panels/config.js"></script>
+  <script>
+    function updateState(s) {
+      _st = s;
+      document.documentElement.setAttribute('data-theme', 'gruvbox');
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('panel-' + s.popup);
+      if (panel) panel.classList.add('active');
+      if (s.popup === 'settings') renderSettings(s);
+      if (s.popup === 'wifi') renderWifi(s);
+      if (s.popup === 'power') renderPower(s);
+      if (s.popup === 'launcher') renderLauncher(s);
+      if (typeof renderConfig === 'function' && s.popup === 'config') renderConfig(s);
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') send({cmd:'dismiss'});
+    });
+  </script>
+</body>
+</html>

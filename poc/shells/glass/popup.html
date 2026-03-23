@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+    font-size: 13px; background: transparent; color: rgba(255,255,255,0.9);
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+
+  .panel {
+    background: rgba(20, 20, 35, 0.75);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 20px; display: none; flex-direction: column;
+    gap: 14px; width: 100%; height: 100vh;
+    overflow-y: auto;
+    animation: glassIn 0.2s ease;
+  }
+  .panel.active { display: flex; }
+  .panel::-webkit-scrollbar { width: 3px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
+
+  @keyframes glassIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-title {
+    font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.95);
+    padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 10px;
+    letter-spacing: 0.3px;
+  }
+  .panel-title .flex { flex: 1; }
+  .panel-title .subtitle { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.5); }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile {
+    padding: 14px 8px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.04);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+    cursor: pointer; transition: all 0.2s ease;
+  }
+  .tile:hover { background: rgba(255,255,255,0.12); }
+  .tile.active { background: rgba(122,162,247,0.2); border-color: rgba(122,162,247,0.3); }
+  .tile .icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 20px; }
+  .tile .label { font-size: 10px; color: rgba(255,255,255,0.5); }
+  .tile.active .label { color: rgba(122,162,247,0.9); }
+
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-row .icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 16px; color: rgba(255,255,255,0.5); width: 22px; text-align: center; }
+  .slider-row input[type=range] {
+    flex: 1; height: 4px; -webkit-appearance: none;
+    background: rgba(255,255,255,0.1); outline: none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: rgba(255,255,255,0.9); border-radius: 50%; cursor: pointer;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+  }
+  .slider-row .val { font-size: 11px; color: rgba(255,255,255,0.5); width: 36px; text-align: right; }
+
+  .sep { height: 1px; background: rgba(255,255,255,0.06); margin: 2px 0; }
+
+  .menu-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    cursor: pointer; transition: all 0.2s ease;
+  }
+  .menu-item:hover { background: rgba(255,255,255,0.08); }
+  .menu-item .icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 18px; width: 22px; text-align: center; }
+  .menu-item .text { flex: 1; }
+  .menu-item .shortcut { font-size: 10px; color: rgba(255,255,255,0.3); }
+  .menu-item.danger { color: #f87171; }
+  .menu-item.danger:hover { background: rgba(248,113,113,0.08); }
+
+  .sys-info { text-align: center; padding: 12px 0; }
+  .sys-info .host { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); }
+  .sys-info .detail { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+  .wifi-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer; transition: all 0.2s ease;
+  }
+  .wifi-item:hover { background: rgba(255,255,255,0.08); }
+  .wifi-item .icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 16px; width: 20px; text-align: center; }
+  .wifi-item .ssid { flex: 1; font-size: 13px; }
+  .wifi-item .meta { font-size: 11px; color: rgba(255,255,255,0.4); }
+  .wifi-item.connected { color: #4ade80; }
+  .wifi-item.connected .ssid { font-weight: 600; }
+
+  .search-input {
+    width: 100%; padding: 10px 14px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.9); font-family: inherit; font-size: 14px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: rgba(122,162,247,0.5); }
+  .search-input::placeholder { color: rgba(255,255,255,0.25); }
+
+  .app-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px; cursor: pointer; transition: all 0.15s; font-size: 13px;
+  }
+  .app-item:hover, .app-item.selected { background: rgba(255,255,255,0.08); }
+  .app-item.selected { border-left: 3px solid rgba(122,162,247,0.7); }
+  .app-item img { width: 28px; height: 28px; flex-shrink: 0; }
+  .app-item .app-icon-fallback {
+    width: 28px; height: 28px; flex-shrink: 0;
+    background: rgba(255,255,255,0.08); display: flex; align-items: center;
+    justify-content: center; font-size: 13px; color: rgba(255,255,255,0.5);
+  }
+  .app-list { overflow-y: auto; max-height: 380px; display: flex; flex-direction: column; gap: 2px; }
+  .no-results { text-align: center; padding: 20px; color: rgba(255,255,255,0.3); font-size: 12px; }
+
+  .config-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 0;
+  }
+  .config-row .label { font-size: 13px; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 8px; }
+  .config-row .label .icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 15px; }
+  .config-row .value { font-size: 13px; color: rgba(255,255,255,0.9); }
+  .config-row .value.clickable { cursor: pointer; color: #7aa2f7; }
+  .config-row .value.clickable:hover { text-decoration: underline; }
+  .config-section { font-size: 11px; color: rgba(122,162,247,0.7); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding-top: 4px; }
+</style>
+</head>
+<body>
+<!-- Reuses same panel structure as default, just different visual treatment -->
+<div class="panel" id="panel-settings">
+  <div class="panel-title">Quick Settings</div>
+  <div class="tiles">
+    <div class="tile" id="tile-wifi" onclick="send({cmd:'popup',data:'wifi'})"><span class="icon" id="tile-wifi-icon">󰤨</span><span class="label">WiFi</span></div>
+    <div class="tile" id="tile-bt" onclick="send({cmd:'toggle_bt'})"><span class="icon">󰂯</span><span class="label">Bluetooth</span></div>
+    <div class="tile" id="tile-dnd" onclick="send({cmd:'toggle_dnd'})"><span class="icon">󰍶</span><span class="label">DND</span></div>
+    <div class="tile" id="tile-night" onclick="send({cmd:'toggle_night'})"><span class="icon">󰌵</span><span class="label">Night</span></div>
+    <div class="tile" id="tile-mute" onclick="send({cmd:'vol_mute'})"><span class="icon" id="tile-mute-icon">󰕾</span><span class="label">Mute</span></div>
+    <div class="tile" onclick="send({cmd:'popup',data:'config'})"><span class="icon">󰒓</span><span class="label">Settings</span></div>
+  </div>
+  <div class="sep"></div>
+  <div class="slider-row"><span class="icon" id="vol-icon">󰕾</span><input type="range" id="vol-slider" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="vol-val">50%</span></div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="bri-slider" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="bri-val">50%</span></div>
+  <div class="sep"></div>
+  <div id="bat-section" style="display:flex;align-items:center;justify-content:center;gap:8px;"><span style="font-family:'JetBrainsMono Nerd Font';font-size:14px">󰁹</span><span id="bat-info" style="font-size:12px;color:rgba(255,255,255,0.5)">100%</span></div>
+</div>
+<div class="panel" id="panel-power">
+  <div class="panel-title">Session</div>
+  <div class="sys-info"><div class="host" id="pw-host"></div><div class="detail" id="pw-kernel"></div><div class="detail" id="pw-uptime"></div></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_lock'})"><span class="icon">󰌾</span><span class="text">Lock Screen</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_suspend'})"><span class="icon">󰤄</span><span class="text">Suspend</span></div>
+  <div class="sep"></div>
+  <div class="menu-item" onclick="send({cmd:'power_reboot'})"><span class="icon">󰜉</span><span class="text">Restart</span></div>
+  <div class="menu-item" onclick="send({cmd:'power_shutdown'})"><span class="icon">󰐦</span><span class="text">Shut Down</span></div>
+  <div class="sep"></div>
+  <div class="menu-item danger" onclick="send({cmd:'power_logout'})"><span class="icon">󰗼</span><span class="text">Log Out</span></div>
+</div>
+<div class="panel" id="panel-wifi">
+  <div class="panel-title"><span style="font-family:'JetBrainsMono Nerd Font'">󰤨</span><span>Networks</span><span class="flex"></span><span id="wifi-status" class="subtitle"></span></div>
+  <div id="wifi-list" style="display:flex;flex-direction:column;gap:2px;"></div>
+</div>
+<div class="panel" id="panel-launcher" style="gap:10px;">
+  <input class="search-input" id="search" placeholder="Search applications..." oninput="filterApps()" autocomplete="off" spellcheck="false">
+  <div class="app-list" id="app-list"></div>
+</div>
+<div class="panel" id="panel-config">
+  <div class="panel-title"><span style="font-family:'JetBrainsMono Nerd Font'">󰒓</span><span>Settings</span></div>
+  <div class="config-section">Display</div>
+  <div class="slider-row"><span class="icon">󰃟</span><input type="range" id="cfg-bri" min="1" max="100" value="50" oninput="sendThrottled('bri',{cmd:'bri_set',data:Number(this.value)})"><span class="val" id="cfg-bri-val">50%</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌵</span> Night Light</span><span class="value clickable" onclick="send({cmd:'toggle_night'})">Toggle</span></div>
+  <div class="sep"></div>
+  <div class="config-section">Audio</div>
+  <div class="slider-row"><span class="icon" id="cfg-vol-icon">󰕾</span><input type="range" id="cfg-vol" min="0" max="100" value="50" oninput="sendThrottled('vol',{cmd:'vol_set',data:Number(this.value)})"><span class="val" id="cfg-vol-val">50%</span></div>
+  <div class="sep"></div>
+  <div class="config-section">Network</div>
+  <div class="config-row"><span class="label"><span class="icon">󰤨</span> WiFi</span><span class="value clickable" id="cfg-wifi" onclick="send({cmd:'popup',data:'wifi'})">—</span></div>
+  <div class="sep"></div>
+  <div class="config-section">System</div>
+  <div class="config-row"><span class="label"><span class="icon">󰍛</span> Memory</span><span class="value" id="cfg-mem">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰁹</span> Battery</span><span class="value" id="cfg-bat">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰅐</span> Uptime</span><span class="value" id="cfg-uptime">—</span></div>
+  <div class="config-row"><span class="label"><span class="icon">󰌽</span> Kernel</span><span class="value" id="cfg-kernel">—</span></div>
+</div>
+<script src="popup-logic.js"></script>
+</body>
+</html>

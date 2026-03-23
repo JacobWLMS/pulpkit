@@ -1,0 +1,16 @@
+[package]
+name = "pulpkit-webshell-poc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gtk4 = "0.9"
+gtk4-layer-shell = "0.5"
+webkit6 = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+system-tray = "0.5"
+tokio = { version = "1", features = ["rt", "sync"] }
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
