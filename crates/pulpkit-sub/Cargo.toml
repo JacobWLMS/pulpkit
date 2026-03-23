@@ -8,3 +8,4 @@ license.workspace = true
 calloop.workspace = true
 anyhow.workspace = true
 log.workspace = true
+libc = "0.2"
