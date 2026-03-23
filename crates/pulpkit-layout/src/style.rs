@@ -255,7 +255,7 @@ fn parse_tokens(tokens: &[&str], theme: &Theme) -> StyleProps {
             }
         } else if let Some(color_name) = token.strip_prefix("text-") {
             // Skip typography tokens already handled above
-            if !matches!(color_name, "xs" | "sm" | "base" | "lg" | "xl") {
+            if !matches!(color_name, "xs" | "sm" | "base" | "lg" | "xl" | "2xl") {
                 if let Some(hex) = color_name.strip_prefix('#') {
                     props.text_color = Color::from_hex(&format!("#{hex}"));
                 } else if let Some(c) = theme.color(color_name) {
