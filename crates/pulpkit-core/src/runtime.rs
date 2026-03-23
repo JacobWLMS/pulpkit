@@ -115,7 +115,34 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
         }
     }
 
-    // 13. Initial render
+    // 13. Dispatch until we receive configure events (compositor tells us real width).
+    // The compositor may take a few roundtrips to respond.
+    for _ in 0..10 {
+        client.event_loop.dispatch(Duration::from_millis(50), &mut client.state)?;
+        if !client.state.pending_configures.is_empty() {
+            break;
+        }
+    }
+
+    // Process pending configures — update surface dimensions
+    if !client.state.pending_configures.is_empty() {
+        let configures: Vec<_> = client.state.pending_configures.drain(..).collect();
+        for configure in configures {
+            for surface in surfaces.iter_mut() {
+                if surface.surface.surface_id() == configure.surface_id {
+                    if configure.width > 0 && configure.height > 0 {
+                        surface.surface.resize(configure.width, configure.height);
+                        log::info!("Surface configured: {}x{}", configure.width, configure.height);
+                    }
+                    break;
+                }
+            }
+        }
+    } else {
+        log::warn!("No configure received — surfaces may not have correct dimensions");
+    }
+
+    // 14. Initial render
     for surface in &mut surfaces {
         surface.render(&text_renderer, &theme, None);
     }
