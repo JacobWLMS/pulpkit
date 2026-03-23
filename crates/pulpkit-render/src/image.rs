@@ -42,7 +42,7 @@ fn load_svg(path: &Path) -> Option<Image> {
     let data = std::fs::read(path).ok()?;
     let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default()).ok()?;
 
-    let render_size = 256u32; // Large for crisp downscaling
+    let render_size = 64u32; // Balance quality vs startup speed
     let mut pixmap = resvg::tiny_skia::Pixmap::new(render_size, render_size)?;
 
     let svg_size = tree.size();
