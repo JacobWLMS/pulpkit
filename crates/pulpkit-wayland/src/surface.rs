@@ -175,9 +175,11 @@ impl LayerSurface {
             }
         }
 
-        // Set buffer scale for HiDPI. Scale=2 gives crisp rendering on
-        // fractional displays (compositor downscales 2x → 1.25x cleanly).
-        let scale = if state.outputs.first().map(|o| o.scale).unwrap_or(1) > 1 { 2 } else { 1 };
+        // Use buffer_scale=1: render at native resolution, let compositor handle scaling.
+        // Fractional scale (e.g. 1.25x) is handled by the compositor presenting our
+        // buffer as-is at the logical size. For proper fractional-scale support,
+        // we'd need the fractional-scale-v1 protocol.
+        let scale = 1;
         layer.wl_surface().set_buffer_scale(scale);
 
         // Initial commit with no buffer — the compositor will respond with a configure.
@@ -251,8 +253,7 @@ impl LayerSurface {
         layer.set_margin(margins.top, margins.right, margins.bottom, margins.left);
         layer.set_size(width, height);
 
-        // Apply HiDPI scale (same logic as bar surfaces)
-        let scale = if state.outputs.first().map(|o| o.scale).unwrap_or(1) > 1 { 2 } else { 1 };
+        let scale = 1;
         layer.wl_surface().set_buffer_scale(scale);
 
         layer.commit();

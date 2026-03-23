@@ -218,13 +218,13 @@ fn parse_tokens(tokens: &[&str], theme: &Theme) -> StyleProps {
         } else if token == "text-sm" {
             props.font_size = Some(13.0);
         } else if token == "text-base" {
-            props.font_size = Some(15.0);
+            props.font_size = Some(14.0);
         } else if token == "text-lg" {
-            props.font_size = Some(18.0);
+            props.font_size = Some(16.0);
         } else if token == "text-xl" {
-            props.font_size = Some(22.0);
+            props.font_size = Some(20.0);
         } else if token == "text-2xl" {
-            props.font_size = Some(28.0);
+            props.font_size = Some(26.0);
         } else if token == "font-bold" {
             props.font_weight = FontWeight::Bold;
         } else if token == "font-medium" {
