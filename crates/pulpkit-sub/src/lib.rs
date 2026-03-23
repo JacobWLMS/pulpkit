@@ -2,6 +2,7 @@
 //! timers, subprocess streams, exec, IPC, and config watching.
 
 pub mod exec;
+pub mod ipc;
 pub mod manager;
 pub mod stream;
 

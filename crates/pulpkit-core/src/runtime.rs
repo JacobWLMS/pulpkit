@@ -277,8 +277,17 @@ fn start_subscription(
             pulpkit_sub::exec::spawn_exec(cmd, msg_name.clone(), sender);
             log::info!("Started exec: {}", cmd);
         }
-        other => {
-            log::warn!("Subscription type {:?} not yet implemented", other);
+        SubscriptionDef::Ipc { msg_name } => {
+            let sender = manager.sender().clone();
+            if let Some(path) = pulpkit_sub::ipc::start_ipc_server(msg_name.clone(), sender) {
+                log::info!("Started IPC: {}", path.display());
+            }
+        }
+        SubscriptionDef::ConfigWatch { path, msg_name } => {
+            log::warn!("config_watch not yet implemented: {} -> {}", path, msg_name);
+        }
+        SubscriptionDef::Dbus { msg_name, .. } => {
+            log::warn!("dbus subscription not yet implemented: {}", msg_name);
         }
     }
 }
