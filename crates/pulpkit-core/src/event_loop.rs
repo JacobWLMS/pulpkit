@@ -254,16 +254,12 @@ pub fn run(
         rt.flush();
 
         // --- Check popup visibility signals ---
-        let bar_info = surfaces.first().map(|s| {
-            (s.surface.height(), s.surface.width())
-        });
-        let click_x = client.state.pointer_position.map(|(x, _)| x).unwrap_or(0.0);
+        let parent_h = surfaces.first().map(|s| s.surface.height()).unwrap_or(40);
         for popup in popups.iter_mut() {
             let wants_visible = popup.should_be_visible();
             match &popup.state {
                 PopupState::Hidden if wants_visible => {
-                    let (parent_h, parent_w) = bar_info.unwrap_or((48, 1920));
-                    popup.show_at(&mut client.state, parent_h, parent_w, click_x, text_renderer, theme);
+                    popup.show(&mut client.state, parent_h, text_renderer, theme);
                 }
                 PopupState::Visible { .. } | PopupState::FadingIn { .. }
                     if !wants_visible =>

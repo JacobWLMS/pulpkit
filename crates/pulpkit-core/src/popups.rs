@@ -74,14 +74,12 @@ impl ManagedPopup {
 
     /// Create the Wayland surface and transition to Creating state.
     ///
-    /// Positions the popup below the click location. Auto-sizes height from
-    /// content layout if the configured height is 0.
-    pub fn show_at(
+    /// Uses the popup's configured anchor to let the compositor handle
+    /// corner/edge placement. Margins offset from the anchor point.
+    pub fn show(
         &mut self,
         app_state: &mut AppState,
         parent_height: u32,
-        parent_width: u32,
-        click_x: f64,
         text_renderer: &TextRenderer,
         theme: &Theme,
     ) {
@@ -90,45 +88,56 @@ impl ManagedPopup {
         }
 
         let popup_width = self.config.width;
+        let popup_height = self.config.height;
 
-        // Auto-size height: lay out the content to measure it.
-        let popup_height = if self.config.height == 0 {
-            let measured = compute_layout(
-                &self.root,
-                popup_width as f32,
-                10000.0,
-                text_renderer,
-                &theme.font_family,
-            );
-            let h = measured.nodes.first().map(|n| n.height).unwrap_or(200.0);
-            (h.ceil() as u32).max(40)
-        } else {
-            self.config.height
-        };
-
-        // Position based on anchor type. All coordinates are in LOGICAL pixels
-        // (physical / scale) — this is what the compositor expects for margins.
-        let margins = if self.config.anchor == PopupAnchor::Center {
-            let (screen_w, screen_h) = self.config.output
-                .as_ref()
-                .map(|o| (o.logical_width() as i32, o.logical_height() as i32))
-                .unwrap_or((parent_width as i32, 1080));
-            let left = ((screen_w - popup_width as i32) / 2 + self.config.offset.0).max(0);
-            let top = ((screen_h - popup_height as i32) / 2 + self.config.offset.1).max(0);
-            SurfaceMargins { top, left, right: 0, bottom: 0 }
-        } else {
-            let popup_left = (click_x as i32 - popup_width as i32 / 2)
-                .max(0)
-                .min(parent_width as i32 - popup_width as i32);
-            SurfaceMargins {
-                top: parent_height as i32,
-                left: popup_left,
-                right: 0,
-                bottom: 0,
+        // Margins: offset from the anchor edge.
+        // The anchor determines which corner/edge the popup is attached to.
+        // Margins push it away from that corner.
+        let (ox, oy) = self.config.offset;
+        let bar_h = parent_height as i32;
+        let margins = match self.config.anchor {
+            PopupAnchor::TopLeft => SurfaceMargins {
+                top: bar_h + oy,
+                left: ox.max(0),
+                right: 0, bottom: 0,
+            },
+            PopupAnchor::TopRight => SurfaceMargins {
+                top: bar_h + oy,
+                right: ox.max(0),
+                left: 0, bottom: 0,
+            },
+            PopupAnchor::BottomLeft => SurfaceMargins {
+                bottom: bar_h + oy,
+                left: ox.max(0),
+                right: 0, top: 0,
+            },
+            PopupAnchor::BottomRight => SurfaceMargins {
+                bottom: bar_h + oy,
+                right: ox.max(0),
+                left: 0, top: 0,
+            },
+            PopupAnchor::Center => {
+                // Center: no anchor edges. We use margins to center manually.
+                // The compositor doesn't center for us — we compute it.
+                let (sw, sh) = self.config.output
+                    .as_ref()
+                    .map(|o| (o.logical_width() as i32, o.logical_height() as i32))
+                    .unwrap_or((1920, 1080));
+                SurfaceMargins {
+                    top: ((sh - popup_height as i32) / 2 + oy).max(0),
+                    left: ((sw - popup_width as i32) / 2 + ox).max(0),
+                    right: 0, bottom: 0,
+                }
             }
         };
-        // Always use TopLeft — we position via margins.
-        let anchor = PopupAnchor::TopLeft;
+
+        // Use the REAL anchor — let the compositor handle edge placement.
+        // Center uses TopLeft since we compute margins manually.
+        let anchor = if self.config.anchor == PopupAnchor::Center {
+            PopupAnchor::TopLeft
+        } else {
+            self.config.anchor
+        };
         match LayerSurface::new_popup_with_keyboard(
             app_state,
             anchor,
