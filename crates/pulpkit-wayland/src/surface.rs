@@ -9,6 +9,7 @@ use smithay_client_toolkit::{
             Anchor as SctkAnchor, KeyboardInteractivity,
             Layer as SctkLayer, LayerSurface as SctkLayerSurface,
         },
+        xdg::{XdgPositioner, popup::Popup},
         WaylandSurface,
     },
     shm::slot::SlotPool,
@@ -18,6 +19,7 @@ use wayland_client::{
     protocol::{wl_output, wl_shm},
     Proxy,
 };
+use smithay_client_toolkit::reexports::protocols::xdg::shell::client::xdg_positioner;
 
 use crate::client::AppState;
 
@@ -440,5 +442,141 @@ impl LayerSurface {
     /// Access the underlying sctk LayerSurface (for advanced usage).
     pub fn sctk_layer(&self) -> &SctkLayerSurface {
         &self.layer
+    }
+}
+
+// ===========================================================================
+// xdg_popup surface — child popup of a layer surface
+// ===========================================================================
+
+/// An xdg_popup surface parented to a layer-shell surface.
+/// Gets its own pixel buffer for Skia rendering.
+pub struct PopupSurface {
+    popup: Popup,
+    pool: SlotPool,
+    pub width: u32,
+    pub height: u32,
+    buffer_data: Vec<u8>,
+    /// Whether the compositor has sent the initial configure event.
+    pub configured: bool,
+}
+
+impl PopupSurface {
+    /// Create an xdg_popup parented to the given layer surface.
+    ///
+    /// `anchor_rect` is the rect on the parent surface that the popup anchors to
+    /// (e.g., the button position). The popup appears below that rect.
+    pub fn new(
+        state: &mut AppState,
+        parent: &LayerSurface,
+        anchor_x: i32,
+        anchor_y: i32,
+        anchor_w: i32,
+        anchor_h: i32,
+        width: u32,
+        height: u32,
+    ) -> anyhow::Result<Self> {
+        // Create positioner
+        let positioner = XdgPositioner::new(&state.xdg_shell)
+            .map_err(|e| anyhow::anyhow!("Failed to create positioner: {e}"))?;
+
+        positioner.set_size(width as i32, height as i32);
+        positioner.set_anchor_rect(anchor_x, anchor_y, anchor_w, anchor_h);
+        positioner.set_anchor(xdg_positioner::Anchor::Bottom);
+        positioner.set_gravity(xdg_positioner::Gravity::Bottom);
+        positioner.set_constraint_adjustment(
+            xdg_positioner::ConstraintAdjustment::SlideX
+                | xdg_positioner::ConstraintAdjustment::SlideY
+                | xdg_positioner::ConstraintAdjustment::FlipY,
+        );
+
+        // Create the popup surface
+        let wl_surface = state.compositor_state.create_surface(&state.qh);
+        let popup = Popup::from_surface(
+            None, // NULL parent — will be reparented to layer surface
+            &positioner,
+            &state.qh,
+            wl_surface,
+            &state.xdg_shell,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create popup: {e}"))?;
+
+        // Reparent to the layer surface
+        parent.sctk_layer().get_popup(popup.xdg_popup());
+
+        // Initial commit — no buffer yet. Wait for configure event.
+        popup.wl_surface().commit();
+
+        // Create buffer
+        let buf_size = (width as usize) * (height as usize) * 4;
+        let pool = SlotPool::new(buf_size.max(256), &state.shm)?;
+
+        Ok(PopupSurface {
+            popup,
+            pool,
+            width,
+            height,
+            buffer_data: vec![0u8; buf_size],
+            configured: false,
+        })
+    }
+
+    /// Get the pixel buffer for rendering.
+    pub fn get_buffer(&mut self) -> &mut [u8] {
+        &mut self.buffer_data
+    }
+
+    /// Commit the buffer to the compositor.
+    pub fn commit(&mut self) {
+        let stride = self.width as i32 * 4;
+        let buf_size = (self.width as usize) * (self.height as usize) * 4;
+
+        if self.pool.len() < buf_size {
+            self.pool.resize(buf_size).ok();
+        }
+
+        let (buffer, canvas) = match self.pool.create_buffer(
+            self.width as i32,
+            self.height as i32,
+            stride,
+            wl_shm::Format::Argb8888,
+        ) {
+            Ok(pair) => pair,
+            Err(_) => {
+                if self.pool.resize(buf_size * 2).is_ok() {
+                    match self.pool.create_buffer(
+                        self.width as i32,
+                        self.height as i32,
+                        stride,
+                        wl_shm::Format::Argb8888,
+                    ) {
+                        Ok(pair) => pair,
+                        Err(e) => {
+                            log::error!("Failed to create popup buffer: {e}");
+                            return;
+                        }
+                    }
+                } else {
+                    log::error!("Failed to resize popup pool");
+                    return;
+                }
+            }
+        };
+
+        let len = canvas.len().min(self.buffer_data.len());
+        canvas[..len].copy_from_slice(&self.buffer_data[..len]);
+
+        self.popup.wl_surface().damage_buffer(0, 0, self.width as i32, self.height as i32);
+
+        if let Err(e) = buffer.attach_to(self.popup.wl_surface()) {
+            log::error!("Failed to attach popup buffer: {e}");
+            return;
+        }
+        self.popup.wl_surface().commit();
+    }
+
+    /// Get the surface ObjectId for event matching.
+    pub fn surface_id(&self) -> ObjectId {
+        self.popup.wl_surface().id()
     }
 }

@@ -6,7 +6,7 @@
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_pointer,
-    delegate_registry, delegate_seat, delegate_shm,
+    delegate_registry, delegate_seat, delegate_shm, delegate_xdg_popup, delegate_xdg_shell,
     output::{OutputHandler, OutputState},
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
@@ -18,6 +18,7 @@ use smithay_client_toolkit::{
     },
     shell::{
         wlr_layer::{LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure},
+        xdg::{XdgShell, popup::{Popup, PopupConfigure, PopupHandler}},
         WaylandSurface,
     },
     shm::{Shm, ShmHandler},
@@ -45,6 +46,7 @@ pub struct AppState {
     pub output_state: OutputState,
     pub compositor_state: CompositorState,
     pub layer_shell: LayerShell,
+    pub xdg_shell: XdgShell,
     pub shm: Shm,
     pub qh: QueueHandle<Self>,
 
@@ -78,6 +80,12 @@ pub struct AppState {
     last_pointer_serial: u32,
     /// Current cursor name (avoid redundant set_cursor calls).
     current_cursor: String,
+    /// Popup surface IDs that received the "done" event (dismissed by compositor).
+    pub popup_done_ids: Vec<ObjectId>,
+    /// Popup surface IDs that received their initial configure.
+    pub popup_configured_ids: Vec<ObjectId>,
+    /// Last pointer enter serial (needed for popup grab).
+    pub last_serial: u32,
 
     /// Set to true when the compositor requests closing a layer surface.
     pub exit_requested: bool,
@@ -145,6 +153,8 @@ impl WaylandClient {
             CompositorState::bind(&globals, &qh).map_err(|e| anyhow::anyhow!("{e}"))?;
         let layer_shell =
             LayerShell::bind(&globals, &qh).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let xdg_shell =
+            XdgShell::bind(&globals, &qh).map_err(|e| anyhow::anyhow!("{e}"))?;
         let shm = Shm::bind(&globals, &qh).map_err(|e| anyhow::anyhow!("{e}"))?;
 
         // Load cursor theme for setting pointer cursor.
@@ -157,6 +167,7 @@ impl WaylandClient {
             output_state: OutputState::new(&globals, &qh),
             compositor_state,
             layer_shell,
+            xdg_shell,
             shm,
             qh: qh.clone(),
             outputs: Vec::new(),
@@ -171,6 +182,9 @@ impl WaylandClient {
             cursor_surface: Some(cursor_surface),
             last_pointer_serial: 0,
             current_cursor: "default".into(),
+            popup_done_ids: Vec::new(),
+            popup_configured_ids: Vec::new(),
+            last_serial: 0,
             exit_requested: false,
         };
 
@@ -420,6 +434,7 @@ impl PointerHandler for AppState {
                     self.pointer_surface = Some(surface_id.clone());
                     self.pointer_position = Some((x, y));
                     self.last_pointer_serial = *serial;
+                    self.last_serial = *serial;
                     self.current_cursor = String::new(); // force re-set
 
                     // Set the cursor to the default arrow.
@@ -605,6 +620,40 @@ impl KeyboardHandler for AppState {
 }
 
 // ---------------------------------------------------------------------------
+// Popup handler
+// ---------------------------------------------------------------------------
+
+// Stub WindowHandler — required by delegate_xdg_shell but we don't use xdg windows.
+impl smithay_client_toolkit::shell::xdg::window::WindowHandler for AppState {
+    fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &smithay_client_toolkit::shell::xdg::window::Window) {}
+    fn configure(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &smithay_client_toolkit::shell::xdg::window::Window, _: smithay_client_toolkit::shell::xdg::window::WindowConfigure, _: u32) {}
+}
+
+impl PopupHandler for AppState {
+    fn configure(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        popup: &Popup,
+        _config: PopupConfigure,
+    ) {
+        // Mark this popup as configured so we can render it.
+        self.popup_configured_ids.push(popup.wl_surface().id());
+    }
+
+    fn done(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        popup: &Popup,
+    ) {
+        // Compositor dismissed the popup (click outside, Escape, etc).
+        self.popup_done_ids.push(popup.wl_surface().id());
+        log::debug!("Popup done: {:?}", popup.wl_surface().id());
+    }
+}
+
+// ---------------------------------------------------------------------------
 // sctk delegate macros
 // ---------------------------------------------------------------------------
 
@@ -615,6 +664,8 @@ delegate_seat!(AppState);
 delegate_pointer!(AppState);
 delegate_keyboard!(AppState);
 delegate_layer!(AppState);
+delegate_xdg_shell!(AppState);
+delegate_xdg_popup!(AppState);
 delegate_registry!(AppState);
 
 impl ProvidesRegistryState for AppState {

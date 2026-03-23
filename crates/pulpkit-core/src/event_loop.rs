@@ -67,19 +67,6 @@ pub fn run(
                     if managed.surface.surface_id() == configure.surface_id {
                         if configure.width > 0 && configure.height > 0 {
                             managed.surface.resize(configure.width, configure.height);
-                            // Update screen dimensions from configure (correct for fractional scaling).
-                            if managed.expanded {
-                                managed.screen_width = configure.width;
-                                managed.screen_height = configure.height;
-                                // Recompute popup positions with correct dimensions.
-                                for popup in popups.iter_mut() {
-                                    popup.compute_position(
-                                        managed.screen_width,
-                                        managed.screen_height,
-                                        managed.bar_height,
-                                    );
-                                }
-                            }
                         }
                         managed.mark_dirty();
                         break;
@@ -140,25 +127,22 @@ pub fn run(
                         if *button == 0x110 {
                             let fx = *x as f32;
                             let fy = *y as f32;
-                            let bar_h = surfaces.first().map(|s| s.bar_height as f32).unwrap_or(40.0);
 
-                            // Check if click is inside any visible popup.
+                            // Check if click is on a popup surface.
                             let mut popup_clicked = false;
                             for popup in popups.iter_mut() {
-                                if popup.should_be_visible() && popup.contains(fx, fy) {
-                                    let (lx, ly) = popup.to_local(fx, fy);
+                                if popup.surface_id().as_ref() == Some(surface_id) {
                                     if let Some(ref layout) = popup.layout {
-                                        // Check for slider hit → start drag.
                                         if let Some((val, min, max, on_change, nx, nw)) =
-                                            events::find_slider_at(layout, lx, ly)
+                                            events::find_slider_at(layout, fx, fy)
                                         {
                                             active_drag = Some(SliderDrag {
                                                 value: val, on_change, min, max,
                                                 node_x: nx, node_width: nw,
-                                                popup_offset_x: popup.x,
+                                                popup_offset_x: 0.0, // popup coords are already local
                                             });
                                         }
-                                        let result = events::dispatch_click_on_layout(layout, lx, ly);
+                                        let result = events::dispatch_click_on_layout(layout, fx, fy);
                                         if result == ClickResult::Handled {
                                             any_handler_fired = true;
                                         }
@@ -168,30 +152,19 @@ pub fn run(
                                 }
                             }
 
+                            // Click on bar surface — dismiss popups, dispatch to bar.
                             if !popup_clicked {
-                                // Click outside all popups.
-                                if fy <= bar_h {
-                                    // Click on bar — dispatch to bar widgets AND dismiss popups.
-                                    for popup in popups.iter_mut() {
-                                        if popup.should_be_visible() && popup.config.dismiss_on_outside {
-                                            popup.dismiss();
-                                            any_handler_fired = true;
-                                        }
-                                    }
-                                    let result = events::dispatch_click(
-                                        surfaces, popups, *x, *y, surface_id,
-                                    );
-                                    if result == ClickResult::Handled {
+                                for popup in popups.iter_mut() {
+                                    if popup.should_be_visible() && popup.config.dismiss_on_outside {
+                                        popup.dismiss();
                                         any_handler_fired = true;
                                     }
-                                } else {
-                                    // Click on transparent area — dismiss all popups.
-                                    for popup in popups.iter_mut() {
-                                        if popup.should_be_visible() && popup.config.dismiss_on_outside {
-                                            popup.dismiss();
-                                            any_handler_fired = true;
-                                        }
-                                    }
+                                }
+                                let result = events::dispatch_click(
+                                    surfaces, popups, *x, *y, surface_id,
+                                );
+                                if result == ClickResult::Handled {
+                                    any_handler_fired = true;
                                 }
                             }
                         }
@@ -295,32 +268,71 @@ pub fn run(
         // so that Effects (including dirty-marking effects) execute before render.
         rt.flush();
 
-        // --- Expand/shrink surface based on popup visibility ---
-        let any_popup_visible = popups::any_visible(popups);
-        if let Some(surface) = surfaces.first_mut() {
-            if any_popup_visible && !surface.expanded {
-                for popup in popups.iter_mut() {
-                    popup.compute_position(surface.screen_width, surface.screen_height, surface.bar_height);
+        // --- Show/hide popups via xdg_popup creation/destruction ---
+        {
+            let bar_surface = surfaces.first();
+            let bar_w = bar_surface.map(|s| s.surface.width()).unwrap_or(1920);
+            let bar_h = bar_surface.map(|s| s.surface.height()).unwrap_or(40);
+            for popup in popups.iter_mut() {
+                let wants = popup.should_be_visible();
+                let has = popup.surface.is_some();
+                if wants && !has {
+                    if let Some(bar) = surfaces.first() {
+                        popup.show(&mut client.state, &bar.surface, bar_w, bar_h, text_renderer, theme);
+                    }
+                } else if !wants && has {
+                    popup.hide();
                 }
-                surface.expand();
-                // Don't mark dirty yet — wait for configure with new dimensions.
-            } else if !any_popup_visible && surface.expanded {
-                surface.shrink();
-                // Don't mark dirty yet — wait for configure.
             }
         }
 
-        // If any handler or interval fired, mark surfaces dirty.
+        // Handle popup_done events (compositor dismissed popup via xdg protocol)
+        if !client.state.popup_done_ids.is_empty() {
+            let done_ids: Vec<_> = client.state.popup_done_ids.drain(..).collect();
+            for id in &done_ids {
+                for popup in popups.iter_mut() {
+                    if popup.surface_id().as_ref() == Some(id) {
+                        popup.dismiss();
+                        any_handler_fired = true;
+                    }
+                }
+            }
+        }
+
+        // If any handler or interval fired, mark bar dirty.
         if any_handler_fired {
             for surface in surfaces.iter() {
                 surface.mark_dirty();
             }
         }
 
-        // --- Single render pass: bar + popups on the same surface ---
+        // --- Render bar ---
         for surface in surfaces.iter_mut() {
             if surface.dirty.get() {
-                surface.render_with_popups(popups, text_renderer, theme);
+                surface.render(text_renderer, theme);
+            }
+        }
+
+        // --- Handle popup configure events ---
+        if !client.state.popup_configured_ids.is_empty() {
+            let configured_ids: Vec<_> = client.state.popup_configured_ids.drain(..).collect();
+            for id in &configured_ids {
+                for popup in popups.iter_mut() {
+                    if let Some(ref mut surface) = popup.surface {
+                        if surface.surface_id() == *id {
+                            surface.configured = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Render visible popups (only after configured) ---
+        for popup in popups.iter_mut() {
+            if let Some(ref surface) = popup.surface {
+                if surface.configured {
+                    popup.render(text_renderer, theme);
+                }
             }
         }
 

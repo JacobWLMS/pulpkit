@@ -81,11 +81,6 @@ pub fn create_surfaces(
                 layout: None,
                 dirty: Rc::new(Cell::new(true)),
                 hovered_node: None,
-                bar_height: height,
-                expanded: false,
-                // Use LOGICAL dimensions — this is what the compositor gives us.
-                screen_width: maybe_output.as_ref().map(|o| o.logical_width()).unwrap_or(1920),
-                screen_height: maybe_output.as_ref().map(|o| o.logical_height()).unwrap_or(1080),
             };
 
             log::info!("Surface created for '{}' ({}x{})", window_def.name, width, height);
@@ -145,8 +140,7 @@ pub fn create_popups(
             },
             visible_signal: popup_def.visible_signal.clone(),
             on_key,
-            x: 0.0,
-            y: 0.0,
+            surface: None,
             layout: None,
         });
 

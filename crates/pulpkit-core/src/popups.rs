@@ -1,14 +1,13 @@
-//! Popup management — popups render on the bar surface, not as separate windows.
+//! Popup management — uses xdg_popup surfaces parented to the bar.
 //!
-//! When a popup opens, the bar surface expands to full screen. The popup
-//! content is painted at a computed (x, y) position within the same buffer.
-//! Clicks outside the popup area dismiss it. This matches pulp v2's
-//! single-surface architecture.
+//! Each popup gets its own xdg_popup surface created via SCTK. The bar
+//! surface never changes. The compositor handles positioning, z-ordering,
+//! and dismiss-on-click-outside via the xdg_popup protocol.
 
-use pulpkit_layout::{LayoutResult, Node, Theme, compute_layout, paint_tree};
+use pulpkit_layout::{compute_layout, paint_tree, LayoutResult, Node, Theme};
 use pulpkit_reactive::{DynValue, Signal};
-use pulpkit_render::{Canvas, TextRenderer};
-use pulpkit_wayland::PopupAnchor;
+use pulpkit_render::{Canvas, Color, TextRenderer};
+use pulpkit_wayland::{AppState, LayerSurface, PopupAnchor, PopupSurface};
 
 /// Static configuration for a popup.
 pub struct PopupConfig {
@@ -21,17 +20,15 @@ pub struct PopupConfig {
     pub keyboard: bool,
 }
 
-/// A popup managed by the runtime. Rendered onto the bar surface.
+/// A popup managed by the runtime.
 pub struct ManagedPopup {
     pub name: String,
     pub root: Node,
     pub config: PopupConfig,
     pub visible_signal: Option<Signal<DynValue>>,
     pub on_key: Option<mlua::RegistryKey>,
-    /// Computed absolute position within the full-screen surface.
-    pub x: f32,
-    pub y: f32,
-    /// Cached layout from last render.
+    /// The xdg_popup surface — None when hidden.
+    pub surface: Option<PopupSurface>,
     pub layout: Option<LayoutResult>,
 }
 
@@ -49,68 +46,96 @@ impl ManagedPopup {
         }
     }
 
-    /// Compute the popup's absolute position within the full-screen surface.
-    pub fn compute_position(&mut self, screen_w: u32, screen_h: u32, bar_h: u32) {
-        let (ox, oy) = self.config.offset;
-        let pw = self.config.width as i32;
-        let ph = self.config.height as i32;
-        let sw = screen_w as i32;
-        let sh = screen_h as i32;
-        let bh = bar_h as i32;
-
-        let (x, y) = match self.config.anchor {
-            PopupAnchor::TopRight => (sw - pw - ox, bh + oy),
-            PopupAnchor::TopLeft => (ox, bh + oy),
-            PopupAnchor::BottomRight => (sw - pw - ox, sh - ph - bh - oy),
-            PopupAnchor::BottomLeft => (ox, sh - ph - bh - oy),
-            PopupAnchor::Center => (
-                (sw - pw) / 2 + ox,
-                (sh - ph) / 2 + oy,
-            ),
-        };
-
-        self.x = x.max(0) as f32;
-        self.y = y.max(0) as f32;
-        log::info!("Popup '{}' position: ({}, {}) size: {}x{}", self.name, self.x, self.y, pw, ph);
-    }
-
-    /// Render the popup content and return its layout.
-    pub fn render(
+    /// Create the xdg_popup surface, parented to the bar.
+    pub fn show(
         &mut self,
-        canvas: &mut Canvas,
+        app_state: &mut AppState,
+        parent: &LayerSurface,
+        bar_width: u32,
+        bar_height: u32,
         text_renderer: &TextRenderer,
         theme: &Theme,
     ) {
+        if self.surface.is_some() {
+            return;
+        }
+
+        // Compute anchor rect on the bar surface based on anchor type.
+        let (ax, ay, aw, ah) = match self.config.anchor {
+            PopupAnchor::TopRight => {
+                // Right side of bar
+                let x = bar_width as i32 - self.config.width as i32 - self.config.offset.0;
+                (x.max(0), 0, self.config.width as i32, bar_height as i32)
+            }
+            PopupAnchor::TopLeft => {
+                (self.config.offset.0, 0, self.config.width as i32, bar_height as i32)
+            }
+            PopupAnchor::Center => {
+                // Center of bar — popup will drop below center
+                let x = (bar_width as i32 - self.config.width as i32) / 2 + self.config.offset.0;
+                (x.max(0), 0, self.config.width as i32, bar_height as i32)
+            }
+            _ => (0, 0, bar_width as i32, bar_height as i32),
+        };
+
+        match PopupSurface::new(
+            app_state, parent,
+            ax, ay, aw, ah,
+            self.config.width, self.config.height,
+        ) {
+            Ok(surface) => {
+                log::info!("Popup '{}' opened ({}x{} at anchor {},{} {}x{})",
+                    self.name, self.config.width, self.config.height, ax, ay, aw, ah);
+                self.surface = Some(surface);
+            }
+            Err(e) => {
+                log::error!("Failed to create popup '{}': {e}", self.name);
+            }
+        }
+    }
+
+    /// Destroy the popup surface.
+    pub fn hide(&mut self) {
+        if self.surface.is_some() {
+            log::info!("Popup '{}' closed", self.name);
+            self.surface = None; // drop destroys the xdg_popup
+            self.layout = None;
+        }
+    }
+
+    /// Render popup content onto its own surface.
+    pub fn render(&mut self, text_renderer: &TextRenderer, theme: &Theme) {
+        let surface = match &mut self.surface {
+            Some(s) => s,
+            None => return,
+        };
+
+        let w = surface.width;
+        let h = surface.height;
+
         let layout = compute_layout(
             &self.root,
-            self.config.width as f32,
-            self.config.height as f32,
+            w as f32,
+            h as f32,
             text_renderer,
             &theme.font_family,
         );
 
-        // Paint popup background + content at absolute position.
-        canvas.save();
-        canvas.translate(self.x, self.y);
+        let buf = surface.get_buffer();
+        if let Some(mut canvas) = Canvas::from_buffer(buf, w as i32, h as i32) {
+            let bg = theme.colors.get("surface").copied().unwrap_or_default();
+            canvas.clear(bg);
+            paint_tree(&mut canvas, &layout, &theme.font_family);
+            canvas.flush();
+        }
 
-        let bg = theme.colors.get("surface").copied().unwrap_or_default();
-        canvas.draw_rounded_rect(0.0, 0.0, self.config.width as f32, self.config.height as f32, 0.0, bg);
-        paint_tree(canvas, &layout, &theme.font_family);
-
-        canvas.restore();
-
+        surface.commit();
         self.layout = Some(layout);
     }
 
-    /// Hit-test: is the point (in screen coords) inside this popup?
-    pub fn contains(&self, x: f32, y: f32) -> bool {
-        x >= self.x && x < self.x + self.config.width as f32
-            && y >= self.y && y < self.y + self.config.height as f32
-    }
-
-    /// Convert screen coords to popup-local coords for hit testing.
-    pub fn to_local(&self, x: f32, y: f32) -> (f32, f32) {
-        (x - self.x, y - self.y)
+    /// Get the popup's surface ID for event matching.
+    pub fn surface_id(&self) -> Option<wayland_client::backend::ObjectId> {
+        self.surface.as_ref().map(|s| s.surface_id())
     }
 }
 
