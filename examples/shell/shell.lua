@@ -114,6 +114,8 @@ function update(state, msg)
   elseif t=="toggle_night" then state.night=not state.night;os.execute(state.night and "wlsunset -T 4500 -t 3500 &" or "pkill wlsunset &")
   elseif t=="toggle_dnd" then state.dnd=not state.dnd
   elseif t=="toggle_bt" then state.bt=not state.bt;os.execute(state.bt and "bluetoothctl power on &" or "bluetoothctl power off &")
+  elseif t=="toggle_wifi_radio" then
+    if state.wifi~="" then os.execute("nmcli radio wifi off &");state.wifi="" else os.execute("nmcli radio wifi on &") end
   elseif t=="toggle" then
     local n=msg.data;if type(n)=="string" then
       if state.popup==n then state.popup=nil else
@@ -202,13 +204,13 @@ function view(state)
         sep(),
         -- Toggles row 1
         row({style="gap-2"},
-          tile(state.wifi~="" and I.wifi_4 or I.wifi_off,"WiFi",state.wifi~="",msg("toggle","wifi")),
+          tile(state.wifi~="" and I.wifi_4 or I.wifi_off,"WiFi",state.wifi~="",msg("toggle_wifi_radio")),
           tile(state.bt and I.bt or I.bt_off,"Bluetooth",state.bt,msg("toggle_bt")),
           tile(state.dnd and I.dnd or I.dnd_off,"DND",state.dnd,msg("toggle_dnd"))),
         -- Toggles row 2
         row({style="gap-2"},
           tile(state.night and I.night or I.night_off,"Night",state.night,msg("toggle_night")),
-          tile(I.display,"Display",false,msg("dismiss")),
+          tile(voli(state.vol,state.muted),"Mute",state.muted,msg("toggle_mute")),
           tile(I.audio_out,"Audio",false,msg("dismiss"))),
         sep(),
         -- Volume
