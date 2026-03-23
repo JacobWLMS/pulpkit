@@ -66,7 +66,10 @@ pub fn run(
                         if configure.width > 0 && configure.height > 0 {
                             surface.surface.resize(configure.width, configure.height);
                         }
+                        surface.configured = true;
                         surface.mark_dirty();
+                        log::debug!("Surface configured: {} ({}x{})",
+                            surface.name(), configure.width, configure.height);
                         break;
                     }
                 }

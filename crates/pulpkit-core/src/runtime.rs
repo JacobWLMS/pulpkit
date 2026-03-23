@@ -124,7 +124,7 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
         }
     }
 
-    // Process pending configures — update surface dimensions
+    // Process pending configures — update surface dimensions and mark configured
     if !client.state.pending_configures.is_empty() {
         let configures: Vec<_> = client.state.pending_configures.drain(..).collect();
         for configure in configures {
@@ -132,8 +132,9 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
                 if surface.surface.surface_id() == configure.surface_id {
                     if configure.width > 0 && configure.height > 0 {
                         surface.surface.resize(configure.width, configure.height);
-                        log::info!("Surface configured: {}x{}", configure.width, configure.height);
                     }
+                    surface.configured = true;
+                    log::info!("Surface configured: {} ({}x{})", surface.name(), configure.width, configure.height);
                     break;
                 }
             }
@@ -202,7 +203,8 @@ fn create_surfaces(
             surface: layer_surface,
             layout: None,
             dirty: true,
-            frame_ready: true, // Allow initial render
+            frame_ready: true,
+            configured: false, // Wait for compositor configure
         });
 
         log::info!("Created surface: {} ({})", def.name, def.anchor);
@@ -245,6 +247,7 @@ pub fn create_popup_surface(
         layout: None,
         dirty: true,
         frame_ready: true,
+        configured: false, // Wait for compositor configure
     })
 }
 

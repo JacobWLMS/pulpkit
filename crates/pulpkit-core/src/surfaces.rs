@@ -15,6 +15,9 @@ pub struct ManagedSurface {
     pub layout: Option<LayoutResult>,
     pub dirty: bool,
     pub frame_ready: bool,
+    /// Whether the compositor has sent the initial configure event.
+    /// Must be true before attaching any buffer.
+    pub configured: bool,
 }
 
 impl ManagedSurface {
@@ -25,6 +28,9 @@ impl ManagedSurface {
 
     /// Render the surface: layout + paint + commit.
     pub fn render(&mut self, text_renderer: &TextRenderer, theme: &Theme, hovered_node: Option<usize>) {
+        if !self.configured {
+            return; // Must wait for compositor configure before attaching buffer
+        }
         let w = self.surface.width();
         let h = self.surface.height();
         if w == 0 || h == 0 {
