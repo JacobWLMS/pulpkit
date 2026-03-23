@@ -214,17 +214,17 @@ fn parse_tokens(tokens: &[&str], theme: &Theme) -> StyleProps {
         }
         // Typography
         else if token == "text-xs" {
-            props.font_size = Some(22.0);
+            props.font_size = Some(18.0);
         } else if token == "text-sm" {
-            props.font_size = Some(26.0);
+            props.font_size = Some(21.0);
         } else if token == "text-base" {
-            props.font_size = Some(30.0);
+            props.font_size = Some(24.0);
         } else if token == "text-lg" {
-            props.font_size = Some(36.0);
+            props.font_size = Some(30.0);
         } else if token == "text-xl" {
-            props.font_size = Some(44.0);
+            props.font_size = Some(36.0);
         } else if token == "text-2xl" {
-            props.font_size = Some(54.0);
+            props.font_size = Some(44.0);
         } else if token == "font-bold" {
             props.font_weight = FontWeight::Bold;
         } else if token == "font-medium" {
@@ -319,7 +319,7 @@ mod tests {
     fn parse_typography() {
         let theme = Theme::default_slate();
         let props = parse("text-sm font-bold", &theme);
-        assert_eq!(props.font_size, Some(26.0));
+        assert_eq!(props.font_size, Some(21.0));
         assert_eq!(props.font_weight, FontWeight::Bold);
     }
 

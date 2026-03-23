@@ -84,30 +84,47 @@ pub fn run(
                     InputEvent::PointerMotion { x, y, surface_id, .. } => {
                         // Handle slider drag — only keep latest value
                         if let Some(ref drag) = active_drag {
+                            client.state.set_cursor("col-resize");
                             let fx = *x as f32;
                             let ratio = ((fx - drag.node_x) / drag.node_width).clamp(0.0, 1.0) as f64;
                             let new_val = drag.min + (drag.max - drag.min) * ratio;
                             let mut msg = drag.on_change.clone();
                             msg.data = Some(pulpkit_layout::MessageData::Float(new_val));
-                            // Replace any existing drag msg to avoid flooding
                             msg_batch.retain(|m| m.msg_type != msg.msg_type);
                             msg_batch.push(msg);
                         } else {
-                            // Normal hover tracking
-                            for surface in surfaces.iter_mut() {
+                            // Normal hover tracking + cursor updates
+                            let mut new_hover_val = hovered_node;
+                            let mut needs_dirty = false;
+                            let mut cursor_name = "default";
+                            for surface in surfaces.iter() {
                                 if surface.surface.surface_id() == *surface_id {
                                     if let Some(ref layout) = surface.layout {
-                                        let (new_hover, _damage) = crate::hover::update_hover(
-                                            layout, *x, *y, hovered_node,
-                                        );
-                                        if new_hover != hovered_node {
-                                            hovered_node = new_hover;
-                                            surface.mark_dirty();
+                                        let (nh, _) = crate::hover::update_hover(layout, *x, *y, hovered_node);
+                                        if nh != hovered_node {
+                                            new_hover_val = nh;
+                                            needs_dirty = true;
                                         }
+                                        cursor_name = match pulpkit_layout::flex::hit_test_interactive(layout, *x as f32, *y as f32) {
+                                            Some((_, pulpkit_layout::Element::Button { .. })) => "pointer",
+                                            Some((_, pulpkit_layout::Element::Toggle { .. })) => "pointer",
+                                            Some((_, pulpkit_layout::Element::Slider { .. })) => "col-resize",
+                                            _ => "default",
+                                        };
                                     }
                                     break;
                                 }
                             }
+                            hovered_node = new_hover_val;
+                            if needs_dirty {
+                                for surface in surfaces.iter_mut() {
+                                    if surface.surface.surface_id() == *surface_id {
+                                        surface.mark_dirty();
+                                        break;
+                                    }
+                                }
+                            }
+                            client.state.set_cursor(cursor_name);
                         }
                     }
                     InputEvent::PointerButton { x, y, surface_id, button: 0x110, pressed: true } => {
@@ -182,6 +199,7 @@ pub fn run(
                     InputEvent::PointerLeave { .. } => {
                         hovered_node = None;
                         active_drag = None;
+                        client.state.set_cursor("default");
                         for surface in surfaces.iter_mut() {
                             surface.mark_dirty();
                         }
