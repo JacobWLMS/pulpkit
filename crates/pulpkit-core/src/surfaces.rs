@@ -74,10 +74,11 @@ impl ManagedSurface {
         let h = self.surface.height();
         log::info!("render_with_popups: expanded={} surface={}x{}", self.expanded, w, h);
 
-        // Lay out and paint the bar content (always at the top).
+        // Lay out the bar content using actual surface width (handles fractional scaling).
+        let bar_w = if self.expanded { w } else { w };
         let bar_layout = compute_layout(
             &self.root,
-            self.screen_width as f32,
+            bar_w as f32,
             self.bar_height as f32,
             text_renderer,
             &theme.font_family,
@@ -93,7 +94,7 @@ impl ManagedSurface {
             canvas.clear(Color::new(0, 0, 0, 0));
             // Draw bar background.
             let bg = theme.colors.get("base").copied().unwrap_or_default();
-            canvas.draw_rounded_rect(0.0, 0.0, self.screen_width as f32, self.bar_height as f32, 0.0, bg);
+            canvas.draw_rounded_rect(0.0, 0.0, w as f32, self.bar_height as f32, 0.0, bg);
         } else {
             let bg = theme.colors.get("base").copied().unwrap_or_default();
             canvas.clear(bg);
@@ -112,7 +113,7 @@ impl ManagedSurface {
         }
 
         canvas.flush();
-        self.surface.commit_config();
+        self.surface.commit(); // attach buffer + commit
         self.layout = Some(bar_layout);
         self.dirty.set(false);
     }
