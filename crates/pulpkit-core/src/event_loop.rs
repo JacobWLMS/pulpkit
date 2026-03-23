@@ -30,6 +30,16 @@ pub fn run(
     let mut hovered_node: Option<usize> = None;
     let mut msg_batch: Vec<Message> = Vec::new();
 
+    // Slider drag state
+    struct SliderDrag {
+        on_change: Message,
+        min: f64,
+        max: f64,
+        node_x: f32,
+        node_width: f32,
+    }
+    let mut active_drag: Option<SliderDrag> = None;
+
     loop {
         // 1. Dispatch calloop — blocks until events arrive or timeout
         let timeout = Duration::from_secs(60);
@@ -69,18 +79,29 @@ pub fn run(
             for event in &input_events {
                 match event {
                     InputEvent::PointerMotion { x, y, surface_id, .. } => {
-                        for surface in surfaces.iter_mut() {
-                            if surface.surface.surface_id() == *surface_id {
-                                if let Some(ref layout) = surface.layout {
-                                    let (new_hover, _damage) = crate::hover::update_hover(
-                                        layout, *x, *y, hovered_node,
-                                    );
-                                    if new_hover != hovered_node {
-                                        hovered_node = new_hover;
-                                        surface.mark_dirty();
+                        // Handle slider drag
+                        if let Some(ref drag) = active_drag {
+                            let fx = *x as f32;
+                            let ratio = ((fx - drag.node_x) / drag.node_width).clamp(0.0, 1.0) as f64;
+                            let new_val = drag.min + (drag.max - drag.min) * ratio;
+                            let mut msg = drag.on_change.clone();
+                            msg.data = Some(pulpkit_layout::MessageData::Float(new_val));
+                            msg_batch.push(msg);
+                        } else {
+                            // Normal hover tracking
+                            for surface in surfaces.iter_mut() {
+                                if surface.surface.surface_id() == *surface_id {
+                                    if let Some(ref layout) = surface.layout {
+                                        let (new_hover, _damage) = crate::hover::update_hover(
+                                            layout, *x, *y, hovered_node,
+                                        );
+                                        if new_hover != hovered_node {
+                                            hovered_node = new_hover;
+                                            surface.mark_dirty();
+                                        }
                                     }
+                                    break;
                                 }
-                                break;
                             }
                         }
                     }
@@ -88,18 +109,34 @@ pub fn run(
                         for surface in surfaces.iter() {
                             if surface.surface.surface_id() == *surface_id {
                                 if let Some(ref layout) = surface.layout {
-                                    if let Some(element) = pulpkit_layout::flex::hit_test_element(layout, *x as f32, *y as f32) {
-                                        match element {
-                                            pulpkit_layout::Element::Button { on_click: Some(msg), .. } => {
-                                                msg_batch.push(msg.clone());
+                                    let hit_idx = pulpkit_layout::hit_test(layout, *x as f32, *y as f32);
+                                    if let Some(idx) = hit_idx {
+                                        if let Some(element) = layout.elements.get(idx) {
+                                            match element {
+                                                pulpkit_layout::Element::Button { on_click: Some(msg), .. } => {
+                                                    msg_batch.push(msg.clone());
+                                                }
+                                                pulpkit_layout::Element::Toggle { on_toggle: Some(msg), checked, .. } => {
+                                                    let mut m = msg.clone();
+                                                    m.data = Some(pulpkit_layout::MessageData::Bool(!checked));
+                                                    msg_batch.push(m);
+                                                }
+                                                pulpkit_layout::Element::Slider { on_change: Some(msg), min, max, .. } => {
+                                                    let node = &layout.nodes[idx];
+                                                    active_drag = Some(SliderDrag {
+                                                        on_change: msg.clone(),
+                                                        min: *min, max: *max,
+                                                        node_x: node.x, node_width: node.width,
+                                                    });
+                                                    // Also send the initial click position value
+                                                    let ratio = ((*x as f32 - node.x) / node.width).clamp(0.0, 1.0) as f64;
+                                                    let val = min + (max - min) * ratio;
+                                                    let mut m = msg.clone();
+                                                    m.data = Some(pulpkit_layout::MessageData::Float(val));
+                                                    msg_batch.push(m);
+                                                }
+                                                _ => {}
                                             }
-                                            pulpkit_layout::Element::Toggle { on_toggle: Some(msg), checked, .. } => {
-                                                // Toggle sends the inverted value
-                                                let mut m = msg.clone();
-                                                m.data = Some(pulpkit_layout::MessageData::Bool(!checked));
-                                                msg_batch.push(m);
-                                            }
-                                            _ => {}
                                         }
                                     }
                                 }
@@ -107,8 +144,24 @@ pub fn run(
                             }
                         }
                     }
+                    InputEvent::PointerButton { button: 0x110, pressed: false, .. } => {
+                        // Mouse up — end slider drag
+                        if active_drag.is_some() {
+                            active_drag = None;
+                        }
+                    }
+                    InputEvent::PointerAxis { x, y, surface_id, .. } => {
+                        // Scroll events — mark surface dirty for hover update
+                        for surface in surfaces.iter_mut() {
+                            if surface.surface.surface_id() == *surface_id {
+                                // Scroll handling will be added when scroll containers are used
+                                break;
+                            }
+                        }
+                    }
                     InputEvent::PointerLeave { .. } => {
                         hovered_node = None;
+                        active_drag = None;
                         for surface in surfaces.iter_mut() {
                             surface.mark_dirty();
                         }
