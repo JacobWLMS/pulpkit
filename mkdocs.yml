@@ -1,0 +1,80 @@
+site_name: Pulpkit
+site_description: A Wayland desktop shell framework — your UI is just HTML/CSS/JS
+site_url: https://jacobwlms.github.io/pulpkit
+repo_url: https://github.com/JacobWLMS/pulpkit
+repo_name: JacobWLMS/pulpkit
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+    - search.suggest
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Your First Shell: getting-started/first-shell.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Watchers: architecture/watchers.md
+    - State Fields: architecture/state-fields.md
+    - Wayland Protocols: architecture/protocols.md
+    - Surfaces: architecture/surfaces.md
+  - Shell Development:
+    - Shell Structure: shell-dev/structure.md
+    - State API: shell-dev/state-api.md
+    - Commands: shell-dev/commands.md
+    - Themes: shell-dev/themes.md
+    - Toast Notifications: shell-dev/toasts.md
+    - Lock Screen: shell-dev/lock-screen.md
+  - Reference:
+    - All State Fields: reference/state-fields.md
+    - All Commands: reference/commands.md
+    - Config Options: reference/config.md
+    - DBus Services: reference/dbus.md
+    - MCP Server: reference/mcp.md
+  - Zenith:
+    - Overview: zenith/index.md
+    - Panels: zenith/panels.md
+    - Customization: zenith/customization.md
