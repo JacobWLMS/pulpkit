@@ -22,7 +22,7 @@ end
 function view(state)
   return {
     window("bar", { anchor = "top", height = 32, exclusive = true, monitor = "all" },
-      row({ style = "bg-base h-full items-center px-3 gap-3" },
+      row({ style = "bg-base w-full h-full items-center px-3 gap-3" },
         -- Left: branding
         text({ style = "text-sm text-primary font-bold" }, ""),
         text({ style = "text-xs text-primary" }, "pulpkit"),

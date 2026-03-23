@@ -31,6 +31,7 @@ impl ManagedSurface {
         let bw = self.surface.buffer_width();
         let bh = self.surface.buffer_height();
         let scale = self.surface.scale as f32;
+        log::debug!("Render: logical={}x{}, buffer={}x{}, scale={}", w, h, bw, bh, scale);
 
         // Layout
         let elements = vec![self.def.root.clone()];

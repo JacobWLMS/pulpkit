@@ -16,7 +16,7 @@ end
 function view(state)
   return {
     window("bar", { anchor = "top", height = 36, exclusive = true, monitor = "all" },
-      row({ style = "bg-base h-full items-center px-3 gap-2" },
+      row({ style = "bg-base w-full h-full items-center px-3 gap-2" },
         text({ style = "text-sm text-primary font-bold" }, "pulpkit v3"),
         spacer(),
         text({ style = "text-xs text-muted" }, state.time),
