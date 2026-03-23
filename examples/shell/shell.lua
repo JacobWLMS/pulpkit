@@ -346,7 +346,7 @@ function view(state)
       anchor = "top right", width = 280, height = 40 + count * 28, dismiss_on_outside = true,
     },
       col({ style = "bg-surface w-full h-full rounded-lg p-3 gap-1" },
-        table.unpack(wifi_children)
+        unpack(wifi_children)
       )
     ))
   end
