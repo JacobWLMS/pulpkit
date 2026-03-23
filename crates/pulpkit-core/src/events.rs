@@ -31,16 +31,7 @@ pub fn dispatch_click(
     let fx = x as f32;
     let fy = y as f32;
 
-    // Check popups first (they overlay surfaces).
-    for popup in popups {
-        if popup.surface_id().as_ref() == Some(surface_id) {
-            if let Some(layout) = popup.layout() {
-                return dispatch_click_on_layout(layout, fx, fy);
-            }
-        }
-    }
-
-    // Then check bar surfaces.
+    // Check bar surfaces.
     for surface in surfaces {
         if surface.surface.surface_id() == *surface_id {
             if let Some(ref layout) = surface.layout {
@@ -53,7 +44,7 @@ pub fn dispatch_click(
 }
 
 /// Hit-test a layout and dispatch click to the deepest interactive node.
-fn dispatch_click_on_layout(layout: &LayoutResult, x: f32, y: f32) -> ClickResult {
+pub fn dispatch_click_on_layout(layout: &LayoutResult, x: f32, y: f32) -> ClickResult {
     // Walk nodes in reverse (deepest first) to find interactive targets.
     for node in layout.nodes.iter().rev() {
         if x < node.x || x > node.x + node.width || y < node.y || y > node.y + node.height {
@@ -120,21 +111,7 @@ pub fn dispatch_scroll(
     let fx = x as f32;
     let fy = y as f32;
 
-    // Check popups first.
-    for popup in popups {
-        if popup.surface_id().as_ref() == Some(surface_id) {
-            if let Some(layout) = popup.layout() {
-                if dispatch_scroll_container(layout, fx, fy, delta) {
-                    return true;
-                }
-                if let Some(handled) = dispatch_scroll_on_layout(layout, fx, fy, scroll_up) {
-                    return handled;
-                }
-            }
-        }
-    }
-
-    // Then bar surfaces.
+    // Bar surfaces only — popup scroll handled in event_loop.
     for surface in surfaces {
         if surface.surface.surface_id() == *surface_id {
             if let Some(ref layout) = surface.layout {

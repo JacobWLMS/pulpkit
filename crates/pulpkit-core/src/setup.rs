@@ -13,7 +13,7 @@ use pulpkit_wayland::{
     WaylandClient,
 };
 
-use crate::popups::{ManagedPopup, PopupConfig, PopupState};
+use crate::popups::{ManagedPopup, PopupConfig};
 use crate::surfaces::ManagedSurface;
 use crate::timers::ActiveTimer;
 
@@ -79,8 +79,13 @@ pub fn create_surfaces(
                 surface,
                 root: root_node,
                 layout: None,
-                dirty: Rc::new(Cell::new(true)), // first render happens in event loop after configure
+                dirty: Rc::new(Cell::new(true)),
                 hovered_node: None,
+                bar_height: height,
+                expanded: false,
+                // Use LOGICAL dimensions — this is what the compositor gives us.
+                screen_width: maybe_output.as_ref().map(|o| o.logical_width()).unwrap_or(1920),
+                screen_height: maybe_output.as_ref().map(|o| o.logical_height()).unwrap_or(1080),
             };
 
             log::info!("Surface created for '{}' ({}x{})", window_def.name, width, height);
@@ -129,7 +134,6 @@ pub fn create_popups(
         popups.push(ManagedPopup {
             name: popup_def.name.clone(),
             root: lua_node.0.clone(),
-            state: PopupState::Hidden,
             config: PopupConfig {
                 parent_name: popup_def.parent.clone(),
                 anchor: popup_anchor,
@@ -137,14 +141,13 @@ pub fn create_popups(
                 dismiss_on_outside: popup_def.dismiss_on_outside,
                 width: popup_def.width.unwrap_or(280),
                 height: popup_def.height.unwrap_or(200),
-                output: client.state.outputs.first().cloned(),
-                // Keyboard grab enables dismiss-on-outside: when focus is
-                // lost (keyboard leave), the popup dismisses.
                 keyboard: popup_def.keyboard || popup_def.dismiss_on_outside,
             },
             visible_signal: popup_def.visible_signal.clone(),
             on_key,
-            backdrop: None,
+            x: 0.0,
+            y: 0.0,
+            layout: None,
         });
 
         log::info!("Popup '{}' registered (starts hidden)", popup_def.name);

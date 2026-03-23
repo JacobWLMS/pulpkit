@@ -390,12 +390,50 @@ impl LayerSurface {
         self.layer.commit();
     }
 
+    /// Change the surface anchor at runtime using raw sctk anchor flags.
+    pub fn set_anchor_raw(&mut self, anchor: SctkAnchor) {
+        self.layer.set_anchor(anchor);
+    }
+
+    /// Expand surface to fill the entire screen (anchor all edges).
+    pub fn anchor_full_screen(&mut self) {
+        self.layer.set_anchor(
+            SctkAnchor::TOP | SctkAnchor::BOTTOM | SctkAnchor::LEFT | SctkAnchor::RIGHT,
+        );
+    }
+
+    /// Anchor surface to top edge only (span full width).
+    pub fn anchor_top(&mut self) {
+        self.layer.set_anchor(
+            SctkAnchor::TOP | SctkAnchor::LEFT | SctkAnchor::RIGHT,
+        );
+    }
+
+    /// Set keyboard interactivity: none, on-demand, or exclusive.
+    pub fn set_keyboard_none(&mut self) {
+        self.layer.set_keyboard_interactivity(KeyboardInteractivity::None);
+    }
+
+    pub fn set_keyboard_exclusive(&mut self) {
+        self.layer.set_keyboard_interactivity(KeyboardInteractivity::Exclusive);
+    }
+
+    /// Set exclusive zone at runtime.
+    pub fn set_exclusive_zone(&mut self, zone: i32) {
+        self.layer.set_exclusive_zone(zone);
+    }
+
     /// Return the Wayland `ObjectId` of this surface's `wl_surface`.
     ///
     /// This is used to match input events (which carry a surface `ObjectId`)
     /// to the correct managed surface.
     pub fn surface_id(&self) -> ObjectId {
         self.layer.wl_surface().id()
+    }
+
+    /// Commit protocol-level changes (anchor, size, zone) without attaching a buffer.
+    pub fn commit_config(&self) {
+        self.layer.commit();
     }
 
     /// Access the underlying sctk LayerSurface (for advanced usage).

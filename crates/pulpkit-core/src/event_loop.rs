@@ -10,7 +10,7 @@ use pulpkit_render::TextRenderer;
 use pulpkit_wayland::{AppState, InputEvent, WaylandClient};
 
 use crate::events::{self, ClickResult};
-use crate::popups::{ManagedPopup, PopupState};
+use crate::popups::{self, ManagedPopup};
 use crate::surfaces::ManagedSurface;
 use crate::timers::{self, ActiveTimer};
 
@@ -34,7 +34,7 @@ pub fn run(
     loop {
         // Compute dispatch timeout: animate at 60fps, otherwise sleep until
         // the next interval or 60 seconds.
-        let animating = popups.iter().any(|p| p.state.is_animating());
+        let animating = false; // No popup animations in single-surface model.
         let timeout = if animating {
             Duration::from_millis(16) // ~60fps
         } else {
@@ -49,41 +49,26 @@ pub fn run(
         if !client.state.pending_configures.is_empty() {
             let configures: Vec<_> = client.state.pending_configures.drain(..).collect();
             for configure in configures {
-                // Bar surfaces
                 for managed in surfaces.iter_mut() {
                     if managed.surface.surface_id() == configure.surface_id {
                         if configure.width > 0 && configure.height > 0 {
                             managed.surface.resize(configure.width, configure.height);
-                        }
-                        managed.mark_dirty(); // always render after configure (acks the configure)
-                        break;
-                    }
-                }
-                // Popup surfaces
-                for popup in popups.iter_mut() {
-                    if popup.surface_id() == Some(configure.surface_id.clone()) {
-                        popup.handle_configure(
-                            configure.width,
-                            configure.height,
-                            text_renderer,
-                            theme,
-                        );
-                        break;
-                    }
-                }
-                // Backdrop surfaces — commit transparent buffer on configure.
-                for popup in popups.iter_mut() {
-                    if let Some(ref mut bd) = popup.backdrop {
-                        if bd.surface_id() == configure.surface_id {
-                            if configure.width > 0 && configure.height > 0 {
-                                bd.resize(configure.width, configure.height);
+                            // Update screen dimensions from configure (correct for fractional scaling).
+                            if managed.expanded {
+                                managed.screen_width = configure.width;
+                                managed.screen_height = configure.height;
+                                // Recompute popup positions with correct dimensions.
+                                for popup in popups.iter_mut() {
+                                    popup.compute_position(
+                                        managed.screen_width,
+                                        managed.screen_height,
+                                        managed.bar_height,
+                                    );
+                                }
                             }
-                            // Fill with transparent pixels and commit.
-                            let buf = bd.get_buffer();
-                            for b in buf.iter_mut() { *b = 0; }
-                            bd.commit();
-                            break;
                         }
+                        managed.mark_dirty();
+                        break;
                     }
                 }
             }
@@ -107,15 +92,6 @@ pub fn run(
                     InputEvent::PointerLeave { surface_id, .. } => {
                         events::dispatch_leave(surfaces, surface_id);
                         client.state.set_cursor("default");
-                        // Dismiss popups when pointer leaves their surface.
-                        for popup in popups.iter_mut() {
-                            if popup.surface_id().as_ref() == Some(surface_id) {
-                                if popup.config.dismiss_on_outside {
-                                    popup.dismiss();
-                                    any_handler_fired = true;
-                                }
-                            }
-                        }
                     }
                     InputEvent::PointerButton {
                         surface_id,
@@ -124,28 +100,52 @@ pub fn run(
                         button,
                         pressed: true,
                     } => {
-                        // BTN_LEFT = 0x110
                         if *button == 0x110 {
-                            // Check if click was on a backdrop → dismiss that popup.
-                            let mut backdrop_click = false;
+                            let fx = *x as f32;
+                            let fy = *y as f32;
+                            let bar_h = surfaces.first().map(|s| s.bar_height as f32).unwrap_or(40.0);
+
+                            // Check if click is inside any visible popup.
+                            let mut popup_clicked = false;
                             for popup in popups.iter_mut() {
-                                if let Some(ref bd) = popup.backdrop {
-                                    if bd.surface_id() == *surface_id {
-                                        popup.dismiss();
-                                        backdrop_click = true;
-                                        any_handler_fired = true;
-                                        break;
+                                if popup.should_be_visible() && popup.contains(fx, fy) {
+                                    // Click inside popup — dispatch to popup's layout.
+                                    let (lx, ly) = popup.to_local(fx, fy);
+                                    if let Some(ref layout) = popup.layout {
+                                        let result = events::dispatch_click_on_layout(layout, lx, ly);
+                                        if result == ClickResult::Handled {
+                                            any_handler_fired = true;
+                                        }
                                     }
+                                    popup_clicked = true;
+                                    break;
                                 }
                             }
 
-                            if !backdrop_click {
-                                dismiss_popups_on_outside_click(popups, surface_id);
-                                let result = events::dispatch_click(
-                                    surfaces, popups, *x, *y, surface_id,
-                                );
-                                if result == ClickResult::Handled {
-                                    any_handler_fired = true;
+                            if !popup_clicked {
+                                // Click outside all popups.
+                                if fy <= bar_h {
+                                    // Click on bar — dispatch to bar widgets AND dismiss popups.
+                                    for popup in popups.iter_mut() {
+                                        if popup.should_be_visible() && popup.config.dismiss_on_outside {
+                                            popup.dismiss();
+                                            any_handler_fired = true;
+                                        }
+                                    }
+                                    let result = events::dispatch_click(
+                                        surfaces, popups, *x, *y, surface_id,
+                                    );
+                                    if result == ClickResult::Handled {
+                                        any_handler_fired = true;
+                                    }
+                                } else {
+                                    // Click on transparent area — dismiss all popups.
+                                    for popup in popups.iter_mut() {
+                                        if popup.should_be_visible() && popup.config.dismiss_on_outside {
+                                            popup.dismiss();
+                                            any_handler_fired = true;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -166,14 +166,13 @@ pub fn run(
                         }
                     }
                     InputEvent::KeyPress {
-                        surface_id,
                         keysym,
                         utf8,
                         ..
                     } => {
-                        // Dispatch key to the popup that owns this surface.
+                        // Dispatch key to the first visible popup with an on_key handler.
                         for popup in popups.iter() {
-                            if popup.surface_id().as_ref() == Some(surface_id) {
+                            if popup.should_be_visible() {
                                 if let Some(ref key) = popup.on_key {
                                     let cb: mlua::Function = lua.registry_value(key).unwrap();
                                     let key_name = keysym_to_name(*keysym);
@@ -187,15 +186,12 @@ pub fn run(
                             }
                         }
                     }
-                    InputEvent::KeyboardLeave { surface_id } => {
-                        // Keyboard focus lost on a popup → dismiss if dismiss_on_outside.
+                    InputEvent::KeyboardLeave { .. } => {
+                        // Keyboard focus lost — dismiss all dismissable popups.
                         for popup in popups.iter_mut() {
-                            if popup.surface_id().as_ref() == Some(surface_id) {
-                                if popup.config.dismiss_on_outside {
-                                    popup.dismiss();
-                                    any_handler_fired = true;
-                                }
-                                break;
+                            if popup.should_be_visible() && popup.config.dismiss_on_outside {
+                                popup.dismiss();
+                                any_handler_fired = true;
                             }
                         }
                     }
@@ -253,43 +249,32 @@ pub fn run(
         // so that Effects (including dirty-marking effects) execute before render.
         rt.flush();
 
-        // --- Check popup visibility signals ---
-        let parent_h = surfaces.first().map(|s| s.surface.height()).unwrap_or(40);
-        for popup in popups.iter_mut() {
-            let wants_visible = popup.should_be_visible();
-            match &popup.state {
-                PopupState::Hidden if wants_visible => {
-                    popup.show(&mut client.state, parent_h, text_renderer, theme);
+        // --- Expand/shrink surface based on popup visibility ---
+        let any_popup_visible = popups::any_visible(popups);
+        if let Some(surface) = surfaces.first_mut() {
+            if any_popup_visible && !surface.expanded {
+                for popup in popups.iter_mut() {
+                    popup.compute_position(surface.screen_width, surface.screen_height, surface.bar_height);
                 }
-                PopupState::Visible { .. } | PopupState::FadingIn { .. }
-                    if !wants_visible =>
-                {
-                    popup.hide();
-                }
-                _ => {}
+                surface.expand();
+                // Don't mark dirty yet — wait for configure with new dimensions.
+            } else if !any_popup_visible && surface.expanded {
+                surface.shrink();
+                // Don't mark dirty yet — wait for configure.
             }
         }
 
-        // --- Tick popup animations ---
-        for popup in popups.iter_mut() {
-            popup.tick(text_renderer, theme);
-        }
-
-        // If any handler or interval fired, mark all surfaces dirty
-        // (state may have changed anywhere in the reactive graph).
+        // If any handler or interval fired, mark surfaces dirty.
         if any_handler_fired {
             for surface in surfaces.iter() {
                 surface.mark_dirty();
             }
-            for popup in popups.iter_mut() {
-                popup.render_content(text_renderer, theme);
-            }
         }
 
-        // --- Single render pass: only dirty surfaces ---
+        // --- Single render pass: bar + popups on the same surface ---
         for surface in surfaces.iter_mut() {
             if surface.dirty.get() {
-                surface.render(text_renderer, theme);
+                surface.render_with_popups(popups, text_renderer, theme);
             }
         }
 
@@ -301,31 +286,6 @@ pub fn run(
     }
 
     Ok(())
-}
-
-/// Dismiss popups with dismiss_on_outside when a click misses their surface.
-fn dismiss_popups_on_outside_click(
-    popups: &mut [ManagedPopup],
-    clicked_surface_id: &wayland_client::backend::ObjectId,
-) {
-    for popup in popups.iter_mut() {
-        if !popup.config.dismiss_on_outside {
-            continue;
-        }
-        match &popup.state {
-            PopupState::Visible { .. } | PopupState::FadingIn { .. } => {
-                let is_on_popup = popup
-                    .surface_id()
-                    .as_ref()
-                    .map(|id| id == clicked_surface_id)
-                    .unwrap_or(false);
-                if !is_on_popup {
-                    popup.dismiss();
-                }
-            }
-            _ => {}
-        }
-    }
 }
 
 /// Set the pointer cursor based on the currently hovered widget type.
