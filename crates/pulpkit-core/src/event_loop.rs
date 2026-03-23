@@ -187,6 +187,20 @@ pub fn run(
                             surface.mark_dirty();
                         }
                     }
+                    InputEvent::KeyPress { keysym, utf8, .. } => {
+                        // Dispatch key events to any popup with keyboard focus
+                        // or to a focused Input widget
+                        let key_name = keysym_to_name(*keysym);
+                        msg_batch.push(Message {
+                            msg_type: "key".into(),
+                            data: Some(pulpkit_layout::MessageData::Table(vec![
+                                ("key".into(), pulpkit_layout::MessageData::String(key_name)),
+                                ("text".into(), pulpkit_layout::MessageData::String(
+                                    utf8.clone().unwrap_or_default()
+                                )),
+                            ])),
+                        });
+                    }
                     _ => {}
                 }
             }
@@ -258,7 +272,7 @@ pub fn run(
             }
         }
 
-        // 7. Render dirty surfaces (gated on frame_ready)
+        // 8. Render dirty surfaces (gated on frame_ready)
         for surface in surfaces.iter_mut() {
             if surface.dirty && surface.frame_ready {
                 surface.render(text_renderer, theme, hovered_node);
@@ -274,5 +288,29 @@ pub fn run(
     }
 
     Ok(())
+}
+
+/// Map XKB keysyms to human-readable names for Lua.
+fn keysym_to_name(keysym: u32) -> String {
+    match keysym {
+        0xff08 => "BackSpace".into(),
+        0xff09 => "Tab".into(),
+        0xff0d => "Return".into(),
+        0xff1b => "Escape".into(),
+        0xffff => "Delete".into(),
+        0xff50 => "Home".into(),
+        0xff51 => "Left".into(),
+        0xff52 => "Up".into(),
+        0xff53 => "Right".into(),
+        0xff54 => "Down".into(),
+        0xff55 => "Page_Up".into(),
+        0xff56 => "Page_Down".into(),
+        0xff57 => "End".into(),
+        0x20 => "space".into(),
+        k if (0x20..=0x7e).contains(&k) => {
+            String::from(char::from_u32(k).unwrap_or('?'))
+        }
+        other => format!("0x{other:04x}"),
+    }
 }
 

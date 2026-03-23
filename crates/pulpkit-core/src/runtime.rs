@@ -8,11 +8,12 @@ use calloop::channel;
 use pulpkit_lua::{
     ElmBridge, LuaVm, register_msg_api, register_subscribe_api, register_widgets,
 };
-use pulpkit_layout::element::{SurfaceDef, SurfaceKind};
+use pulpkit_layout::element::{MonitorTarget, SurfaceDef, SurfaceKind};
 use pulpkit_layout::Theme;
 use pulpkit_render::TextRenderer;
 use pulpkit_sub::{SubMessage, SubscriptionManager};
 use pulpkit_wayland::{Anchor, Layer, SurfaceConfig, WaylandClient, LayerSurface};
+use wayland_client::protocol::wl_output;
 
 use crate::event_loop;
 use crate::surfaces::ManagedSurface;
@@ -169,7 +170,6 @@ fn create_surfaces(
     let mut surfaces = Vec::new();
     for def in defs {
         if def.kind == SurfaceKind::Popup {
-            // Popups created on demand, not at startup
             continue;
         }
 
@@ -182,32 +182,51 @@ fn create_surfaces(
         };
 
         let height = def.height.unwrap_or(36);
-        let width = def.width.unwrap_or(0); // 0 = stretch to fill
-
+        let width = def.width.unwrap_or(0);
         let exclusive_zone = if def.exclusive { height as i32 } else { -1 };
 
-        let config = SurfaceConfig {
-            width,
-            height,
-            anchor,
-            layer: Layer::Top,
-            exclusive_zone,
-            namespace: format!("pulpkit-{}", def.name),
-            output: None, // TODO: handle MonitorTarget
-            margins: Default::default(),
+        // Determine which outputs to target
+        let outputs: Vec<Option<wl_output::WlOutput>> = match &def.monitor {
+            MonitorTarget::All => {
+                if client.state.outputs.is_empty() {
+                    vec![None] // fallback: compositor default
+                } else {
+                    client.state.outputs.iter().map(|o| Some(o.wl_output.clone())).collect()
+                }
+            }
+            MonitorTarget::Named(name) => {
+                let output = client.state.outputs.iter()
+                    .find(|o| o.name == *name)
+                    .map(|o| o.wl_output.clone());
+                vec![output]
+            }
+            MonitorTarget::Primary => vec![None], // compositor picks default
         };
 
-        let layer_surface = LayerSurface::new(&mut client.state, config)?;
-        surfaces.push(ManagedSurface {
-            def: def.clone(),
-            surface: layer_surface,
-            layout: None,
-            dirty: true,
-            frame_ready: true,
-            configured: false, // Wait for compositor configure
-        });
+        for output in outputs {
+            let config = SurfaceConfig {
+                width,
+                height,
+                anchor,
+                layer: Layer::Top,
+                exclusive_zone,
+                namespace: format!("pulpkit-{}", def.name),
+                output,
+                margins: Default::default(),
+            };
 
-        log::info!("Created surface: {} ({})", def.name, def.anchor);
+            let layer_surface = LayerSurface::new(&mut client.state, config)?;
+            surfaces.push(ManagedSurface {
+                def: def.clone(),
+                surface: layer_surface,
+                layout: None,
+                dirty: true,
+                frame_ready: true,
+                configured: false,
+            });
+        }
+
+        log::info!("Created surface: {} ({}) on {:?}", def.name, def.anchor, def.monitor);
     }
     Ok(surfaces)
 }
