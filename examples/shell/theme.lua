@@ -2,9 +2,9 @@ return {
   font_family = "JetBrainsMono NF",
   font_size = 14,
   colors = {
-    base    = "#181b20",
-    surface = "#24282f",
-    overlay = "#2d323a",
+    base    = "#11111b",
+    surface = "#1e1e2e",
+    overlay = "#313244",
     primary = "#89b4fa",
     fg      = "#cdd6f4",
     muted   = "#6c7086",

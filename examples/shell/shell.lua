@@ -231,7 +231,7 @@ function view(state)
   local S = {}
 
   -- ── Bar ────────────────────────────────────────
-  S[#S+1] = window("bar", {anchor="top", height=40, exclusive=true, monitor="all"},
+  S[#S+1] = window("bar", {anchor="top", height=48, exclusive=true, monitor="all"},
     row({style="bg-base w-full h-full px-2 items-center gap-1"},
 
       -- Left section: workspaces (flex-1)
