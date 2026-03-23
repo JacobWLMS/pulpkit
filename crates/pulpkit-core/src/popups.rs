@@ -82,6 +82,7 @@ impl ManagedPopup {
             app_state, parent,
             ax, ay, aw, ah,
             self.config.width, self.config.height,
+            self.config.dismiss_on_outside || self.config.keyboard,
         ) {
             Ok(surface) => {
                 log::info!("Popup '{}' opened ({}x{} at anchor {},{} {}x{})",

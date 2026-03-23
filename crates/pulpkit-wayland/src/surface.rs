@@ -475,6 +475,7 @@ impl PopupSurface {
         anchor_h: i32,
         width: u32,
         height: u32,
+        grab: bool,
     ) -> anyhow::Result<Self> {
         // Create positioner
         let positioner = XdgPositioner::new(&state.xdg_shell)
@@ -504,18 +505,31 @@ impl PopupSurface {
         // Reparent to the layer surface
         parent.sctk_layer().get_popup(popup.xdg_popup());
 
+        // Grab keyboard + pointer for dismiss-on-outside and key input.
+        if grab {
+            if let Some(seat) = state.seat_state.seats().next() {
+                popup.xdg_popup().grab(&seat, state.last_serial);
+            }
+        }
+
+        // Set buffer scale to match the output.
+        let scale = state.outputs.first().map(|o| o.scale).unwrap_or(1);
+        popup.wl_surface().set_buffer_scale(scale);
+
         // Initial commit — no buffer yet. Wait for configure event.
         popup.wl_surface().commit();
 
-        // Create buffer
-        let buf_size = (width as usize) * (height as usize) * 4;
+        // Buffer at display scale for crisp rendering.
+        let buf_w = width as usize * scale as usize;
+        let buf_h = height as usize * scale as usize;
+        let buf_size = buf_w * buf_h * 4;
         let pool = SlotPool::new(buf_size.max(256), &state.shm)?;
 
         Ok(PopupSurface {
             popup,
             pool,
-            width,
-            height,
+            width: buf_w as u32,
+            height: buf_h as u32,
             buffer_data: vec![0u8; buf_size],
             configured: false,
         })

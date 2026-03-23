@@ -42,12 +42,11 @@ fn load_svg(path: &Path) -> Option<Image> {
     let data = std::fs::read(path).ok()?;
     let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default()).ok()?;
 
-    let render_size = 128u32;
+    let render_size = 256u32; // Large for crisp downscaling
     let mut pixmap = resvg::tiny_skia::Pixmap::new(render_size, render_size)?;
 
     let svg_size = tree.size();
     let scale = render_size as f32 / svg_size.width().max(svg_size.height());
-    // Center the SVG in the pixmap
     let offset_x = (render_size as f32 - svg_size.width() * scale) / 2.0;
     let offset_y = (render_size as f32 - svg_size.height() * scale) / 2.0;
 
@@ -56,11 +55,23 @@ fn load_svg(path: &Path) -> Option<Image> {
 
     resvg::render(&tree, transform, &mut pixmap.as_mut());
 
-    // Convert tiny_skia RGBA pixmap to Skia Image.
-    let skia_data = Data::new_copy(pixmap.data());
+    // Convert tiny_skia RGBA (unpremultiplied) → BGRA premultiplied for Skia.
+    let pixels = pixmap.data();
+    let mut bgra = Vec::with_capacity(pixels.len());
+    for chunk in pixels.chunks_exact(4) {
+        let (r, g, b, a) = (chunk[0], chunk[1], chunk[2], chunk[3]);
+        // Premultiply and swap to BGRA
+        let af = a as f32 / 255.0;
+        bgra.push((b as f32 * af) as u8);
+        bgra.push((g as f32 * af) as u8);
+        bgra.push((r as f32 * af) as u8);
+        bgra.push(a);
+    }
+
+    let skia_data = Data::new_copy(&bgra);
     let info = skia_safe::ImageInfo::new(
         (render_size as i32, render_size as i32),
-        skia_safe::ColorType::RGBA8888,
+        skia_safe::ColorType::BGRA8888,
         skia_safe::AlphaType::Premul,
         None,
     );
