@@ -131,6 +131,29 @@ function update(state, msg)
     if msg.data then os.execute(msg.data.." &") end;state.popup=nil;state.search=""
   elseif t=="search" then
     if msg.data then state.search=msg.data end
+  elseif t=="key" then
+    -- Keyboard input: route to search when launcher is open
+    if state.popup=="launcher" and msg.data then
+      local key = msg.data.key or ""
+      local txt = msg.data.text or ""
+      if key=="BackSpace" then
+        state.search = state.search:sub(1, -2)
+      elseif key=="Escape" then
+        state.popup = nil; state.search = ""
+      elseif key=="Return" then
+        -- Launch first matching app
+        local q = state.search:lower()
+        for _, app in ipairs(state.apps) do
+          if q=="" or app.name:lower():find(q,1,true) then
+            os.execute(app.exec.." &"); state.popup=nil; state.search=""; break
+          end
+        end
+      elseif #txt==1 and txt:byte()>=32 then
+        state.search = state.search .. txt
+      end
+    elseif msg.data and (msg.data.key or "")=="Escape" and state.popup then
+      state.popup = nil; state.search = ""
+    end
   elseif t=="toggle" then
     local n=msg.data;if type(n)=="string" then
       if state.popup==n then state.popup=nil;state.search="" else state.popup=n;state.search=""

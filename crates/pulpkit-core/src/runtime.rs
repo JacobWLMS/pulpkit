@@ -258,7 +258,9 @@ pub fn create_popup_surface(
         SurfaceMargins::default()
     };
 
-    let surface = LayerSurface::new_popup(
+    // Enable keyboard for popups that dismiss on outside (need Escape + keyboard input)
+    let keyboard = def.dismiss_on_outside;
+    let surface = LayerSurface::new_popup_with_keyboard(
         &mut client.state,
         popup_anchor,
         width,
@@ -266,6 +268,7 @@ pub fn create_popup_surface(
         margins,
         format!("pulpkit-popup-{}", def.name),
         None,
+        keyboard,
     )?;
 
     Ok(ManagedSurface {
