@@ -37,15 +37,13 @@ impl ManagedSurface {
             return;
         }
         self.expanded = true;
+        // Anchor all edges for full screen. Keep exclusive zone.
         self.surface.anchor_full_screen();
-        // Keep the bar's exclusive zone — don't change it, or windows rearrange.
         self.surface.set_keyboard_exclusive();
-        // Request full screen size — don't resize buffer yet.
-        // The compositor will send a configure with the correct dimensions.
-        // The configure handler will resize the buffer and mark dirty.
-        self.surface.sctk_layer().set_size(0, 0); // 0,0 = fill available space
+        // Set size to 0,0 = fill available space. The configure will tell us the real size.
+        self.surface.sctk_layer().set_size(0, 0);
         self.surface.commit_config();
-        log::info!("Surface expand requested (waiting for configure)");
+        log::info!("Surface expand requested");
     }
 
     /// Shrink back to bar-only size.
@@ -57,10 +55,9 @@ impl ManagedSurface {
         self.surface.anchor_top();
         self.surface.set_exclusive_zone(self.bar_height as i32);
         self.surface.set_keyboard_none();
-        // Request bar size — configure handler will resize buffer.
         self.surface.sctk_layer().set_size(0, self.bar_height);
         self.surface.commit_config();
-        log::info!("Surface shrink requested");
+        log::info!("Surface shrunk");
     }
 
     /// Render the bar (and any visible popups) onto the surface.

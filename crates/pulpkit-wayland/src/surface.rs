@@ -431,9 +431,10 @@ impl LayerSurface {
         self.layer.wl_surface().id()
     }
 
-    /// Commit protocol-level changes (anchor, size, zone) without attaching a buffer.
+    /// Commit protocol-level changes (anchor, size, zone, keyboard) to the compositor.
+    /// Uses the underlying wl_surface commit to apply all pending state.
     pub fn commit_config(&self) {
-        self.layer.commit();
+        self.layer.wl_surface().commit();
     }
 
     /// Access the underlying sctk LayerSurface (for advanced usage).
