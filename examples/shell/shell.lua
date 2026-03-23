@@ -16,6 +16,9 @@ local I = {
   circle_f = "󰮍",  circle   = "󰊠",
   check    = "󰄬",  refresh  = "󰑓",
   cpu      = "󰍛",  ram      = "󰘚",
+  settings = "󰒓",  night    = "󰌵",  night_off = "󰌶",
+  dnd      = "󰍶",  dnd_off  = "󰍷",  bt       = "󰂯",  bt_off = "󰂲",
+  display  = "󰍹",  audio_out = "󰓃",
 }
 
 -- ============================================================================
@@ -114,6 +117,7 @@ function init()
     vol=v, muted=m, bat=b, bat_st=bs, bright=poll_bri(),
     cpu=poll_cpu(), ram_u=ru, ram_t=rt,
     ws=poll_ws(), wifi=poll_wifi(), wifi_nets={},
+    night_light=false, dnd=false, bt=false,
     popup=nil, tick_n=0,
   }
 end
@@ -159,6 +163,18 @@ function update(state, msg)
   elseif t=="wifi_con" then
     if msg.data then os.execute("nmcli dev wifi connect '"..msg.data.."' &") end
   elseif t=="wifi_dis" then os.execute("nmcli dev disconnect wlan0 &")
+  elseif t=="toggle_night" then
+    state.night_light = not state.night_light
+    -- Toggle gammastep/wlsunset if available
+    if state.night_light then
+      os.execute("wlsunset -T 4500 -t 3500 &")
+    else
+      os.execute("pkill wlsunset &")
+    end
+  elseif t=="toggle_dnd" then state.dnd = not state.dnd
+  elseif t=="toggle_bt" then
+    state.bt = not state.bt
+    os.execute(state.bt and "bluetoothctl power on &" or "bluetoothctl power off &")
   elseif t=="toggle" then
     local name=msg.data
     if type(name)=="string" then
@@ -252,6 +268,7 @@ function view(state)
         ibtn(I.bright, msg("toggle","bright")),
         has_bat and ibtn(bat_i(state.bat,state.bat_st), msg("toggle","bat")) or spacer(),
         ibtn(vol_i(state.vol,state.muted), msg("toggle","audio")),
+        ibtn(I.settings, msg("toggle","settings")),
         ibtn(I.power, msg("toggle","power")))))
 
   -- ── Audio popup ────────────────────────────────
@@ -320,6 +337,47 @@ function view(state)
 
     S[#S+1] = popup("wifi", {anchor="top right",width=320,height=60+n*32,dismiss_on_outside=true},
       col({style="bg-surface w-full h-full rounded-lg p-4 gap-1"}, unpack(ch)))
+  end
+
+  -- ── Settings popup (COSMIC-style quick settings) ─
+  if state.popup=="settings" then
+    local function tile(icon, label, active, action)
+      local bg = active and "bg-primary" or "bg-overlay"
+      local fg = active and "text-base" or "text-fg"
+      return button({on_click=action, style=bg.." rounded-lg p-3 items-center gap-1 flex-1"},
+        text({style="text-lg "..fg}, icon),
+        text({style="text-xs "..fg}, label))
+    end
+
+    S[#S+1] = popup("settings", {anchor="top right",width=340,height=380,dismiss_on_outside=true},
+      col({style="bg-surface w-full h-full rounded-lg p-4 gap-3"},
+        text({style="text-base text-fg font-bold"}, "Quick Settings"),
+        separator(),
+        -- Toggle tiles row 1
+        row({style="gap-2"},
+          tile(state.wifi~="" and I.wifi_4 or I.wifi_off, "WiFi",
+            state.wifi~="", msg("toggle","wifi")),
+          tile(state.bt and I.bt or I.bt_off, "Bluetooth",
+            state.bt, msg("toggle_bt")),
+          tile(state.dnd and I.dnd or I.dnd_off, "Do Not Disturb",
+            state.dnd, msg("toggle_dnd"))),
+        -- Toggle tiles row 2
+        row({style="gap-2"},
+          tile(state.night_light and I.night or I.night_off, "Night Light",
+            state.night_light, msg("toggle_night")),
+          tile(I.display, "Display", false, msg("dismiss")),
+          tile(I.audio_out, "Audio", false, msg("toggle","audio"))),
+        separator(),
+        -- Volume slider
+        row({style="items-center gap-2"},
+          text({style="text-lg text-muted"}, vol_i(state.vol,state.muted)),
+          text({style="text-xs text-muted"}, state.vol.."%")),
+        slider({value=state.vol, min=0, max=100, on_change=msg("set_vol")}),
+        -- Brightness slider
+        row({style="items-center gap-2"},
+          text({style="text-lg text-muted"}, I.bright),
+          text({style="text-xs text-muted"}, state.bright.."%")),
+        slider({value=state.bright, min=0, max=100, on_change=msg("set_bri")})))
   end
 
   -- ── Power popup ────────────────────────────────
