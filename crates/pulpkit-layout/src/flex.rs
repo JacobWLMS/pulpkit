@@ -7,10 +7,12 @@ use crate::element::{Direction, Element};
 use crate::style::{AlignItems, JustifyContent, SizeValue, StyleProps};
 use pulpkit_render::TextRenderer;
 
-/// Result of layout computation — a flat list of positioned nodes.
+/// Result of layout computation — a flat list of positioned nodes with elements.
 #[derive(Debug)]
 pub struct LayoutResult {
     pub nodes: Vec<LayoutNode>,
+    /// Flat element list parallel to nodes — each node's corresponding element.
+    pub elements: Vec<Element>,
 }
 
 /// A positioned node in the layout result.
@@ -77,7 +79,13 @@ pub fn compute_layout(
     // Extract positions by walking the tree
     collect_layout(&tree, root, 0.0, 0.0, &flat_elements, &mut nodes, true);
 
-    LayoutResult { nodes }
+    // Build flat element list in same order as layout nodes
+    let mut flat_els = Vec::new();
+    for element in elements {
+        flatten_element(element, &mut flat_els);
+    }
+
+    LayoutResult { nodes, elements: flat_els }
 }
 
 fn build_taffy_node(
@@ -271,6 +279,32 @@ pub fn hit_test(layout: &LayoutResult, x: f32, y: f32) -> Option<usize> {
     best
 }
 
+/// Hit-test and return the element at (x, y), if any.
+pub fn hit_test_element(layout: &LayoutResult, x: f32, y: f32) -> Option<&Element> {
+    let idx = hit_test(layout, x, y)?;
+    layout.elements.get(idx)
+}
+
+/// Flatten an element tree into a pre-order list (same order as paint/layout walk).
+fn flatten_element(element: &Element, out: &mut Vec<Element>) {
+    out.push(element.clone());
+    match element {
+        Element::Container { children, .. }
+        | Element::Button { children, .. }
+        | Element::Scroll { children, .. } => {
+            for child in children {
+                flatten_element(child, out);
+            }
+        }
+        Element::Each { children, .. } => {
+            for kc in children {
+                flatten_element(&kc.element, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,6 +349,7 @@ mod tests {
                 LayoutNode { x: 0.0, y: 0.0, width: 200.0, height: 36.0, element_idx: 0 },
                 LayoutNode { x: 10.0, y: 5.0, width: 50.0, height: 26.0, element_idx: 1 },
             ],
+            elements: vec![Element::Spacer, Element::Spacer],
         };
         assert_eq!(hit_test(&layout, 20.0, 10.0), Some(1));
         assert_eq!(hit_test(&layout, 150.0, 10.0), Some(0));

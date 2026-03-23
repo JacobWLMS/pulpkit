@@ -88,9 +88,18 @@ pub fn run(
                         for surface in surfaces.iter() {
                             if surface.surface.surface_id() == *surface_id {
                                 if let Some(ref layout) = surface.layout {
-                                    if let Some(_node_idx) = pulpkit_layout::hit_test(layout, *x as f32, *y as f32) {
-                                        if let Some(msg) = find_click_msg(&surface.def.root) {
-                                            msg_batch.push(msg);
+                                    if let Some(element) = pulpkit_layout::flex::hit_test_element(layout, *x as f32, *y as f32) {
+                                        match element {
+                                            pulpkit_layout::Element::Button { on_click: Some(msg), .. } => {
+                                                msg_batch.push(msg.clone());
+                                            }
+                                            pulpkit_layout::Element::Toggle { on_toggle: Some(msg), checked, .. } => {
+                                                // Toggle sends the inverted value
+                                                let mut m = msg.clone();
+                                                m.data = Some(pulpkit_layout::MessageData::Bool(!checked));
+                                                msg_batch.push(m);
+                                            }
+                                            _ => {}
                                         }
                                     }
                                 }
@@ -167,28 +176,3 @@ pub fn run(
     Ok(())
 }
 
-/// Walk the element tree to find any on_click message.
-fn find_click_msg(element: &pulpkit_layout::Element) -> Option<Message> {
-    match element {
-        pulpkit_layout::Element::Button { on_click, children, .. } => {
-            if let Some(msg) = on_click {
-                return Some(msg.clone());
-            }
-            for child in children {
-                if let Some(msg) = find_click_msg(child) {
-                    return Some(msg);
-                }
-            }
-            None
-        }
-        pulpkit_layout::Element::Container { children, .. } => {
-            for child in children {
-                if let Some(msg) = find_click_msg(child) {
-                    return Some(msg);
-                }
-            }
-            None
-        }
-        _ => None,
-    }
-}
