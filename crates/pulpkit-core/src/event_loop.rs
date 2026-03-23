@@ -109,6 +109,24 @@ pub fn run(
                         }
                     }
                     InputEvent::PointerButton { x, y, surface_id, button: 0x110, pressed: true } => {
+                        // Check if click is on a window surface — dismiss popups
+                        let clicked_on_window = surfaces.iter().any(|s|
+                            s.surface.surface_id() == *surface_id
+                            && s.def.kind == pulpkit_layout::SurfaceKind::Window
+                        );
+                        if clicked_on_window {
+                            let has_dismissable = surfaces.iter().any(|s|
+                                s.def.kind == pulpkit_layout::SurfaceKind::Popup
+                                && s.def.dismiss_on_outside
+                            );
+                            if has_dismissable {
+                                msg_batch.push(Message {
+                                    msg_type: "dismiss".into(),
+                                    data: None,
+                                });
+                            }
+                        }
+
                         for surface in surfaces.iter() {
                             if surface.surface.surface_id() == *surface_id {
                                 if let Some(ref layout) = surface.layout {
