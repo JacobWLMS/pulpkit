@@ -281,17 +281,42 @@ end)
 popup("power", {
   parent = "bar", anchor = "center",
   visible = show_power, dismiss_on_outside = true,
-  width = 280, height = 300,
+  width = 340, height = 380,
   keyboard = true,
   on_key = function(key) if key == "Escape" then close_all_popups() end end,
 }, function()
+  local user = exec_output("whoami")
+  local host = exec_output("hostname")
+  local kernel = exec_output("uname -r")
+  local uptime = exec_output("uptime -p 2>/dev/null"):gsub("^up ", "")
+
   return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
-    lib.header(function() return date_str:get() end),
-    lib.caption(function() return time_str:get() end),
-    spacer(),
-    lib.menu_item(icons.lock,    "Lock",    { on_click = function() exec("loginctl lock-session") end }),
-    lib.menu_item(icons.suspend, "Suspend", { on_click = function() exec("systemctl suspend") end }),
-    lib.menu_item(icons.reboot,  "Reboot",  { on_click = function() exec("systemctl reboot") end }),
+    -- User + system info
+    col("gap-1 items-center", {
+      text(T.icon_large .. " text-primary", icons.power),
+      text(T.body .. " text-fg font-bold", user .. "@" .. host),
+      lib.caption(kernel),
+      lib.caption("Up " .. uptime),
+    }),
+
+    lib.separator(),
+
+    -- Date/time
+    row("items-center", {
+      text(T.icon .. " text-muted", icons.calendar),
+      text(T.small .. " text-fg", function() return "  " .. date_str:get() .. "  ·  " .. time_str:get() end),
+    }),
+
+    lib.separator(),
+
+    -- Actions
+    lib.menu_item(icons.lock,    "Lock Screen",  { on_click = function() exec("loginctl lock-session"); close_all_popups() end }),
+    lib.menu_item(icons.suspend, "Suspend",      { on_click = function() exec("systemctl suspend"); close_all_popups() end }),
+    lib.menu_item(icons.reboot,  "Restart",      { on_click = function() exec("systemctl reboot") end }),
+    lib.menu_item("󰐦",           "Shut Down",    { on_click = function() exec("systemctl poweroff") end }),
+
+    lib.separator(),
+
     lib.menu_item(icons.logout,  "Log Out", {
       text_style = T.body .. " text-error",
       icon_style = T.icon .. " text-error",
@@ -590,12 +615,15 @@ do
         local name = c:match("Name=([^\n]+)")
         local ex   = c:match("Exec=([^\n]+)")
         local cats = c:match("Categories=([^\n]+)") or ""
+        local comment = c:match("Comment=([^\n]+)") or ""
+        local generic = c:match("GenericName=([^\n]+)") or ""
         if name and ex and not c:match("NoDisplay=true") then
           ex = ex:gsub("%%[uUfFdDnNickvm]", ""):gsub("%s+$", "")
           local icon_name = c:match("Icon=([^\n]+)") or ""
           local icon_path = resolve_icon(icon_name)
+          local desc = comment ~= "" and comment or generic
           all_apps[#all_apps+1] = {
-            name = name, exec = ex,
+            name = name, exec = ex, desc = desc,
             icon_path = icon_path,
             icon_fallback = lib.app_icon(name, ex, cats),
           }
@@ -632,7 +660,7 @@ local MAX_VISIBLE = 9
 popup("launcher", {
   parent = "bar", anchor = "center",
   visible = show_launcher, dismiss_on_outside = true,
-  width = 460, height = 420,
+  width = 500, height = 480,
   keyboard = true,
   on_key = function(key, utf8)
     if key == "Escape" then close_all_popups()
@@ -640,12 +668,12 @@ popup("launcher", {
     elseif key == "BackSpace" then
       local q = search_query:get()
       if #q > 0 then search_query:set(q:sub(1, #q - 1)); selected_index:set(1) end
-    elseif key == "Up" then
+    elseif key == "Up" or key == "Tab" then
       local i = selected_index:get()
       if i > 1 then selected_index:set(i - 1) end
     elseif key == "Down" then
       local i = selected_index:get()
-      if i < #filtered_apps() then selected_index:set(i + 1) end
+      if i < #filtered_apps() and i < MAX_VISIBLE then selected_index:set(i + 1) end
     elseif utf8 and #utf8 == 1 and utf8:byte() >= 32 then
       search_query:set(search_query:get() .. utf8)
       selected_index:set(1)
@@ -654,14 +682,18 @@ popup("launcher", {
 }, function()
   return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     -- Search bar
-    row("bg-base p-2 " .. S.item_gap .. " items-center", {
-      text(T.icon .. " text-muted", icons.search),
+    row("bg-base p-3 " .. S.item_gap .. " items-center", {
+      text(T.icon_large .. " text-muted", icons.search),
       text(T.body .. " text-fg", function()
         return search_query:get() .. (cursor_blink:get() and "│" or " ")
       end),
+      spacer(),
+      lib.caption(function()
+        return #filtered_apps() .. " apps"
+      end),
     }),
 
-    -- Results with virtual scroll
+    -- Results
     each(function()
       local apps = filtered_apps()
       local sel = selected_index:get()
@@ -671,30 +703,45 @@ popup("launcher", {
       for i = start, math.min(start + MAX_VISIBLE - 1, #apps) do
         r[#r+1] = {
           idx = i, name = apps[i].name, exec = apps[i].exec,
+          desc = apps[i].desc or "",
           icon_path = apps[i].icon_path, icon_fb = apps[i].icon_fallback,
         }
       end
       return r
     end, function(item)
-      -- Icon: real PNG (20x20) or fallback glyph — both same visual size
       local icon_node
       if item.icon_path then
-        icon_node = image(item.icon_path, 20, 20)
+        icon_node = image(item.icon_path, 28, 28)
       else
-        icon_node = text(T.icon .. " text-muted", item.icon_fb or icons.app)
+        icon_node = text(T.icon_large .. " text-muted", item.icon_fb or icons.app)
       end
 
       local h = signal(false)
+      local is_selected = function()
+        return selected_index:get() == item.idx or h:get()
+      end
+
+      local label_nodes = {
+        text(function()
+          return is_selected() and (T.body .. " text-primary") or (T.body .. " text-fg")
+        end, item.name),
+      }
+      if item.desc ~= "" then
+        label_nodes[#label_nodes+1] = text(T.caption .. " text-muted", item.desc)
+      end
+
       return button(function()
-        local sel = selected_index:get() == item.idx or h:get()
-        return sel
-          and (S.btn_pad .. " items-center " .. S.item_gap .. " bg-overlay")
-          or (S.btn_pad .. " items-center " .. S.item_gap)
+        return is_selected()
+          and ("px-3 py-2 items-center " .. S.item_gap .. " bg-overlay")
+          or ("px-3 py-2 items-center " .. S.item_gap)
       end, {
         on_click = function() selected_index:set(item.idx); launch_selected() end,
         on_hover = function() h:set(true) end,
         on_hover_lost = function() h:set(false) end,
-      }, { icon_node, text(T.body .. " text-fg", item.name) })
+      }, {
+        icon_node,
+        col("gap-0", label_nodes),
+      })
     end, function(item) return item.name end),
   })
 end)
