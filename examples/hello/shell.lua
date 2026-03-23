@@ -293,18 +293,9 @@ popup("power", {
   return col("w-full h-full bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
     -- User + system info
     col("gap-1 items-center", {
-      text(T.icon_large .. " text-primary", icons.power),
       text(T.body .. " text-fg font-bold", user .. "@" .. host),
       lib.caption(kernel),
       lib.caption("Up " .. uptime),
-    }),
-
-    lib.separator(),
-
-    -- Date/time
-    row("items-center", {
-      text(T.icon .. " text-muted", icons.calendar),
-      text(T.small .. " text-fg", function() return "  " .. date_str:get() .. "  ·  " .. time_str:get() end),
     }),
 
     lib.separator(),

@@ -38,7 +38,7 @@ impl ManagedSurface {
         }
         self.expanded = true;
         self.surface.anchor_full_screen();
-        self.surface.set_exclusive_zone(-1); // overlay entire screen when popup is open
+        // Keep the bar's exclusive zone — don't change it, or windows rearrange.
         self.surface.set_keyboard_exclusive();
         // Request full screen size — don't resize buffer yet.
         // The compositor will send a configure with the correct dimensions.

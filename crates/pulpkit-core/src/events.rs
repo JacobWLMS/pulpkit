@@ -2,7 +2,7 @@
 
 use pulpkit_layout::tree::{InteractiveKind, Node};
 use pulpkit_layout::{hit_test, LayoutResult};
-use pulpkit_reactive::DynValue;
+use pulpkit_reactive::{DynValue, Signal};
 use wayland_client::backend::ObjectId;
 
 use crate::popups::ManagedPopup;
@@ -236,6 +236,27 @@ pub fn dispatch_leave(surfaces: &mut [ManagedSurface], surface_id: &ObjectId) ->
         break;
     }
     changed
+}
+
+/// Find a slider at the given position. Returns the slider's signal, range, and layout position.
+pub fn find_slider_at(
+    layout: &LayoutResult,
+    x: f32,
+    y: f32,
+) -> Option<(Signal<DynValue>, f64, f64, Option<std::rc::Rc<dyn Fn(f64)>>, f32, f32)> {
+    for node in layout.nodes.iter().rev() {
+        if x < node.x || x > node.x + node.width || y < node.y || y > node.y + node.height {
+            continue;
+        }
+        if let Node::Interactive {
+            kind: InteractiveKind::Slider { value, min, max, on_change, .. },
+            ..
+        } = &node.source_node
+        {
+            return Some((value.clone(), *min, *max, on_change.clone(), node.x, node.width));
+        }
+    }
+    None
 }
 
 /// Find the deepest Interactive::Button node that contains the point and has

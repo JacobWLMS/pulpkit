@@ -31,6 +31,20 @@ pub fn run(
 ) -> anyhow::Result<()> {
     log::info!("Entering event loop");
 
+    // Slider drag state: when a slider is being dragged, we track it here
+    // and update on every PointerMotion until mouse-up.
+    struct SliderDrag {
+        value: pulpkit_reactive::Signal<pulpkit_reactive::DynValue>,
+        on_change: Option<std::rc::Rc<dyn Fn(f64)>>,
+        min: f64,
+        max: f64,
+        node_x: f32,
+        node_width: f32,
+        // Is this in a popup? If so, store the popup offset for coord translation.
+        popup_offset_x: f32,
+    }
+    let mut active_drag: Option<SliderDrag> = None;
+
     loop {
         // Compute dispatch timeout: animate at 60fps, otherwise sleep until
         // the next interval or 60 seconds.
@@ -86,12 +100,35 @@ pub fn run(
                     InputEvent::PointerMotion {
                         x, y, surface_id, ..
                     } => {
-                        events::dispatch_hover(surfaces, *x, *y, surface_id);
-                        update_cursor(surfaces, &mut client.state);
+                        // Handle slider drag.
+                        if let Some(ref drag) = active_drag {
+                            let fx = *x as f32 - drag.popup_offset_x;
+                            let ratio = ((fx - drag.node_x) / drag.node_width).clamp(0.0, 1.0) as f64;
+                            let new_val = drag.min + (drag.max - drag.min) * ratio;
+                            drag.value.set(pulpkit_reactive::DynValue::Float(new_val));
+                            if let Some(ref cb) = drag.on_change {
+                                cb(new_val);
+                            }
+                            any_handler_fired = true;
+                        } else {
+                            events::dispatch_hover(surfaces, *x, *y, surface_id);
+                            update_cursor(surfaces, &mut client.state);
+                        }
                     }
                     InputEvent::PointerLeave { surface_id, .. } => {
                         events::dispatch_leave(surfaces, surface_id);
                         client.state.set_cursor("default");
+                    }
+                    InputEvent::PointerButton {
+                        button: 0x110,
+                        pressed: false,
+                        ..
+                    } => {
+                        // Mouse up — end any active slider drag.
+                        if active_drag.is_some() {
+                            active_drag = None;
+                            any_handler_fired = true;
+                        }
                     }
                     InputEvent::PointerButton {
                         surface_id,
@@ -109,9 +146,18 @@ pub fn run(
                             let mut popup_clicked = false;
                             for popup in popups.iter_mut() {
                                 if popup.should_be_visible() && popup.contains(fx, fy) {
-                                    // Click inside popup — dispatch to popup's layout.
                                     let (lx, ly) = popup.to_local(fx, fy);
                                     if let Some(ref layout) = popup.layout {
+                                        // Check for slider hit → start drag.
+                                        if let Some((val, min, max, on_change, nx, nw)) =
+                                            events::find_slider_at(layout, lx, ly)
+                                        {
+                                            active_drag = Some(SliderDrag {
+                                                value: val, on_change, min, max,
+                                                node_x: nx, node_width: nw,
+                                                popup_offset_x: popup.x,
+                                            });
+                                        }
                                         let result = events::dispatch_click_on_layout(layout, lx, ly);
                                         if result == ClickResult::Handled {
                                             any_handler_fired = true;
