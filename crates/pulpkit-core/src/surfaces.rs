@@ -20,9 +20,13 @@ pub struct ManagedSurface {
 impl ManagedSurface {
     /// Render the widget tree onto the surface.
     pub fn render(&mut self, text_renderer: &TextRenderer, theme: &Theme) {
-        let w = self.surface.width();
-        let h = self.surface.height();
+        let w = self.surface.width();   // logical
+        let h = self.surface.height();  // logical
+        let bw = self.surface.buffer_width();   // physical
+        let bh = self.surface.buffer_height();  // physical
+        let scale = self.surface.scale as f32;
 
+        // Layout at logical dimensions.
         let layout = compute_layout(
             &self.root,
             w as f32,
@@ -31,11 +35,19 @@ impl ManagedSurface {
             &theme.font_family,
         );
 
+        // Render at physical pixel dimensions with scale transform.
         let buf = self.surface.get_buffer();
-        if let Some(mut canvas) = Canvas::from_buffer(buf, w as i32, h as i32) {
+        if let Some(mut canvas) = Canvas::from_buffer(buf, bw as i32, bh as i32) {
             let bg = theme.colors.get("base").copied().unwrap_or_default();
             canvas.clear(bg);
+            if scale > 1.0 {
+                canvas.save();
+                canvas.scale(scale, scale);
+            }
             paint_tree(&mut canvas, &layout, &theme.font_family);
+            if scale > 1.0 {
+                canvas.restore();
+            }
             canvas.flush();
         }
 

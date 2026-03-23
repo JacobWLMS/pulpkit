@@ -120,6 +120,11 @@ impl<'a> Canvas<'a> {
         );
     }
 
+    /// Scale all subsequent drawing by (sx, sy).
+    pub fn scale(&mut self, sx: f32, sy: f32) {
+        self.surface.canvas().scale((sx, sy));
+    }
+
     /// Save the current canvas state (clip, transform).
     pub fn save(&mut self) {
         self.surface.canvas().save();

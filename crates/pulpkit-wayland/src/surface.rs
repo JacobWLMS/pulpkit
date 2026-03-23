@@ -132,6 +132,8 @@ pub struct LayerSurface {
     height: u32,
     /// Cached pixel buffer. Allocated on first `get_buffer` call or after resize.
     buffer_data: Vec<u8>,
+    /// Buffer scale factor (1 or 2). Buffer pixel dimensions are width*scale × height*scale.
+    pub scale: i32,
 }
 
 impl LayerSurface {
@@ -173,12 +175,19 @@ impl LayerSurface {
             }
         }
 
+        // Set buffer scale for HiDPI. Scale=2 gives crisp rendering on
+        // fractional displays (compositor downscales 2x → 1.25x cleanly).
+        let scale = if state.outputs.first().map(|o| o.scale).unwrap_or(1) > 1 { 2 } else { 1 };
+        layer.wl_surface().set_buffer_scale(scale);
+
         // Initial commit with no buffer — the compositor will respond with a configure.
         layer.commit();
 
-        // Create shm buffer pool. Initial size accommodates the requested dimensions.
-        let buf_size = (config.width as usize) * (config.height as usize) * 4;
-        let pool_size = buf_size.max(256); // Minimum pool size
+        // Buffer at physical pixels (logical * scale).
+        let phys_w = config.width as usize * scale as usize;
+        let phys_h = config.height as usize * scale as usize;
+        let buf_size = phys_w * phys_h * 4;
+        let pool_size = buf_size.max(256);
         let pool = SlotPool::new(pool_size, &state.shm)?;
 
         Ok(LayerSurface {
@@ -187,6 +196,7 @@ impl LayerSurface {
             width: config.width,
             height: config.height,
             buffer_data: vec![0u8; buf_size],
+            scale,
         })
     }
 
@@ -253,6 +263,7 @@ impl LayerSurface {
             width,
             height,
             buffer_data: vec![0u8; buf_size],
+            scale: 1,
         })
     }
 
@@ -296,6 +307,7 @@ impl LayerSurface {
             width,
             height,
             buffer_data: vec![0u8; buf_size], // transparent
+            scale: 1,
         })
     }
 
@@ -310,23 +322,32 @@ impl LayerSurface {
         &mut self.buffer_data
     }
 
-    /// Surface width in pixels.
+    /// Surface logical width (what layout uses).
     pub fn width(&self) -> u32 {
         self.width
     }
 
-    /// Surface height in pixels.
+    /// Surface logical height (what layout uses).
     pub fn height(&self) -> u32 {
         self.height
     }
 
-    /// Damage the full surface and commit the current buffer contents.
-    ///
-    /// This copies `buffer_data` into the wl_shm pool, attaches the buffer
-    /// to the surface, marks the entire surface as damaged, and commits.
+    /// Buffer width in physical pixels (logical * scale).
+    pub fn buffer_width(&self) -> u32 {
+        self.width * self.scale as u32
+    }
+
+    /// Buffer height in physical pixels (logical * scale).
+    pub fn buffer_height(&self) -> u32 {
+        self.height * self.scale as u32
+    }
+
+    /// Commit the buffer. Buffer dimensions are physical (logical * scale).
     pub fn commit(&mut self) {
-        let stride = self.width as i32 * 4;
-        let buf_size = (self.width as usize) * (self.height as usize) * 4;
+        let bw = self.buffer_width();
+        let bh = self.buffer_height();
+        let stride = bw as i32 * 4;
+        let buf_size = (bw as usize) * (bh as usize) * 4;
 
         // Ensure pool is large enough — resize if needed (e.g. after surface resize).
         if self.pool.len() < buf_size {
@@ -334,19 +355,17 @@ impl LayerSurface {
         }
 
         let (buffer, canvas) = match self.pool.create_buffer(
-            self.width as i32,
-            self.height as i32,
+            bw as i32,
+            bh as i32,
             stride,
             wl_shm::Format::Argb8888,
         ) {
             Ok(pair) => pair,
             Err(_) => {
-                // Pool may be exhausted if previous buffer hasn't been released.
-                // Resize and retry once.
                 if self.pool.resize(buf_size * 2).is_ok() {
                     match self.pool.create_buffer(
-                        self.width as i32,
-                        self.height as i32,
+                        bw as i32,
+                        bh as i32,
                         stride,
                         wl_shm::Format::Argb8888,
                     ) {
@@ -370,7 +389,7 @@ impl LayerSurface {
         // Damage the entire surface.
         self.layer
             .wl_surface()
-            .damage_buffer(0, 0, self.width as i32, self.height as i32);
+            .damage_buffer(0, 0, bw as i32, bh as i32);
 
         // Attach buffer and commit.
         if let Err(e) = buffer.attach_to(self.layer.wl_surface()) {
@@ -385,9 +404,10 @@ impl LayerSurface {
     pub fn resize(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
-        let buf_size = (width as usize) * (height as usize) * 4;
+        let bw = width as usize * self.scale as usize;
+        let bh = height as usize * self.scale as usize;
+        let buf_size = bw * bh * 4;
         self.buffer_data.resize(buf_size, 0);
-        // Tell the compositor the new desired size.
         self.layer.set_size(width, height);
         self.layer.commit();
     }
