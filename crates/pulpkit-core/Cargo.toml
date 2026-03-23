@@ -5,18 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-pulpkit-reactive.workspace = true
-pulpkit-plugin.workspace = true
-pulpkit-wayland.workspace = true
 pulpkit-render.workspace = true
 pulpkit-layout.workspace = true
+pulpkit-wayland.workspace = true
 pulpkit-lua.workspace = true
-tokio.workspace = true
+pulpkit-sub.workspace = true
 calloop.workspace = true
 wayland-client.workspace = true
 anyhow.workspace = true
 mlua.workspace = true
 log.workspace = true
-env_logger = "0.11"
-notify = "8"
-notify-debouncer-mini = "0.7"
+env_logger.workspace = true

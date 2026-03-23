@@ -6,6 +6,6 @@ license.workspace = true
 
 [dependencies]
 pulpkit-render.workspace = true
-pulpkit-reactive.workspace = true
 taffy.workspace = true
 anyhow.workspace = true
+log.workspace = true

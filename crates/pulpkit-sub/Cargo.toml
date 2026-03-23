@@ -1,7 +1,10 @@
 [package]
-name = "pulpkit-reactive"
+name = "pulpkit-sub"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
+calloop.workspace = true
+anyhow.workspace = true
+log.workspace = true

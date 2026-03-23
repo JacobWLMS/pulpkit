@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-skia-safe.workspace = true
-resvg.workspace = true
+tiny-skia.workspace = true
+fontdb.workspace = true
+rustybuzz.workspace = true
+ab_glyph.workspace = true
+image.workspace = true
 anyhow.workspace = true
+log.workspace = true
