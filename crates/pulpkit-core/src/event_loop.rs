@@ -82,13 +82,15 @@ pub fn run(
             for event in &input_events {
                 match event {
                     InputEvent::PointerMotion { x, y, surface_id, .. } => {
-                        // Handle slider drag
+                        // Handle slider drag — only keep latest value
                         if let Some(ref drag) = active_drag {
                             let fx = *x as f32;
                             let ratio = ((fx - drag.node_x) / drag.node_width).clamp(0.0, 1.0) as f64;
                             let new_val = drag.min + (drag.max - drag.min) * ratio;
                             let mut msg = drag.on_change.clone();
                             msg.data = Some(pulpkit_layout::MessageData::Float(new_val));
+                            // Replace any existing drag msg to avoid flooding
+                            msg_batch.retain(|m| m.msg_type != msg.msg_type);
                             msg_batch.push(msg);
                         } else {
                             // Normal hover tracking

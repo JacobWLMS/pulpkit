@@ -73,6 +73,9 @@ impl<'a> Canvas<'a> {
         radius: f32,
         color: Color,
     ) {
+        if w <= 0.0 || h <= 0.0 {
+            return;
+        }
         if radius <= 0.0 {
             self.fill_rect(x, y, w, h, color);
             return;

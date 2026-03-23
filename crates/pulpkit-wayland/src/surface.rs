@@ -251,9 +251,15 @@ impl LayerSurface {
         layer.set_margin(margins.top, margins.right, margins.bottom, margins.left);
         layer.set_size(width, height);
 
+        // Apply HiDPI scale (same logic as bar surfaces)
+        let scale = if state.outputs.first().map(|o| o.scale).unwrap_or(1) > 1 { 2 } else { 1 };
+        layer.wl_surface().set_buffer_scale(scale);
+
         layer.commit();
 
-        let buf_size = (width as usize) * (height as usize) * 4;
+        let phys_w = width as usize * scale as usize;
+        let phys_h = height as usize * scale as usize;
+        let buf_size = phys_w * phys_h * 4;
         let pool_size = buf_size.max(256);
         let pool = SlotPool::new(pool_size, &state.shm)?;
 
@@ -263,7 +269,7 @@ impl LayerSurface {
             width,
             height,
             buffer_data: vec![0u8; buf_size],
-            scale: 1,
+            scale,
         })
     }
 

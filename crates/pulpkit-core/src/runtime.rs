@@ -244,10 +244,18 @@ pub fn create_popup_surface(
     let popup_anchor = match def.anchor.as_str() {
         "top left" => PopupAnchor::TopLeft,
         "top right" => PopupAnchor::TopRight,
+        "top" | "top center" => PopupAnchor::Center, // centered horizontally at top
         "bottom left" => PopupAnchor::BottomLeft,
         "bottom right" => PopupAnchor::BottomRight,
         "center" => PopupAnchor::Center,
         _ => PopupAnchor::TopLeft,
+    };
+
+    // For top-centered popups, use margins to position below the bar
+    let margins = if def.anchor == "top" || def.anchor == "top center" {
+        SurfaceMargins { top: 44, ..Default::default() } // below bar
+    } else {
+        SurfaceMargins::default()
     };
 
     let surface = LayerSurface::new_popup(
@@ -255,7 +263,7 @@ pub fn create_popup_surface(
         popup_anchor,
         width,
         height,
-        SurfaceMargins::default(),
+        margins,
         format!("pulpkit-popup-{}", def.name),
         None,
     )?;
