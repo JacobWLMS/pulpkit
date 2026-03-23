@@ -77,9 +77,13 @@ set_interval(function() date_str:set(os.date("%A, %B %d")) end, 300000)
 -- Popups
 -- ============================================================================
 
-local show_audio,   toggle_audio,   close_audio   = lib.popup_toggle()
-local show_power,   toggle_power,   close_power   = lib.popup_toggle()
+local show_audio,    toggle_audio,    close_audio    = lib.popup_toggle()
+local show_power,    toggle_power,    close_power    = lib.popup_toggle()
 local show_launcher, toggle_launcher, close_launcher = lib.popup_toggle()
+local show_network,  toggle_network,  close_network  = lib.popup_toggle()
+local show_bluetooth, toggle_bluetooth, close_bluetooth = lib.popup_toggle()
+local show_battery,  toggle_battery,  close_battery  = lib.popup_toggle()
+local show_calendar, toggle_calendar, close_calendar = lib.popup_toggle()
 local search_query   = signal("")
 local selected_index = signal(1)
 local cursor_blink   = signal(true)
@@ -95,12 +99,17 @@ end, 530)
 
 function close_all_popups()
   close_audio(); close_power(); close_launcher()
+  close_network(); close_bluetooth(); close_battery(); close_calendar()
   search_query:set(""); selected_index:set(1)
 end
 
-function _toggle_launcher() close_all_popups(); toggle_launcher() end
-function _toggle_power()    close_all_popups(); toggle_power() end
-function _toggle_audio()    close_all_popups(); toggle_audio() end
+function _toggle_launcher()  close_all_popups(); toggle_launcher() end
+function _toggle_power()     close_all_popups(); toggle_power() end
+function _toggle_audio()     close_all_popups(); toggle_audio() end
+function _toggle_network()   close_all_popups(); toggle_network() end
+function _toggle_bluetooth() close_all_popups(); toggle_bluetooth() end
+function _toggle_battery()   close_all_popups(); toggle_battery() end
+function _toggle_calendar()  close_all_popups(); toggle_calendar() end
 
 -- ============================================================================
 -- Bar
@@ -140,22 +149,35 @@ window("bar", {
       end, function(ws) return tostring(ws.id) end, "row"),
     }),
 
-    -- Center: clock
-    text(T.body .. " text-fg font-medium", function() return time_str:get() end),
+    -- Center: clock (click for calendar)
+    lib.btn(function() return time_str:get() end, {
+      text_style = T.body .. " text-fg font-medium",
+      on_click = function() close_all_popups(); toggle_calendar() end,
+    }),
 
-    -- Right: battery + volume + power
+    -- Right: status icons
     row("flex-1 items-center justify-end gap-1", {
+      -- WiFi
+      lib.icon_btn(icons.wifi_on, {
+        on_click = function() close_all_popups(); toggle_network() end,
+      }),
+
+      -- Bluetooth
+      lib.icon_btn(icons.bt_on, {
+        on_click = function() close_all_popups(); toggle_bluetooth() end,
+      }),
+
+      -- Battery
       (function()
         if not has_battery then return spacer() end
-        return row("items-center gap-1", {
-          text(T.icon .. " text-fg", function()
-            return lib.bat_icon(bat_pct:get(), bat_status:get())
-          end),
-          text(T.caption .. " text-muted", function()
-            return bat_pct:get() .. "%"
-          end),
+        return lib.icon_btn(function()
+          return lib.bat_icon(bat_pct:get(), bat_status:get())
+        end, {
+          on_click = function() close_all_popups(); toggle_battery() end,
         })
       end)(),
+
+      -- Volume
       lib.icon_btn(function()
         return lib.vol_icon(volume:get(), muted:get())
       end, {
@@ -225,6 +247,276 @@ popup("power", {
         exec("loginctl terminate-session " .. (env("XDG_SESSION_ID") or ""))
       end,
     }),
+  })
+end)
+
+-- ============================================================================
+-- Network Popup
+-- ============================================================================
+
+local wifi_networks = signal("")  -- raw nmcli output, parsed in render
+
+popup("network", {
+  parent = "bar", anchor = "top right",
+  visible = show_network, dismiss_on_outside = true,
+  width = 320, height = 350,
+  keyboard = true,
+  on_key = function(key) if key == "Escape" then close_all_popups() end end,
+}, function()
+  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+    row("items-center " .. S.item_gap, {
+      text(T.icon_large .. " text-fg", icons.wifi_on),
+      lib.header("Networks"),
+    }),
+    scroll("w-full h-64", {
+      each(function()
+        local raw = exec_output("nmcli -t -f SSID,SIGNAL,SECURITY,ACTIVE dev wifi list 2>/dev/null")
+        local seen = {}
+        local nets = {}
+        for line in raw:gmatch("[^\n]+") do
+          local ssid, sig, sec, active = line:match("^(.-):(%d+):(.-):(.-)$")
+          if ssid and ssid ~= "" and not seen[ssid] then
+            seen[ssid] = true
+            nets[#nets+1] = {
+              ssid = ssid,
+              signal = tonumber(sig) or 0,
+              secure = sec ~= "",
+              active = active == "yes",
+            }
+          end
+        end
+        table.sort(nets, function(a, b)
+          if a.active ~= b.active then return a.active end
+          return a.signal > b.signal
+        end)
+        local r = {}
+        for i = 1, math.min(#nets, 10) do r[#r+1] = nets[i] end
+        return r
+      end, function(net)
+        local icon = net.secure and "󰌾" or " "
+        return lib.menu_item(
+          icons.wifi_on,
+          net.ssid .. " " .. icon .. " " .. net.signal .. "%",
+          {
+            text_style = net.active
+              and (T.body .. " text-primary font-bold")
+              or (T.body .. " text-fg"),
+            on_click = function()
+              if not net.active then
+                exec("nmcli dev wifi connect '" .. net.ssid .. "'")
+              end
+            end,
+          }
+        )
+      end, function(net) return net.ssid end),
+    }),
+  })
+end)
+
+-- ============================================================================
+-- Bluetooth Popup
+-- ============================================================================
+
+popup("bluetooth", {
+  parent = "bar", anchor = "top right",
+  visible = show_bluetooth, dismiss_on_outside = true,
+  width = 300, height = 280,
+  keyboard = true,
+  on_key = function(key) if key == "Escape" then close_all_popups() end end,
+}, function()
+  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+    row("items-center " .. S.item_gap, {
+      text(T.icon_large .. " text-fg", icons.bt_on),
+      lib.header("Bluetooth"),
+    }),
+    scroll("w-full h-48", {
+      each(function()
+        local raw = exec_output("bluetoothctl devices 2>/dev/null")
+        local devs = {}
+        for line in raw:gmatch("[^\n]+") do
+          local mac, name = line:match("Device (%S+) (.+)")
+          if mac and name then
+            local info = exec_output("bluetoothctl info " .. mac .. " 2>/dev/null")
+            local connected = info:find("Connected: yes") ~= nil
+            devs[#devs+1] = { mac = mac, name = name, connected = connected }
+          end
+        end
+        table.sort(devs, function(a, b)
+          if a.connected ~= b.connected then return a.connected end
+          return a.name < b.name
+        end)
+        return devs
+      end, function(dev)
+        return lib.menu_item(
+          dev.connected and icons.bt_on or icons.bt_off,
+          dev.name,
+          {
+            text_style = dev.connected
+              and (T.body .. " text-primary font-bold")
+              or (T.body .. " text-fg"),
+            on_click = function()
+              if dev.connected then
+                exec("bluetoothctl disconnect " .. dev.mac)
+              else
+                exec("bluetoothctl connect " .. dev.mac)
+              end
+            end,
+          }
+        )
+      end, function(dev) return dev.mac end),
+    }),
+  })
+end)
+
+-- ============================================================================
+-- Battery Popup
+-- ============================================================================
+
+local power_profile = signal("balanced")
+-- Init power profile
+do
+  local p = exec_output("powerprofilesctl get 2>/dev/null")
+  if p ~= "" then power_profile:set(p) end
+end
+
+popup("battery-popup", {
+  parent = "bar", anchor = "top right",
+  visible = show_battery, dismiss_on_outside = true,
+  width = 280, height = 250,
+  keyboard = true,
+  on_key = function(key) if key == "Escape" then close_all_popups() end end,
+}, function()
+  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+    row("items-center " .. S.item_gap, {
+      text(T.icon_large .. " text-fg", function()
+        return lib.bat_icon(bat_pct:get(), bat_status:get())
+      end),
+      col("gap-1", {
+        lib.header("Battery"),
+        lib.caption(function()
+          return bat_pct:get() .. "% — " .. bat_status:get()
+        end),
+      }),
+    }),
+
+    lib.separator(),
+
+    lib.header("Power Profile"),
+    lib.radio_group({
+      { label = "Power Saver", value = "power-saver", icon = "󰌪" },
+      { label = "Balanced",    value = "balanced",    icon = "󰖩" },
+      { label = "Performance", value = "performance", icon = "󰓅" },
+    }, power_profile, {
+      on_change = function(val)
+        exec("powerprofilesctl set " .. val)
+      end,
+    }),
+  })
+end)
+
+-- ============================================================================
+-- Calendar Popup
+-- ============================================================================
+
+local cal_month = signal(tonumber(os.date("%m")))
+local cal_year  = signal(tonumber(os.date("%Y")))
+
+popup("calendar", {
+  parent = "bar", anchor = "center",
+  visible = show_calendar, dismiss_on_outside = true,
+  width = 280, height = 300,
+  keyboard = true,
+  on_key = function(key)
+    if key == "Escape" then close_all_popups() end
+  end,
+}, function()
+  return col("bg-surface " .. S.popup_pad .. " " .. S.popup_gap, {
+    -- Month/year header with nav
+    row("items-center", {
+      lib.icon_btn(icons.chevron_l, {
+        on_click = function()
+          local m = cal_month:get() - 1
+          if m < 1 then m = 12; cal_year:set(cal_year:get() - 1) end
+          cal_month:set(m)
+        end,
+      }),
+      spacer(),
+      text(T.body .. " text-fg font-bold", function()
+        local months = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"}
+        return months[cal_month:get()] .. " " .. cal_year:get()
+      end),
+      spacer(),
+      lib.icon_btn(icons.chevron_r, {
+        on_click = function()
+          local m = cal_month:get() + 1
+          if m > 12 then m = 1; cal_year:set(cal_year:get() + 1) end
+          cal_month:set(m)
+        end,
+      }),
+    }),
+
+    -- Day headers
+    row("items-center", {
+      text(T.caption .. " text-muted", "Mo"),
+      spacer(), text(T.caption .. " text-muted", "Tu"),
+      spacer(), text(T.caption .. " text-muted", "We"),
+      spacer(), text(T.caption .. " text-muted", "Th"),
+      spacer(), text(T.caption .. " text-muted", "Fr"),
+      spacer(), text(T.caption .. " text-muted", "Sa"),
+      spacer(), text(T.caption .. " text-muted", "Su"),
+    }),
+
+    -- Calendar grid
+    each(function()
+      local m = cal_month:get()
+      local y = cal_year:get()
+      -- First day of month (1=Sun in Lua, we want 1=Mon)
+      local first_wday = tonumber(os.date("%w", os.time({year=y, month=m, day=1})))
+      if first_wday == 0 then first_wday = 7 end -- Sun=7
+      -- Days in month
+      local days_in = tonumber(os.date("%d", os.time({year=y, month=m+1, day=0})))
+      local today = tonumber(os.date("%d"))
+      local cur_month = tonumber(os.date("%m"))
+      local cur_year = tonumber(os.date("%Y"))
+
+      local weeks = {}
+      local day = 1
+      local week_num = 0
+      while day <= days_in do
+        week_num = week_num + 1
+        local week = {}
+        for wd = 1, 7 do
+          if (week_num == 1 and wd < first_wday) or day > days_in then
+            week[#week+1] = { day = 0, is_today = false }
+          else
+            local is_today = (day == today and m == cur_month and y == cur_year)
+            week[#week+1] = { day = day, is_today = is_today }
+            day = day + 1
+          end
+        end
+        weeks[#weeks+1] = week
+      end
+      return weeks
+    end, function(week)
+      local cells = {}
+      for _, d in ipairs(week) do
+        if d.day == 0 then
+          cells[#cells+1] = text(T.caption .. " text-muted", "  ")
+        elseif d.is_today then
+          cells[#cells+1] = text(T.caption .. " text-primary font-bold",
+            string.format("%2d", d.day))
+        else
+          cells[#cells+1] = text(T.caption .. " text-fg",
+            string.format("%2d", d.day))
+        end
+        cells[#cells+1] = spacer()
+      end
+      -- Remove trailing spacer
+      if #cells > 0 then table.remove(cells) end
+      return row("items-center", cells)
+    end, function(week)
+      return tostring(week[1].day) .. "-" .. tostring(week[7].day)
+    end),
   })
 end)
 
