@@ -82,31 +82,31 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
     // 9. Create managed surfaces
     let mut surfaces = create_surfaces(&surface_defs, &mut client, &theme)?;
 
-    // 10. Set up calloop channels
-    let (msg_sender, msg_channel) = channel::channel::<RuntimeMsg>();
-    client.event_loop.handle()
-        .insert_source(msg_channel, |event, _, _state| {
-            if let channel::Event::Msg(msg) = event {
-                match msg {
-                    RuntimeMsg::Redraw => log::debug!("Wake: Redraw requested"),
-                    RuntimeMsg::Subscription(_) => {}
-                }
-            }
-        })
-        .map_err(|e| anyhow::anyhow!("Failed to insert msg channel: {e}"))?;
+    // 10. Set up subscription message buffer (shared with calloop callback)
+    let pending_sub_msgs: std::rc::Rc<std::cell::RefCell<Vec<SubMessage>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
 
-    // 11. Set up subscription manager
     let (sub_sender, sub_channel) = channel::channel::<SubMessage>();
-    let sub_sender_for_loop = msg_sender.clone();
+    let pending_clone = pending_sub_msgs.clone();
     client.event_loop.handle()
         .insert_source(sub_channel, move |event, _, _state| {
             if let channel::Event::Msg(sub_msg) = event {
-                let _ = sub_sender_for_loop.send(RuntimeMsg::Subscription(sub_msg));
+                pending_clone.borrow_mut().push(sub_msg);
             }
         })
         .map_err(|e| anyhow::anyhow!("Failed to insert sub channel: {e}"))?;
 
     let mut sub_manager = SubscriptionManager::new(sub_sender);
+
+    // Wake channel for non-subscription events (e.g., dirty tracking)
+    let (msg_sender, msg_channel) = channel::channel::<RuntimeMsg>();
+    client.event_loop.handle()
+        .insert_source(msg_channel, |event, _, _state| {
+            if let channel::Event::Msg(RuntimeMsg::Redraw) = event {
+                log::debug!("Wake: Redraw requested");
+            }
+        })
+        .map_err(|e| anyhow::anyhow!("Failed to insert msg channel: {e}"))?;
 
     // 12. Call subscribe() and start initial subscriptions
     if let Ok(sub_defs) = bridge.subscribe(lua) {
@@ -126,7 +126,7 @@ pub fn run(shell_dir: std::path::PathBuf) -> anyhow::Result<()> {
         &mut surfaces,
         &mut bridge,
         &mut sub_manager,
-        &msg_sender,
+        &pending_sub_msgs,
         lua,
         &text_renderer,
         &theme,

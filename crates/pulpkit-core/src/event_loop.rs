@@ -1,9 +1,9 @@
 //! Event loop — dispatches events, calls Elm lifecycle, renders.
 
-use std::sync::Arc;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Duration;
 
-use calloop::channel::Sender;
 use mlua::Lua;
 use pulpkit_layout::element::Message;
 use pulpkit_layout::Theme;
@@ -12,7 +12,6 @@ use pulpkit_render::TextRenderer;
 use pulpkit_sub::{SubMessage, SubscriptionManager};
 use pulpkit_wayland::{InputEvent, WaylandClient};
 
-use crate::runtime::RuntimeMsg;
 use crate::surfaces::ManagedSurface;
 
 /// Run the main event loop. Returns when the compositor requests exit.
@@ -20,8 +19,8 @@ pub fn run(
     client: &mut WaylandClient,
     surfaces: &mut Vec<ManagedSurface>,
     bridge: &mut ElmBridge,
-    sub_manager: &mut SubscriptionManager,
-    msg_sender: &Sender<RuntimeMsg>,
+    _sub_manager: &mut SubscriptionManager,
+    pending_sub_msgs: &Rc<RefCell<Vec<SubMessage>>>,
     lua: &Lua,
     text_renderer: &TextRenderer,
     theme: &Theme,
@@ -33,7 +32,7 @@ pub fn run(
 
     loop {
         // 1. Dispatch calloop — blocks until events arrive or timeout
-        let timeout = Duration::from_secs(60); // Idle timeout
+        let timeout = Duration::from_secs(60);
         client.event_loop.dispatch(timeout, &mut client.state)?;
 
         // 2. Check for frame callbacks
@@ -70,11 +69,10 @@ pub fn run(
             for event in &input_events {
                 match event {
                     InputEvent::PointerMotion { x, y, surface_id, .. } => {
-                        // Update hover state
                         for surface in surfaces.iter_mut() {
                             if surface.surface.surface_id() == *surface_id {
                                 if let Some(ref layout) = surface.layout {
-                                    let (new_hover, damage) = crate::hover::update_hover(
+                                    let (new_hover, _damage) = crate::hover::update_hover(
                                         layout, *x, *y, hovered_node,
                                     );
                                     if new_hover != hovered_node {
@@ -87,14 +85,11 @@ pub fn run(
                         }
                     }
                     InputEvent::PointerButton { x, y, surface_id, button: 0x110, pressed: true } => {
-                        // Left click — hit test and dispatch
                         for surface in surfaces.iter() {
                             if surface.surface.surface_id() == *surface_id {
                                 if let Some(ref layout) = surface.layout {
-                                    if let Some(node_idx) = pulpkit_layout::hit_test(layout, *x as f32, *y as f32) {
-                                        // Find the element and its on_click message
-                                        // For now, walk the flat element list
-                                        if let Some(msg) = find_click_msg(&surface.def.root, node_idx) {
+                                    if let Some(_node_idx) = pulpkit_layout::hit_test(layout, *x as f32, *y as f32) {
+                                        if let Some(msg) = find_click_msg(&surface.def.root) {
                                             msg_batch.push(msg);
                                         }
                                     }
@@ -114,13 +109,16 @@ pub fn run(
             }
         }
 
-        // 5. Process subscription messages
-        // (These arrive via the calloop channel and are already dispatched)
-        // We collect any pending sub messages via polling the sender side
-        // Actually, sub messages arrive via the calloop channel callback which
-        // sends RuntimeMsg::Subscription. Since we're using calloop dispatch,
-        // we need a different approach — store pending sub msgs.
-        // For now, timer callbacks directly produce messages via the sender.
+        // 5. Drain subscription messages → Elm messages
+        {
+            let sub_msgs: Vec<SubMessage> = pending_sub_msgs.borrow_mut().drain(..).collect();
+            for sub_msg in sub_msgs {
+                msg_batch.push(Message {
+                    msg_type: sub_msg.msg_type,
+                    data: sub_msg.data.map(|s| pulpkit_layout::element::MessageData::String(s)),
+                });
+            }
+        }
 
         // 6. Process message batch through Elm lifecycle
         if !msg_batch.is_empty() {
@@ -133,7 +131,6 @@ pub fn run(
             // Call view() and update surfaces
             match bridge.view(lua) {
                 Ok(new_defs) => {
-                    // Update root elements for existing surfaces
                     for surface in surfaces.iter_mut() {
                         for def in &new_defs {
                             if def.name == surface.def.name {
@@ -148,7 +145,6 @@ pub fn run(
                 }
                 Err(e) => {
                     log::error!("Lua view() error: {e}");
-                    // Keep previous tree
                 }
             }
         }
@@ -157,7 +153,6 @@ pub fn run(
         for surface in surfaces.iter_mut() {
             if surface.dirty && surface.frame_ready {
                 surface.render(text_renderer, theme, hovered_node);
-                // Request next frame callback
                 surface.surface.request_frame(&client.state.qh);
             }
         }
@@ -172,22 +167,15 @@ pub fn run(
     Ok(())
 }
 
-/// Walk the element tree to find an on_click message at the given hit index.
-/// This is a simplified version — proper index mapping will be refined.
-fn find_click_msg(root: &pulpkit_layout::Element, _target_idx: usize) -> Option<Message> {
-    // For now, walk all buttons and return the first one found
-    // TODO: proper element-to-layout-node mapping
-    find_click_in_element(root)
-}
-
-fn find_click_in_element(element: &pulpkit_layout::Element) -> Option<Message> {
+/// Walk the element tree to find any on_click message.
+fn find_click_msg(element: &pulpkit_layout::Element) -> Option<Message> {
     match element {
         pulpkit_layout::Element::Button { on_click, children, .. } => {
             if let Some(msg) = on_click {
                 return Some(msg.clone());
             }
             for child in children {
-                if let Some(msg) = find_click_in_element(child) {
+                if let Some(msg) = find_click_msg(child) {
                     return Some(msg);
                 }
             }
@@ -195,7 +183,7 @@ fn find_click_in_element(element: &pulpkit_layout::Element) -> Option<Message> {
         }
         pulpkit_layout::Element::Container { children, .. } => {
             for child in children {
-                if let Some(msg) = find_click_in_element(child) {
+                if let Some(msg) = find_click_msg(child) {
                     return Some(msg);
                 }
             }
