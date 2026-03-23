@@ -196,7 +196,19 @@ fn start_subscription(
         SubscriptionDef::Timeout { ms, msg_name } => {
             manager.start_timeout(*ms, msg_name.clone(), handle);
         }
-        // Stream, exec, ipc, etc. will be implemented in later tasks
+        SubscriptionDef::Stream { cmd, msg_name } => {
+            let sender = manager.sender().clone();
+            if let Some((_channel, pid)) = pulpkit_sub::stream::spawn_stream(cmd, msg_name.clone(), sender) {
+                // The stream sends directly to the sub sender — no separate channel needed
+                // since spawn_stream uses the sender we passed in.
+                log::info!("Started stream: {} (pid {})", cmd, pid);
+            }
+        }
+        SubscriptionDef::Exec { cmd, msg_name } => {
+            let sender = manager.sender().clone();
+            pulpkit_sub::exec::spawn_exec(cmd, msg_name.clone(), sender);
+            log::info!("Started exec: {}", cmd);
+        }
         other => {
             log::warn!("Subscription type {:?} not yet implemented", other);
         }
