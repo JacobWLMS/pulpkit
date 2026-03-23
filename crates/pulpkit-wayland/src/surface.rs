@@ -512,24 +512,20 @@ impl PopupSurface {
             }
         }
 
-        // Set buffer scale to match the output.
-        let scale = state.outputs.first().map(|o| o.scale).unwrap_or(1);
-        popup.wl_surface().set_buffer_scale(scale);
-
         // Initial commit — no buffer yet. Wait for configure event.
+        // Don't set buffer_scale — let the compositor handle scaling
+        // the same way it handles the bar surface.
         popup.wl_surface().commit();
 
-        // Buffer at display scale for crisp rendering.
-        let buf_w = width as usize * scale as usize;
-        let buf_h = height as usize * scale as usize;
-        let buf_size = buf_w * buf_h * 4;
+        // Buffer at logical size (same as bar approach — compositor upscales).
+        let buf_size = (width as usize) * (height as usize) * 4;
         let pool = SlotPool::new(buf_size.max(256), &state.shm)?;
 
         Ok(PopupSurface {
             popup,
             pool,
-            width: buf_w as u32,
-            height: buf_h as u32,
+            width,
+            height,
             buffer_data: vec![0u8; buf_size],
             configured: false,
         })
