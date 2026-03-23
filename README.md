@@ -1,194 +1,286 @@
+<div align="center">
+
 # Pulpkit
 
-A Rust + Lua desktop shell framework for Wayland.
+**A Wayland desktop shell framework where your UI is just HTML/CSS/JS.**
 
-Reactive by default, fast enough for gaming, hackable enough for daily driving.
+[![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)]()
+[![Wayland](https://img.shields.io/badge/Wayland-FFB800?style=for-the-badge&logo=wayland&logoColor=black)]()
+[![GTK4](https://img.shields.io/badge/GTK4-4A86CF?style=for-the-badge&logo=gtk&logoColor=white)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+
+<!-- screenshot placeholder -->
+
+</div>
+
+---
+
+## What is Pulpkit?
+
+Pulpkit is a desktop shell framework for Wayland compositors. It uses **GTK4 layer-shell** for window management and **WebKitGTK** for rendering, which means your bar, popups, notification toasts, and lock screen are plain HTML/CSS/JS files. The Rust backend runs **53 reactive system watchers** that push **187 state fields** to your JavaScript as a single JSON object. Built-in notification daemon, system tray, PAM-based lock screen, DBus service, IPC socket, and an MCP server for AI-assisted shell development. You write the frontend. Pulpkit handles everything else.
+
+---
 
 ## Features
 
-- **Reactive engine** — SolidJS-inspired signals, computed values, and effects. Change a signal, only the affected widgets re-render.
-- **Lua scripting** — Define your entire shell in Lua. Signals, widgets, timers, system commands — all from config files.
-- **Wayland native** — Layer-shell surfaces via smithay-client-toolkit. Bars, popups, overlays.
-- **Skia rendering** — CPU raster rendering with cached font lookups. Sub-5% idle CPU.
-- **Flexbox layout** — Taffy-powered layout with Tailwind-style tokens (`bg-surface px-4 items-center gap-2`).
-- **Dynamic lists** — `each()` with key-based reconciliation for workspace buttons, notification lists, etc.
-- **System integration** — `exec()`, `exec_output()`, `env()` for shell commands and environment access.
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 53 Reactive Watchers
+
+System state is pushed to your JS automatically. No polling required.
+
+| Category | Watchers |
+|----------|----------|
+| **Audio** | Volume, mute, sinks, sources, streams, mic |
+| **Network** | WiFi, IP, signal, speed (rx/tx), VPN |
+| **Bluetooth** | Power, connected devices |
+| **Media** | MPRIS (title, artist, album, art, player) |
+| **Battery** | Level, status, AC power, power draw |
+| **GPU** | Usage, temp, VRAM |
+| **Gaming** | GameMode, Gamescope, Discord activity |
+| **Display** | Brightness, outputs, night light, screen share |
+| **System** | CPU, memory, swap, disk, load avg, thermal, fan |
+| **Session** | Lock, idle, sleep, inhibitors, caffeine |
+| **Systemd** | Failed units, timers, journal errors |
+| **Desktop** | Workspaces, windows, tray, keyboard layout |
+| **Other** | Weather, calendar, containers, packages, trash, SSH, clipboard |
+
+</td>
+<td width="50%" valign="top">
+
+### Core Capabilities
+
+**Built-in Notification Daemon** --- Replaces mako, dunst, swaync. Notifications appear in a dedicated toast surface. Full control from JS.
+
+**DBus Service** --- Exposes `org.pulpkit.Shell` for external tools and scripts to interact with the shell.
+
+**IPC Socket** --- Unix socket at `$XDG_RUNTIME_DIR/pulpkit.sock` for command-line control and the MCP server.
+
+**4 Layer-Shell Surfaces** --- Bar, popup, toast, and backdrop. Each is a WebKitGTK webview with transparent backgrounds.
+
+**Lock Screen** --- PAM authentication with greetd support. Your `lock.html` becomes the lock screen.
+
+**Configurable Backdrop** --- `none`, `dim`, or `opaque` with adjustable opacity when popups are open.
+
+**12 Color Themes** --- CSS variable-based theming. Switch at runtime with a single command.
+
+**MCP Server** --- AI agents can read state, hot-reload HTML, eval JS, take screenshots, and scaffold new shells.
+
+</td>
+</tr>
+</table>
+
+---
 
 ## Architecture
 
 ```
-pulpkit-reactive    Signal<T>, Computed<T>, Effect, batch(), Scope
-    |
-pulpkit-render      Skia CPU canvas, text measurement, color parsing
-    |
-pulpkit-wayland     Layer-shell surfaces, pointer input, output detection
-    |
-pulpkit-layout      Prop<T>, Node tree, Taffy flexbox, paint pipeline
-    |
-pulpkit-lua         Lua VM, widget constructors, signal/timer/system APIs
-    |
-pulpkit-core        Runtime, event loop, dirty tracking, popup state machine
+                         ┌──────────────────────────────────────────┐
+                         │              Rust Backend                │
+                         │                                         │
+                         │  ┌─────────────────────────────────┐    │
+                         │  │       53 System Watchers         │    │
+                         │  │  (DBus, /sys, sockets, polling)  │    │
+                         │  └──────────────┬──────────────────┘    │
+                         │                 │                        │
+                         │                 ▼                        │
+                         │  ┌─────────────────────────────────┐    │
+                         │  │     FullState (187 fields)       │    │
+                         │  │        serialize → JSON          │    │
+                         │  └──────────────┬──────────────────┘    │
+                         │                 │                        │
+                         └─────────────────┼────────────────────────┘
+                                           │
+                           updateState(s)  │  send({cmd, data})
+                                           ▼
+               ┌───────────────────────────────────────────────────┐
+               │               WebKitGTK Surfaces                  │
+               │                                                   │
+               │   ┌─────────┐  ┌─────────┐  ┌───────┐  ┌──────┐ │
+               │   │   Bar   │  │  Popup  │  │ Toast │  │ Lock │ │
+               │   │  .html  │  │  .html  │  │ .html │  │ .html│ │
+               │   └─────────┘  └─────────┘  └───────┘  └──────┘ │
+               │           (GTK4 Layer-Shell surfaces)             │
+               └───────────────────────────────────────────────────┘
 ```
+
+Each surface is a full WebKitGTK webview. The Rust backend serializes the entire `FullState` struct to JSON and calls `updateState(s)` on every surface. Your JS sends commands back via `send({cmd, data})`, which posts a message through WebKit's native bridge.
+
+---
 
 ## Quick Start
 
 ```bash
-cargo build --release
-./target/release/pulpkit-core examples/hello
+# Dependencies (Arch / CachyOS)
+sudo pacman -S gtk4 gtk4-layer-shell webkit2gtk-6.0
+
+# Build
+cargo build --release -p pulpkit-webshell-poc
+
+# Run with the Zenith shell
+./target/release/pulpkit-webshell-poc zenith
 ```
 
-## Lua API
+Other included shells: `glass`, `minimal`, `neon`, `gruvbox-rice`.
 
-### Widgets
+---
 
-```lua
-row(style, children)           -- horizontal container
-col(style, children)           -- vertical container
-text(style, content)           -- text node (static string or function)
-spacer()                       -- flex-grow: 1
-button(style, opts, children)  -- interactive button with handlers
-slider(style, opts)            -- draggable value slider
-toggle(style, opts)            -- boolean toggle switch
-each(items_fn, render_fn, key_fn)  -- dynamic list with reconciliation
+## Creating Your Own Shell
+
+Create a directory under `poc/shells/yourname/` with these files:
+
+```
+poc/shells/yourname/
+├── bar.html          # Status bar (required)
+├── popup.html        # Popup panels (required)
+├── toast.html        # Notification toasts (optional)
+├── lock.html         # Lock screen (optional)
+├── config.json       # Dimensions and positioning
+└── theme.css         # Custom styles (optional)
 ```
 
-Style is a string of Tailwind-like tokens or a reactive function:
+### The Contract
 
-```lua
--- Static
-row("bg-base px-4 items-center gap-2", { ... })
+Every HTML file must define two functions:
 
--- Reactive (hover via signal)
-local hovered = signal(false)
-button(function()
-  return hovered:get() and "bg-overlay px-2" or "px-2"
-end, {
-  on_hover = function() hovered:set(true) end,
-  on_hover_lost = function() hovered:set(false) end,
-}, { ... })
-```
+```js
+// Called by Pulpkit whenever state changes
+function updateState(s) {
+  // s.vol, s.bat, s.wifi, s.media_title, s.notifications, ...
+  // Apply theme:
+  document.documentElement.setAttribute('data-theme', s.theme);
+}
 
-### Signals
-
-```lua
-local count = signal(0)        -- create a reactive value
-count:get()                    -- read (tracks dependencies)
-count:set(42)                  -- write (notifies subscribers)
-
-local doubled = computed(function()
-  return count:get() * 2       -- auto-tracks count as dependency
-end)
-
-effect(function()
-  print(count:get())           -- re-runs when count changes
-end)
-```
-
-### Timers
-
-```lua
-local id = set_interval(function()
-  time:set(os.date("%H:%M"))
-end, 1000)
-
-local id2 = set_timeout(function()
-  -- runs once after 5 seconds
-end, 5000)
-
-clear_interval(id)
-clear_timeout(id2)
-```
-
-### System
-
-```lua
-exec("wpctl set-volume @DEFAULT_AUDIO_SINK@ 70%")   -- async, fire-and-forget
-local vol = exec_output("wpctl get-volume @DEFAULT_AUDIO_SINK@")  -- blocking, returns stdout
-local home = env("HOME")                              -- read env var
-```
-
-### Windows and Popups
-
-```lua
-window("bar", {
-  monitor = "all",       -- "all", "focused", or output name
-  anchor = "top",        -- "top", "bottom", "left", "right"
-  exclusive = true,      -- reserve screen space
-  height = 48,
-}, function(ctx)
-  return row("w-full h-12 bg-base", { ... })
-end)
-
-popup("volume", {
-  parent = "bar",
-  anchor = "top right",
-  visible = show_signal,       -- Signal<bool> controls visibility
-  dismiss_on_outside = true,
-  width = 320,
-  height = 0,                  -- 0 = auto-size from content
-}, function()
-  return col("bg-surface p-4", { ... })
-end)
-```
-
-## Style Tokens
-
-| Category | Tokens |
-|----------|--------|
-| Background | `bg-base`, `bg-surface`, `bg-overlay`, `bg-card`, `bg-<color>` |
-| Text color | `text-fg`, `text-dim`, `text-muted`, `text-primary`, `text-<color>` |
-| Text size | `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl` |
-| Font | `font-bold`, `font-medium` |
-| Padding | `p-2`, `px-3`, `py-1` |
-| Margin | `m-2`, `mx-3`, `my-1` |
-| Gap | `gap-2`, `gap-4` |
-| Size | `w-full`, `h-9`, `w-20`, `h-full` |
-| Flex | `flex-1`, `items-center`, `justify-end`, `justify-between` |
-| Rounding | `rounded`, `rounded-sm`, `rounded-lg`, `rounded-full` |
-| Opacity | `opacity-50`, `opacity-80` |
-
-## Theming
-
-Create `theme.lua` in your shell directory:
-
-```lua
-return {
-  colors = {
-    base    = "#121618",
-    surface = "#1a1e22",
-    fg      = "#e2e6ea",
-    primary = "#8cb4d8",
-    -- ...
-  },
-  spacing_scale = 4,
-  rounding = { sm = 0, md = 0, lg = 0, xl = 0, full = 0 },
-  font_sizes = { xs = 10, sm = 12, base = 14, lg = 16, xl = 20 },
-  font_family = "JetBrainsMono Nerd Font",
+// Send commands back to the Rust backend
+function send(o) {
+  window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o));
 }
 ```
 
-## NIRI Integration
+### Commands
 
-Pulpkit detects NIRI via `NIRI_SOCKET` and can use `niri msg` for workspace switching:
-
-```lua
-local is_niri = env("NIRI_SOCKET") ~= nil
-
--- Poll workspaces
-local raw = exec_output("niri msg -j workspaces")
-
--- Switch workspace
-exec("niri msg action focus-workspace 3")
+```js
+send({ cmd: 'vol_set', data: 75 });          // Set volume
+send({ cmd: 'popup', data: 'settings' });     // Toggle popup panel
+send({ cmd: 'dismiss' });                     // Close popup
+send({ cmd: 'set_theme', data: 'nord' });     // Switch theme
+send({ cmd: 'launch', data: 'firefox' });     // Launch app
+send({ cmd: 'screenshot' });                   // Region screenshot
+send({ cmd: 'power_lock' });                   // Lock session
 ```
 
-## Requirements
+### config.json
 
-- Rust 2024 edition
-- Wayland compositor with layer-shell support
-- LuaJIT (vendored via mlua)
-- Skia (vendored via skia-safe)
-- Nerd Font for icons
+```json
+{
+  "bar_height": 40,
+  "bar_position": "top",
+  "popup_width": 380,
+  "popup_height": 500,
+  "popup_backdrop": "dim",
+  "popup_dim_opacity": 0.25
+}
+```
+
+---
+
+## State Fields
+
+The full state object has **187 fields** across 17 categories. Here are some highlights:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `s.media_title` | string | Currently playing track |
+| `s.media_artist` | string | Artist name (MPRIS) |
+| `s.media_art_url` | string | Album art URL |
+| `s.gpu_usage` | 0-100 | GPU utilization |
+| `s.gpu_temp` | number | GPU temperature (C) |
+| `s.vram_used_mb` | number | VRAM in use |
+| `s.gamescope_active` | bool | Gamescope session detected |
+| `s.gamemode_active` | bool | Feral GameMode status |
+| `s.discord_activity` | string | Current Discord activity |
+| `s.containers` | array | Docker/Podman containers |
+| `s.notifications` | array | Active notifications |
+| `s.audio_streams` | array | Per-app audio streams (Pipewire) |
+| `s.top_procs` | array | Top processes by CPU |
+| `s.calendar_events` | array | Upcoming calendar events |
+| `s.weather_temp` | number | Current temperature |
+| `s.vpn_active` | bool | VPN connection state |
+| `s.failed_units` | array | Failed systemd units |
+| `s.power_draw_watts` | number | System power consumption |
+| `s.net_rx_bytes_sec` | number | Network download speed |
+| `s.caffeine_active` | bool | Manual idle inhibit |
+
+Full API documentation is available via `send({cmd: 'get_api_docs'})` or the MCP server's `get_api_docs` tool.
+
+---
+
+## Themes
+
+Pulpkit ships 12 color themes, switchable at runtime. Each theme sets 16 CSS variables (`--bg`, `--fg`, `--accent`, `--blue`, `--green`, `--red`, etc.).
+
+| Theme | Origin |
+|-------|--------|
+| `mocha` | Catppuccin Mocha |
+| `macchiato` | Catppuccin Macchiato |
+| `frappe` | Catppuccin Frappe |
+| `latte` | Catppuccin Latte |
+| `tokyonight` | Tokyo Night |
+| `nord` | Nord |
+| `gruvbox` | Gruvbox |
+| `rosepine` | Rose Pine |
+| `onedark` | One Dark |
+| `dracula` | Dracula |
+| `solarized` | Solarized |
+| `flexoki` | Flexoki |
+
+```js
+// Switch theme at runtime
+send({ cmd: 'set_theme', data: 'rosepine' });
+```
+
+```css
+/* Use theme variables in your CSS */
+.bar { background: var(--bg); color: var(--fg); }
+.accent { color: var(--accent); }
+.warning { color: var(--yellow); }
+```
+
+---
+
+## Zenith
+
+<!-- screenshot placeholder -->
+
+See [Zenith](https://github.com/JacobWLMS/zenith) for the reference shell implementation.
+
+---
+
+## MCP Server
+
+Pulpkit includes an MCP (Model Context Protocol) server that lets AI agents design and iterate on shells in real time.
+
+```bash
+# Build the MCP server
+cargo build --release -p pulpkit-mcp
+```
+
+The server communicates with the running shell over the IPC socket and exposes tools for:
+
+- **`get_state`** --- Read all 187 state fields from the live shell
+- **`hot_reload_bar`** / **`hot_reload_popup`** --- Push new HTML to surfaces without restarting
+- **`eval_js`** --- Execute JavaScript in any webview
+- **`screenshot`** --- Capture the current screen
+- **`scaffold_shell`** --- Generate a new shell project with component structure
+- **`preview_shell`** --- Preview a shell in a browser with mock data
+- **`validate_shell`** --- Check for common mistakes before deploying
+
+Point your AI coding tool at the MCP server and say "make me a bar." It can read state, write HTML, hot-reload, screenshot the result, and iterate --- all without you touching a file.
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE)
