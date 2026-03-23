@@ -54,6 +54,36 @@ local function scan_wifi()
     if ss and ss~="" and not s[ss] then s[ss]=true;n[#n+1]={id=ss,ssid=ss,signal=tonumber(sg)or 0,secure=sc~="",active=a=="yes"} end
   end;f:close();table.sort(n,function(a,b) if a.active~=b.active then return a.active end;return a.signal>b.signal end);return n
 end
+local function scan_apps()
+  local apps = {}
+  local dirs = {"/usr/share/applications", os.getenv("HOME").."/.local/share/applications"}
+  for _, dir in ipairs(dirs) do
+    local f = io.popen("ls "..dir.."/*.desktop 2>/dev/null")
+    if f then
+      for path in f:lines() do
+        local df = io.open(path, "r")
+        if df then
+          local name, exec, nodisplay = nil, nil, false
+          for line in df:lines() do
+            if line:match("^%[") and line ~= "[Desktop Entry]" then break end
+            local k,v = line:match("^(%w+)=(.+)")
+            if k == "Name" and not name then name = v
+            elseif k == "Exec" then exec = v:gsub(" %%[fFuUdDnNickvm]","")
+            elseif k == "NoDisplay" and v == "true" then nodisplay = true end
+          end
+          df:close()
+          if name and exec and not nodisplay then
+            apps[#apps+1] = {id=name, name=name, exec=exec}
+          end
+        end
+      end
+      f:close()
+    end
+  end
+  table.sort(apps, function(a,b) return a.name:lower() < b.name:lower() end)
+  return apps
+end
+
 local function wsig(s) if s>75 then return I.wifi_4 elseif s>50 then return I.wifi_3 elseif s>25 then return I.wifi_2 end;return I.wifi_1 end
 local function voli(v,m) if m then return I.vol_mute end;if v>50 then return I.vol_hi elseif v>0 then return I.vol_mid end;return I.vol_lo end
 local function bati(p,s) if s=="Charging" then return I.bat_chrg end;if p>80 then return I.bat_full elseif p>60 then return I.bat_good elseif p>30 then return I.bat_half elseif p>10 then return I.bat_low end;return I.bat_empty end
@@ -70,6 +100,7 @@ function init()
     ws=poll_ws(),wifi=poll_wifi(),wifi_nets={},
     night=false,dnd=false,bt=false,
     popup=nil,tick_n=0,
+    apps={},search="",
   }
 end
 
@@ -96,11 +127,16 @@ function update(state, msg)
   elseif t=="toggle_bt" then state.bt=not state.bt;os.execute(state.bt and "bluetoothctl power on &" or "bluetoothctl power off &")
   elseif t=="toggle_wifi_radio" then
     if state.wifi~="" then os.execute("nmcli radio wifi off &");state.wifi="" else os.execute("nmcli radio wifi on &") end
+  elseif t=="launch" then
+    if msg.data then os.execute(msg.data.." &") end;state.popup=nil;state.search=""
+  elseif t=="search" then
+    if msg.data then state.search=msg.data end
   elseif t=="toggle" then
     local n=msg.data;if type(n)=="string" then
-      if state.popup==n then state.popup=nil else state.popup=n
+      if state.popup==n then state.popup=nil;state.search="" else state.popup=n;state.search=""
         if n=="wifi" then state.wifi_nets=scan_wifi() end
-        if n=="bat" then state.bat,state.bat_st=poll_bat() end end end
+        if n=="bat" then state.bat,state.bat_st=poll_bat() end
+        if n=="launcher" then state.apps=scan_apps() end end end
   elseif t=="dismiss" then state.popup=nil
   elseif t=="lock" then os.execute("loginctl lock-session &");state.popup=nil
   elseif t=="logout" then os.execute("niri msg action quit &")
@@ -142,14 +178,15 @@ function view(state)
   S[#S+1] = window("bar", {anchor="top", height=32, exclusive=true, monitor="all"},
     row({style="bg-base w-full h-full px-3 items-center"},
 
-      -- LEFT: workspaces
+      -- LEFT: search + workspaces
       row({style="flex-1 items-center gap-1"},
+        ibtn("󰍉", msg("toggle","launcher")),
         each(state.ws, "id", function(ws)
           return button({on_click=msg("ws_go",tostring(ws.idx)),
             style=ws.active
               and "px-2 py-1 rounded bg-primary items-center justify-center"
               or  "px-2 py-1 rounded hover:bg-surface items-center justify-center"},
-            text({style=ws.active and "text-sm text-base font-bold" or "text-sm text-muted"}, tostring(ws.idx)))
+            text({style=ws.active and "text-sm text-#0d1017 font-bold" or "text-sm text-muted"}, tostring(ws.idx)))
         end)),
 
       -- CENTER: clock
@@ -165,6 +202,39 @@ function view(state)
         ibtn(I.power, msg("toggle","power")))))
 
   -- ═══════════════════════════════════════════════
+  -- LAUNCHER
+  -- ═══════════════════════════════════════════════
+  if state.popup=="launcher" then
+    local query = state.search:lower()
+    local filtered = {}
+    for _, app in ipairs(state.apps) do
+      if query == "" or app.name:lower():find(query, 1, true) then
+        filtered[#filtered+1] = app
+      end
+      if #filtered >= 12 then break end
+    end
+
+    local ch = {}
+    ch[#ch+1] = row({style="items-center gap-2"},
+      text({style="text-lg text-muted"}, "󰍉"),
+      text({style="text-sm text-fg font-bold"}, "Applications"))
+    ch[#ch+1] = input({value=state.search, placeholder="Search...", on_input=msg("search"),
+      style="bg-overlay rounded px-2 py-1 text-sm text-fg w-full"})
+    ch[#ch+1] = sep()
+
+    for _, app in ipairs(filtered) do
+      ch[#ch+1] = button({on_click=msg("launch", app.exec),
+        style="px-2 py-1 rounded hover:bg-overlay items-center gap-2"},
+        text({style="text-sm text-fg"}, app.name))
+    end
+
+    local h = 80 + #filtered * 24
+    if h > 400 then h = 400 end
+    S[#S+1] = popup("launcher", {anchor="top left", width=300, height=h, dismiss_on_outside=true},
+      col({style="bg-surface w-full h-full rounded-lg p-3 gap-2"}, unpack(ch)))
+  end
+
+  -- ═══════════════════════════════════════════════
   -- SETTINGS — quick settings panel
   -- ═══════════════════════════════════════════════
   if state.popup=="settings" then
@@ -172,8 +242,8 @@ function view(state)
       return button({on_click=action,
         style=(active and "bg-primary" or "bg-overlay")
           .." rounded-lg px-2 py-3 items-center gap-1 flex-1"},
-        text({style="text-lg "..(active and "text-base" or "text-fg")}, icon),
-        text({style="text-xs "..(active and "text-base" or "text-muted")}, label))
+        text({style="text-lg "..(active and "text-#0d1017" or "text-fg")}, icon),
+        text({style="text-xs "..(active and "text-#0d1017" or "text-muted")}, label))
     end
 
     S[#S+1] = popup("settings", {anchor="top right", width=280, height=300, dismiss_on_outside=true},
