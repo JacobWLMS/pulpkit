@@ -188,9 +188,7 @@ function view(state)
       spacer(),
 
       -- Center: clock
-      button({ on_click = msg("toggle", "calendar"), style = "px-2 py-1 rounded hover:bg-surface" },
-        text({ style = "text-sm text-fg font-bold" }, state.time)
-      ),
+      text({ style = "text-sm text-fg font-bold" }, state.time),
 
       spacer(),
 
@@ -253,19 +251,6 @@ function view(state)
           text({ style = "text-sm text-error" }, I.shut),
           text({ style = "text-sm text-error" }, "Shut Down")
         )
-      )
-    ))
-  end
-
-  -- === Calendar Popup ===
-  if state.popup == "calendar" then
-    table.insert(surfaces, popup("calendar", {
-      anchor = "top", width = 240, height = 80,
-      dismiss_on_outside = true,
-    },
-      col({ style = "bg-surface w-full h-full rounded-lg p-4 gap-2 items-center" },
-        text({ style = "text-lg text-fg font-bold" }, state.time),
-        text({ style = "text-sm text-muted" }, state.date)
       )
     ))
   end
