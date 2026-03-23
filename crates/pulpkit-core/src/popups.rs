@@ -138,6 +138,11 @@ impl ManagedPopup {
         } else {
             self.config.anchor
         };
+        log::info!(
+            "Popup '{}': anchor={:?} size={}x{} margins=t:{} r:{} b:{} l:{}",
+            self.name, anchor, popup_width, popup_height,
+            margins.top, margins.right, margins.bottom, margins.left,
+        );
         match LayerSurface::new_popup_with_keyboard(
             app_state,
             anchor,
@@ -153,23 +158,8 @@ impl ManagedPopup {
                     "Showing popup '{}' ({}x{})",
                     self.name, popup_width, popup_height,
                 );
-                // Create backdrop for click-to-dismiss.
-                if self.config.dismiss_on_outside {
-                    match LayerSurface::new_backdrop(
-                        app_state,
-                        format!("pulpkit-backdrop-{}", self.name),
-                        self.config.output.as_ref().map(|o| &o.wl_output),
-                    ) {
-                        Ok(backdrop) => {
-                            // Don't commit yet — wait for configure.
-                            // The event loop will handle the configure and commit.
-                            self.backdrop = Some(backdrop);
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to create backdrop: {e}");
-                        }
-                    }
-                }
+                // Backdrop disabled — it causes z-order and focus issues.
+                // Dismiss-on-outside handled by keyboard leave + pointer leave.
                 self.state = PopupState::Creating { surface };
             }
             Err(e) => {

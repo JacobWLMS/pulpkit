@@ -269,7 +269,7 @@ impl LayerSurface {
         let layer = state.layer_shell.create_layer_surface(
             &state.qh,
             surface,
-            SctkLayer::Overlay,
+            SctkLayer::Top, // Below Overlay so popups render on top
             Some(namespace),
             output,
         );
