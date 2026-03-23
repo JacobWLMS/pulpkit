@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* ── Theme Variables ── */
+  :root, [data-theme="mocha"] {
+    --bg: #181825; --bg-surface: #1e1e2e; --bg-overlay: #313244;
+    --fg: #cdd6f4; --fg-muted: #a6adc8; --fg-dim: #585b70;
+    --accent: #cba6f7; --blue: #89b4fa; --green: #a6e3a1;
+    --red: #f38ba8; --yellow: #f9e2af; --peach: #fab387;
+    --teal: #94e2d5; --pink: #f2cdcd; --mauve: #cba6f7;
+    --text-on-color: #181825;
+  }
+  [data-theme="macchiato"] {
+    --bg: #1e2030; --bg-surface: #24273a; --bg-overlay: #363a4f;
+    --fg: #cad3f5; --fg-muted: #a5adcb; --fg-dim: #5b6078;
+    --accent: #c6a0f6; --blue: #8aadf4; --green: #a6da95;
+    --red: #ed8796; --yellow: #eed49f; --peach: #f5a97f;
+    --teal: #8bd5ca; --pink: #f0c6c6; --mauve: #c6a0f6;
+    --text-on-color: #1e2030;
+  }
+  [data-theme="frappe"] {
+    --bg: #292c3c; --bg-surface: #303446; --bg-overlay: #414559;
+    --fg: #c6d0f5; --fg-muted: #a5adce; --fg-dim: #626880;
+    --accent: #ca9ee6; --blue: #8caaee; --green: #a6d189;
+    --red: #e78284; --yellow: #e5c890; --peach: #ef9f76;
+    --teal: #81c8be; --pink: #eebebe; --mauve: #ca9ee6;
+    --text-on-color: #292c3c;
+  }
+  [data-theme="latte"] {
+    --bg: #e6e9ef; --bg-surface: #eff1f5; --bg-overlay: #ccd0da;
+    --fg: #4c4f69; --fg-muted: #6c6f85; --fg-dim: #9ca0b0;
+    --accent: #8839ef; --blue: #1e66f5; --green: #40a02b;
+    --red: #d20f39; --yellow: #df8e1d; --peach: #fe640b;
+    --teal: #179299; --pink: #ea76cb; --mauve: #8839ef;
+    --text-on-color: #eff1f5;
+  }
+  [data-theme="tokyonight"] {
+    --bg: #1a1b26; --bg-surface: #16161e; --bg-overlay: #24283b;
+    --fg: #c0caf5; --fg-muted: #565f89; --fg-dim: #414868;
+    --accent: #7aa2f7; --blue: #7aa2f7; --green: #9ece6a;
+    --red: #f7768e; --yellow: #e0af68; --peach: #ff9e64;
+    --teal: #73daca; --pink: #bb9af7; --mauve: #bb9af7;
+    --text-on-color: #1a1b26;
+  }
+  [data-theme="nord"] {
+    --bg: #2e3440; --bg-surface: #3b4252; --bg-overlay: #434c5e;
+    --fg: #eceff4; --fg-muted: #d8dee9; --fg-dim: #4c566a;
+    --accent: #88c0d0; --blue: #81a1c1; --green: #a3be8c;
+    --red: #bf616a; --yellow: #ebcb8b; --peach: #d08770;
+    --teal: #8fbcbb; --pink: #b48ead; --mauve: #b48ead;
+    --text-on-color: #2e3440;
+  }
+  [data-theme="gruvbox"] {
+    --bg: #1d2021; --bg-surface: #282828; --bg-overlay: #3c3836;
+    --fg: #ebdbb2; --fg-muted: #a89984; --fg-dim: #665c54;
+    --accent: #d79921; --blue: #458588; --green: #98971a;
+    --red: #cc241d; --yellow: #d79921; --peach: #d65d0e;
+    --teal: #689d6a; --pink: #b16286; --mauve: #b16286;
+    --text-on-color: #1d2021;
+  }
+  [data-theme="rosepine"] {
+    --bg: #191724; --bg-surface: #1f1d2e; --bg-overlay: #26233a;
+    --fg: #e0def4; --fg-muted: #908caa; --fg-dim: #6e6a86;
+    --accent: #c4a7e7; --blue: #9ccfd8; --green: #31748f;
+    --red: #eb6f92; --yellow: #f6c177; --peach: #f6c177;
+    --teal: #9ccfd8; --pink: #ebbcba; --mauve: #c4a7e7;
+    --text-on-color: #191724;
+  }
+  [data-theme="onedark"] {
+    --bg: #1e2127; --bg-surface: #282c34; --bg-overlay: #353b45;
+    --fg: #abb2bf; --fg-muted: #7f848e; --fg-dim: #545862;
+    --accent: #c678dd; --blue: #61afef; --green: #98c379;
+    --red: #e06c75; --yellow: #e5c07b; --peach: #d19a66;
+    --teal: #56b6c2; --pink: #c678dd; --mauve: #c678dd;
+    --text-on-color: #1e2127;
+  }
+  [data-theme="dracula"] {
+    --bg: #21222c; --bg-surface: #282a36; --bg-overlay: #44475a;
+    --fg: #f8f8f2; --fg-muted: #bfbfbf; --fg-dim: #6272a4;
+    --accent: #bd93f9; --blue: #8be9fd; --green: #50fa7b;
+    --red: #ff5555; --yellow: #f1fa8c; --peach: #ffb86c;
+    --teal: #8be9fd; --pink: #ff79c6; --mauve: #bd93f9;
+    --text-on-color: #282a36;
+  }
+  [data-theme="solarized"] {
+    --bg: #002b36; --bg-surface: #073642; --bg-overlay: #0a4050;
+    --fg: #839496; --fg-muted: #657b83; --fg-dim: #586e75;
+    --accent: #268bd2; --blue: #268bd2; --green: #859900;
+    --red: #dc322f; --yellow: #b58900; --peach: #cb4b16;
+    --teal: #2aa198; --pink: #d33682; --mauve: #6c71c4;
+    --text-on-color: #002b36;
+  }
+  [data-theme="flexoki"] {
+    --bg: #100f0f; --bg-surface: #1c1b1a; --bg-overlay: #282726;
+    --fg: #cecdc3; --fg-muted: #878580; --fg-dim: #575653;
+    --accent: #da702c; --blue: #4385be; --green: #879a39;
+    --red: #d14d41; --yellow: #d0a215; --peach: #da702c;
+    --teal: #3aa99f; --pink: #ce5d97; --mauve: #8b7ec8;
+    --text-on-color: #100f0f;
+  }
+
+  /* ── Base ── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── Layout ── */
+  .lock-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* ── Clock ── */
+  .clock {
+    font-size: 72px;
+    font-weight: 300;
+    color: var(--fg);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  /* ── Date ── */
+  .date {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--fg-muted);
+    margin-top: 8px;
+    margin-bottom: 48px;
+  }
+
+  /* ── Avatar ── */
+  .avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--bg-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .avatar .fallback {
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+  }
+
+  /* ── Username ── */
+  .username {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--fg-muted);
+    margin-bottom: 24px;
+  }
+
+  /* ── Password Input ── */
+  .input-wrap {
+    position: relative;
+    width: 280px;
+  }
+  .lock-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'JetBrainsMono Nerd Font', monospace;
+    font-size: 14px;
+    color: var(--fg-dim);
+    pointer-events: none;
+  }
+  .password-input {
+    width: 100%;
+    height: 44px;
+    background: var(--bg-surface);
+    border: 1px solid var(--bg-overlay);
+    border-radius: 24px;
+    padding: 0 20px 0 40px;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    color: var(--fg);
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .password-input::placeholder {
+    color: var(--fg-dim);
+  }
+  .password-input:focus {
+    border-color: var(--accent);
+  }
+  .password-input.error {
+    border-color: var(--red);
+  }
+
+  /* ── Error Message ── */
+  .error-msg {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--red);
+    margin-top: 12px;
+    height: 18px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .error-msg.visible {
+    opacity: 1;
+  }
+
+  /* ── Shake Animation ── */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-8px); }
+    30% { transform: translateX(6px); }
+    45% { transform: translateX(-5px); }
+    60% { transform: translateX(4px); }
+    75% { transform: translateX(-2px); }
+    90% { transform: translateX(1px); }
+  }
+  .shake {
+    animation: shake 0.5s ease-in-out;
+  }
+</style>
+</head>
+<body>
+
+<div class="lock-container">
+  <div class="clock" id="clock">00:00</div>
+  <div class="date" id="date"></div>
+
+  <div class="avatar" id="avatar">
+    <span class="fallback" id="avatar-fallback"></span>
+  </div>
+  <div class="username" id="username"></div>
+
+  <div class="input-wrap" id="input-wrap">
+    <span class="lock-icon">&#xf0bee;</span>
+    <input type="password" class="password-input" id="password" placeholder="Password" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="error-msg" id="error-msg">Incorrect password</div>
+</div>
+
+<script>
+var _user = '';
+var _userIcon = '';
+var _awaitingAuth = false;
+
+function send(o) {
+  window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o));
+}
+
+/* ── Clock ── */
+function updateClock() {
+  var now = new Date();
+  var h = String(now.getHours()).padStart(2, '0');
+  var m = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').textContent = h + ':' + m;
+
+  var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('date').textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate();
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ── Avatar ── */
+function renderAvatar() {
+  var container = document.getElementById('avatar');
+  var fallback = document.getElementById('avatar-fallback');
+  var existing = container.querySelector('img');
+
+  if (_userIcon) {
+    if (existing) {
+      existing.src = _userIcon;
+    } else {
+      fallback.style.display = 'none';
+      var img = document.createElement('img');
+      img.src = _userIcon;
+      img.onerror = function() {
+        img.remove();
+        fallback.style.display = '';
+        renderFallbackLetter();
+      };
+      container.appendChild(img);
+    }
+  } else {
+    if (existing) existing.remove();
+    fallback.style.display = '';
+    renderFallbackLetter();
+  }
+}
+
+function renderFallbackLetter() {
+  var fallback = document.getElementById('avatar-fallback');
+  fallback.textContent = _user ? _user.charAt(0) : '?';
+}
+
+/* ── Password Submit ── */
+var input = document.getElementById('password');
+input.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && input.value.length > 0 && !_awaitingAuth) {
+    _awaitingAuth = true;
+    clearError();
+    send({ cmd: 'verify_password', data: input.value });
+  }
+});
+
+/* ── Error Handling ── */
+function showError() {
+  var wrap = document.getElementById('input-wrap');
+  var msg = document.getElementById('error-msg');
+  input.classList.add('error');
+  msg.classList.add('visible');
+
+  wrap.classList.remove('shake');
+  void wrap.offsetWidth; /* force reflow to restart animation */
+  wrap.classList.add('shake');
+
+  input.select();
+}
+
+function clearError() {
+  input.classList.remove('error');
+  document.getElementById('error-msg').classList.remove('visible');
+}
+
+input.addEventListener('input', function() {
+  clearError();
+});
+
+/* ── State ── */
+function updateState(s) {
+  if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+
+  if (s.user !== undefined) {
+    _user = s.user;
+    document.getElementById('username').textContent = _user;
+    renderAvatar();
+  }
+
+  if (s.user_icon !== undefined) {
+    _userIcon = s.user_icon;
+    renderAvatar();
+  }
+
+  if (s.custom && s.custom.auth_result !== undefined) {
+    _awaitingAuth = false;
+    if (s.custom.auth_result === true) {
+      send({ cmd: 'unlock' });
+    } else if (s.custom.auth_result === false) {
+      showError();
+    }
+  }
+}
+</script>
+</body>
+</html>

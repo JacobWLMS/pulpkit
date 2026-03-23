@@ -1,2 +1,5 @@
 /target
 .superpowers/
+*.swp
+.DS_Store
+.claude/

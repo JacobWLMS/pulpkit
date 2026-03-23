@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html data-theme="mocha">
+<head>
+<meta charset="utf-8">
+<style>
+  :root, [data-theme="mocha"] {
+    --bg: #181825; --bg-surface: #1e1e2e; --bg-overlay: #313244;
+    --fg: #cdd6f4; --fg-muted: #a6adc8; --fg-dim: #585b70;
+    --accent: #cba6f7; --blue: #89b4fa; --green: #a6e3a1;
+    --red: #f38ba8; --yellow: #f9e2af; --peach: #fab387;
+    --teal: #94e2d5; --pink: #f2cdcd; --mauve: #cba6f7;
+    --text-on-color: #181825;
+  }
+  [data-theme="macchiato"] { --bg: #1e2030; --bg-surface: #24273a; --bg-overlay: #363a4f; --fg: #cad3f5; --fg-muted: #a5adcb; --fg-dim: #5b6078; --accent: #c6a0f6; --blue: #8aadf4; --green: #a6da95; --red: #ed8796; --yellow: #eed49f; --peach: #f5a97f; --teal: #8bd5ca; --pink: #f0c6c6; --mauve: #c6a0f6; --text-on-color: #1e2030; }
+  [data-theme="frappe"] { --bg: #292c3c; --bg-surface: #303446; --bg-overlay: #414559; --fg: #c6d0f5; --fg-muted: #a5adce; --fg-dim: #626880; --accent: #ca9ee6; --blue: #8caaee; --green: #a6d189; --red: #e78284; --yellow: #e5c890; --peach: #ef9f76; --teal: #81c8be; --pink: #eebebe; --mauve: #ca9ee6; --text-on-color: #292c3c; }
+  [data-theme="latte"] { --bg: #e6e9ef; --bg-surface: #eff1f5; --bg-overlay: #ccd0da; --fg: #4c4f69; --fg-muted: #6c6f85; --fg-dim: #9ca0b0; --accent: #8839ef; --blue: #1e66f5; --green: #40a02b; --red: #d20f39; --yellow: #df8e1d; --peach: #fe640b; --teal: #179299; --pink: #ea76cb; --mauve: #8839ef; --text-on-color: #eff1f5; }
+  [data-theme="tokyonight"] { --bg: #1a1b26; --bg-surface: #16161e; --bg-overlay: #24283b; --fg: #c0caf5; --fg-muted: #565f89; --fg-dim: #414868; --accent: #7aa2f7; --blue: #7aa2f7; --green: #9ece6a; --red: #f7768e; --yellow: #e0af68; --peach: #ff9e64; --teal: #73daca; --pink: #bb9af7; --mauve: #bb9af7; --text-on-color: #1a1b26; }
+  [data-theme="nord"] { --bg: #2e3440; --bg-surface: #3b4252; --bg-overlay: #434c5e; --fg: #eceff4; --fg-muted: #d8dee9; --fg-dim: #4c566a; --accent: #88c0d0; --blue: #81a1c1; --green: #a3be8c; --red: #bf616a; --yellow: #ebcb8b; --peach: #d08770; --teal: #8fbcbb; --pink: #b48ead; --mauve: #b48ead; --text-on-color: #2e3440; }
+  [data-theme="gruvbox"] { --bg: #1d2021; --bg-surface: #282828; --bg-overlay: #3c3836; --fg: #ebdbb2; --fg-muted: #a89984; --fg-dim: #665c54; --accent: #d79921; --blue: #458588; --green: #98971a; --red: #cc241d; --yellow: #d79921; --peach: #d65d0e; --teal: #689d6a; --pink: #b16286; --mauve: #b16286; --text-on-color: #1d2021; }
+  [data-theme="rosepine"] { --bg: #191724; --bg-surface: #1f1d2e; --bg-overlay: #26233a; --fg: #e0def4; --fg-muted: #908caa; --fg-dim: #6e6a86; --accent: #c4a7e7; --blue: #9ccfd8; --green: #31748f; --red: #eb6f92; --yellow: #f6c177; --peach: #f6c177; --teal: #9ccfd8; --pink: #ebbcba; --mauve: #c4a7e7; --text-on-color: #191724; }
+  [data-theme="onedark"] { --bg: #1e2127; --bg-surface: #282c34; --bg-overlay: #353b45; --fg: #abb2bf; --fg-muted: #7f848e; --fg-dim: #545862; --accent: #c678dd; --blue: #61afef; --green: #98c379; --red: #e06c75; --yellow: #e5c07b; --peach: #d19a66; --teal: #56b6c2; --pink: #c678dd; --mauve: #c678dd; --text-on-color: #1e2127; }
+  [data-theme="dracula"] { --bg: #21222c; --bg-surface: #282a36; --bg-overlay: #44475a; --fg: #f8f8f2; --fg-muted: #bfbfbf; --fg-dim: #6272a4; --accent: #bd93f9; --blue: #8be9fd; --green: #50fa7b; --red: #ff5555; --yellow: #f1fa8c; --peach: #ffb86c; --teal: #8be9fd; --pink: #ff79c6; --mauve: #bd93f9; --text-on-color: #282a36; }
+  [data-theme="solarized"] { --bg: #002b36; --bg-surface: #073642; --bg-overlay: #0a4050; --fg: #839496; --fg-muted: #657b83; --fg-dim: #586e75; --accent: #268bd2; --blue: #268bd2; --green: #859900; --red: #dc322f; --yellow: #b58900; --peach: #cb4b16; --teal: #2aa198; --pink: #d33682; --mauve: #6c71c4; --text-on-color: #002b36; }
+  [data-theme="flexoki"] { --bg: #100f0f; --bg-surface: #1c1b1a; --bg-overlay: #282726; --fg: #cecdc3; --fg-muted: #878580; --fg-dim: #575653; --accent: #da702c; --blue: #4385be; --green: #879a39; --red: #d14d41; --yellow: #d0a215; --peach: #da702c; --teal: #3aa99f; --pink: #ce5d97; --mauve: #8b7ec8; --text-on-color: #100f0f; }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+    font-size: 13px;
+    background: transparent;
+    color: var(--fg);
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  #toasts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px;
+  }
+
+  .toast {
+    background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+    border: 1px solid var(--bg-overlay);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    pointer-events: auto;
+    cursor: default;
+    animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.2s, transform 0.2s;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    max-width: 370px;
+  }
+
+  .toast.exiting {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+
+  .toast-icon {
+    font-family: 'JetBrainsMono Nerd Font', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .toast-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toast-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+  }
+
+  .toast-app {
+    font-size: 11px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .toast-time {
+    font-size: 10px;
+    color: var(--fg-dim);
+    margin-left: auto;
+  }
+
+  .toast-summary {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .toast-body {
+    font-size: 12px;
+    color: var(--fg-muted);
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+
+  .toast-close {
+    font-family: 'JetBrainsMono Nerd Font', monospace;
+    font-size: 14px;
+    color: var(--fg-dim);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    pointer-events: auto;
+    transition: color 0.15s;
+  }
+  .toast-close:hover { color: var(--red); }
+
+  .toast-progress {
+    position: absolute;
+    bottom: 0; left: 12px; right: 12px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 1px;
+    transform-origin: left;
+    animation: progress linear forwards;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(60px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+  }
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+<script>
+  function send(o) {
+    window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o));
+  }
+
+  const APP_ICONS = {
+    'firefox': '\uf269', 'chromium': '\uf268', 'discord': '\uf392',
+    'spotify': '\uf1bc', 'steam': '\uf1b6', 'telegram': '\uf2c6',
+    'thunderbird': '\uf0e0', 'slack': '\uf198', 'code': '\ue70c',
+    'nautilus': '\uf07b', 'terminal': '\ue795', 'default': '\uf0f3',
+  };
+
+  function iconFor(appName) {
+    const lower = (appName || '').toLowerCase();
+    for (const [key, icon] of Object.entries(APP_ICONS)) {
+      if (lower.includes(key)) return icon;
+    }
+    return APP_ICONS.default;
+  }
+
+  let _shown = {}; // id -> {element, timeout}
+  let _prevIds = '';
+  let _dnd = false;
+
+  function updateState(s) {
+    if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+    _dnd = s.dnd || false;
+
+    const notifs = s.notifications || [];
+    const ids = notifs.map(n => n.id).join(',');
+
+    // Find new notifications (not already shown)
+    for (const n of notifs) {
+      if (_shown[n.id]) continue;
+      if (_dnd) continue; // Don't show toasts in DND mode
+      showToast(n);
+    }
+
+    // Remove toasts for dismissed notifications
+    for (const id of Object.keys(_shown)) {
+      if (!notifs.find(n => String(n.id) === id)) {
+        dismissToast(id);
+      }
+    }
+
+    _prevIds = ids;
+  }
+
+  function showToast(n) {
+    const container = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.id = 'toast-' + n.id;
+    el.style.position = 'relative';
+
+    const icon = iconFor(n.app_name);
+    const timeStr = n.timestamp ? new Date(n.timestamp * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+
+    el.innerHTML = `
+      <span class="toast-icon">${icon}</span>
+      <div class="toast-content">
+        <div class="toast-header">
+          <span class="toast-app">${esc(n.app_name)}</span>
+          <span class="toast-time">${timeStr}</span>
+        </div>
+        <div class="toast-summary">${esc(n.summary)}</div>
+        ${n.body ? `<div class="toast-body">${esc(n.body)}</div>` : ''}
+      </div>
+      <span class="toast-close" onclick="closeNotif(${n.id})">\uf00d</span>
+      <div class="toast-progress" style="animation-duration: 8s"></div>
+    `;
+
+    // Click to dismiss
+    el.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('toast-close')) {
+        dismissToast(n.id);
+      }
+    });
+
+    container.prepend(el);
+
+    // Auto-dismiss after 8 seconds
+    const timeout = setTimeout(() => dismissToast(n.id), 8000);
+    _shown[n.id] = { element: el, timeout };
+
+    // Keep max 5 visible
+    const toasts = container.children;
+    while (toasts.length > 5) {
+      const last = toasts[toasts.length - 1];
+      const lastId = last.id.replace('toast-', '');
+      dismissToast(lastId);
+    }
+  }
+
+  function dismissToast(id) {
+    const entry = _shown[id];
+    if (!entry) return;
+    clearTimeout(entry.timeout);
+    entry.element.classList.add('exiting');
+    setTimeout(() => {
+      entry.element.remove();
+      delete _shown[id];
+    }, 200);
+  }
+
+  function closeNotif(id) {
+    // Tell the daemon to close this notification
+    send({cmd: 'exec', data: `busctl --user call org.freedesktop.Notifications /org/freedesktop/Notifications org.freedesktop.Notifications CloseNotification u ${id}`});
+    dismissToast(id);
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

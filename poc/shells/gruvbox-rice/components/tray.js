@@ -13,7 +13,7 @@ function renderTray(s) {
   if (s.tray_items && s.tray_items.length > 0) {
     s.tray_items.forEach(function(t) {
       var addr = t.address.replace(/'/g, "\\'");
-      html += '<img class="tray-icon" src="' + t.icon + '" title="' + t.title + '"'
+      html += '<img class="tray-icon" src="' + escapeHtml(t.icon) + '" title="' + escapeHtml(t.title) + '"'
         + ' onclick="send({cmd:\'tray_activate\',data:{address:\'' + addr + '\',click:\'left\'}})">';
     });
     html += '<div class="tray-sep"></div>';
@@ -25,7 +25,7 @@ function renderTray(s) {
     + '<span class="ctrl-val">' + s.vol + '</span></div>';
 
   // WiFi
-  html += '<div class="ctrl-btn" onclick="send({cmd:\'popup\',data:\'wifi\'})" title="' + (s.wifi || 'Disconnected') + '">'
+  html += '<div class="ctrl-btn" onclick="send({cmd:\'popup\',data:\'wifi\'})" title="' + escapeHtml(s.wifi || 'Disconnected') + '">'
     + '<span class="ctrl-icon" style="color:var(--grv-aqua)">' + wifiIcon + '</span></div>';
 
   // Battery

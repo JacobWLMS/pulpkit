@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html data-theme="gruvbox">
+<head>
+<meta charset="utf-8">
+<title>Pulpkit Preview: zenith</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; font-family: system-ui; color: #ccc; }
+  .desktop {
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  }
+  .bar-frame {
+    width: 100%; height: 40px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .bar-frame iframe { width: 100%; height: 100%; border: none; }
+  .content-area {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 24px; padding: 24px;
+  }
+  .popup-frame {
+    width: 380px; height: 500px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .popup-frame iframe { width: 100%; height: 100%; border: none; }
+  .label {
+    font-size: 11px; color: rgba(255,255,255,0.3);
+    text-align: center; padding: 8px;
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+  .controls {
+    position: fixed; bottom: 16px; right: 16px;
+    display: flex; gap: 8px;
+  }
+  .controls button {
+    padding: 6px 14px; background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15); color: #ccc;
+    font-size: 12px; cursor: pointer;
+  }
+  .controls button:hover { background: rgba(255,255,255,0.2); }
+  .popup-selector {
+    position: fixed; bottom: 16px; left: 16px;
+    display: flex; gap: 4px;
+  }
+  .popup-selector button {
+    padding: 4px 10px; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1); color: #888;
+    font-size: 11px; cursor: pointer;
+  }
+  .popup-selector button.active { background: rgba(255,255,255,0.15); color: #fff; }
+</style>
+</head>
+<body>
+<div class="desktop">
+  <div class="bar-frame">
+    <iframe id="bar-iframe" src="bar-preview.html"></iframe>
+  </div>
+  <div class="content-area">
+    <div>
+      <div class="label">Popup Preview</div>
+      <div class="popup-frame">
+        <iframe id="popup-iframe" src="popup-preview.html"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="popup-selector">
+  <button onclick="switchPopup('settings')" class="active">Settings</button>
+  <button onclick="switchPopup('wifi')">WiFi</button>
+  <button onclick="switchPopup('power')">Power</button>
+  <button onclick="switchPopup('launcher')">Launcher</button>
+  <button onclick="switchPopup('config')">Config</button>
+</div>
+<div class="controls">
+  <button onclick="refresh()">Refresh</button>
+</div>
+<script>
+let currentPopup = 'settings';
+function switchPopup(name) {
+  currentPopup = name;
+  document.querySelectorAll('.popup-selector button').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase() === name));
+  document.getElementById('popup-iframe').contentWindow.postMessage({type:'setPopup',popup:name}, '*');
+}
+function refresh() {
+  document.getElementById('bar-iframe').src = 'bar-preview.html?' + Date.now();
+  document.getElementById('popup-iframe').src = 'popup-preview.html?' + Date.now();
+}
+</script>
+</body>
+</html>

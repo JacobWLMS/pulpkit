@@ -318,6 +318,7 @@
 
   <script>
     function send(o) { window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o)); }
+    function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function sendThrottled(key, o) {
       if (window['_t_'+key]) return;
       send(o);

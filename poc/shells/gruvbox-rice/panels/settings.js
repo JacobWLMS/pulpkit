@@ -32,7 +32,7 @@ function renderSettings(s) {
   h += '<div class="section-label">Network</div>';
   h += '<div class="info-row" style="cursor:pointer" onclick="send({cmd:\'popup\',data:\'wifi\'})">';
   h += '<span class="info-label">' + I.wf_4 + '  Wi-Fi</span>';
-  h += '<span class="info-value" style="color:var(--grv-orange)">' + (s.wifi || 'Disconnected') + ' &#x203A;</span></div>';
+  h += '<span class="info-value" style="color:var(--grv-orange)">' + escapeHtml(s.wifi || 'Disconnected') + ' &#x203A;</span></div>';
 
   h += '<div class="section-label">Quick Toggles</div>';
   h += '<div class="toggle-grid">';

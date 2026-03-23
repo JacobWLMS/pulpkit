@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* ── Theme Variables ── */
+  :root, [data-theme="flexoki"] {
+    --bg: #181825; --bg-surface: #1e1e2e; --bg-overlay: #313244;
+    --fg: #cdd6f4; --fg-muted: #a6adc8; --fg-dim: #585b70;
+    --accent: #cba6f7; --blue: #89b4fa; --green: #a6e3a1;
+    --red: #f38ba8; --yellow: #f9e2af; --peach: #fab387;
+    --teal: #94e2d5; --pink: #f2cdcd; --mauve: #cba6f7;
+    --text-on-color: #181825;
+  }
+  [data-theme="macchiato"] {
+    --bg: #1e2030; --bg-surface: #24273a; --bg-overlay: #363a4f;
+    --fg: #cad3f5; --fg-muted: #a5adcb; --fg-dim: #5b6078;
+    --accent: #c6a0f6; --blue: #8aadf4; --green: #a6da95;
+    --red: #ed8796; --yellow: #eed49f; --peach: #f5a97f;
+    --teal: #8bd5ca; --pink: #f0c6c6; --mauve: #c6a0f6;
+    --text-on-color: #1e2030;
+  }
+  [data-theme="frappe"] {
+    --bg: #292c3c; --bg-surface: #303446; --bg-overlay: #414559;
+    --fg: #c6d0f5; --fg-muted: #a5adce; --fg-dim: #626880;
+    --accent: #ca9ee6; --blue: #8caaee; --green: #a6d189;
+    --red: #e78284; --yellow: #e5c890; --peach: #ef9f76;
+    --teal: #81c8be; --pink: #eebebe; --mauve: #ca9ee6;
+    --text-on-color: #292c3c;
+  }
+  [data-theme="latte"] {
+    --bg: #e6e9ef; --bg-surface: #eff1f5; --bg-overlay: #ccd0da;
+    --fg: #4c4f69; --fg-muted: #6c6f85; --fg-dim: #9ca0b0;
+    --accent: #8839ef; --blue: #1e66f5; --green: #40a02b;
+    --red: #d20f39; --yellow: #df8e1d; --peach: #fe640b;
+    --teal: #179299; --pink: #ea76cb; --mauve: #8839ef;
+    --text-on-color: #eff1f5;
+  }
+  [data-theme="tokyonight"] {
+    --bg: #1a1b26; --bg-surface: #16161e; --bg-overlay: #24283b;
+    --fg: #c0caf5; --fg-muted: #565f89; --fg-dim: #414868;
+    --accent: #7aa2f7; --blue: #7aa2f7; --green: #9ece6a;
+    --red: #f7768e; --yellow: #e0af68; --peach: #ff9e64;
+    --teal: #73daca; --pink: #bb9af7; --mauve: #bb9af7;
+    --text-on-color: #1a1b26;
+  }
+  [data-theme="nord"] {
+    --bg: #2e3440; --bg-surface: #3b4252; --bg-overlay: #434c5e;
+    --fg: #eceff4; --fg-muted: #d8dee9; --fg-dim: #4c566a;
+    --accent: #88c0d0; --blue: #81a1c1; --green: #a3be8c;
+    --red: #bf616a; --yellow: #ebcb8b; --peach: #d08770;
+    --teal: #8fbcbb; --pink: #b48ead; --mauve: #b48ead;
+    --text-on-color: #2e3440;
+  }
+  [data-theme="gruvbox"] {
+    --bg: #1d2021; --bg-surface: #282828; --bg-overlay: #3c3836;
+    --fg: #ebdbb2; --fg-muted: #a89984; --fg-dim: #665c54;
+    --accent: #d79921; --blue: #458588; --green: #98971a;
+    --red: #cc241d; --yellow: #d79921; --peach: #d65d0e;
+    --teal: #689d6a; --pink: #b16286; --mauve: #b16286;
+    --text-on-color: #1d2021;
+  }
+  [data-theme="rosepine"] {
+    --bg: #191724; --bg-surface: #1f1d2e; --bg-overlay: #26233a;
+    --fg: #e0def4; --fg-muted: #908caa; --fg-dim: #6e6a86;
+    --accent: #c4a7e7; --blue: #9ccfd8; --green: #31748f;
+    --red: #eb6f92; --yellow: #f6c177; --peach: #f6c177;
+    --teal: #9ccfd8; --pink: #ebbcba; --mauve: #c4a7e7;
+    --text-on-color: #191724;
+  }
+  [data-theme="onedark"] {
+    --bg: #1e2127; --bg-surface: #282c34; --bg-overlay: #353b45;
+    --fg: #abb2bf; --fg-muted: #7f848e; --fg-dim: #545862;
+    --accent: #c678dd; --blue: #61afef; --green: #98c379;
+    --red: #e06c75; --yellow: #e5c07b; --peach: #d19a66;
+    --teal: #56b6c2; --pink: #c678dd; --mauve: #c678dd;
+    --text-on-color: #1e2127;
+  }
+  [data-theme="dracula"] {
+    --bg: #21222c; --bg-surface: #282a36; --bg-overlay: #44475a;
+    --fg: #f8f8f2; --fg-muted: #bfbfbf; --fg-dim: #6272a4;
+    --accent: #bd93f9; --blue: #8be9fd; --green: #50fa7b;
+    --red: #ff5555; --yellow: #f1fa8c; --peach: #ffb86c;
+    --teal: #8be9fd; --pink: #ff79c6; --mauve: #bd93f9;
+    --text-on-color: #282a36;
+  }
+  [data-theme="solarized"] {
+    --bg: #002b36; --bg-surface: #073642; --bg-overlay: #0a4050;
+    --fg: #839496; --fg-muted: #657b83; --fg-dim: #586e75;
+    --accent: #268bd2; --blue: #268bd2; --green: #859900;
+    --red: #dc322f; --yellow: #b58900; --peach: #cb4b16;
+    --teal: #2aa198; --pink: #d33682; --mauve: #6c71c4;
+    --text-on-color: #002b36;
+  }
+  [data-theme="flexoki"] {
+    --bg: #100f0f; --bg-surface: #1c1b1a; --bg-overlay: #282726;
+    --fg: #cecdc3; --fg-muted: #878580; --fg-dim: #575653;
+    --accent: #da702c; --blue: #4385be; --green: #879a39;
+    --red: #d14d41; --yellow: #d0a215; --peach: #da702c;
+    --teal: #3aa99f; --pink: #ce5d97; --mauve: #8b7ec8;
+    --text-on-color: #100f0f;
+  }
+
+  /* ── Base ── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    font-size: 12px; font-weight: 400;
+    background: transparent; color: var(--fg);
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+  .panel {
+    background: var(--bg);
+    border: 1px solid var(--bg-overlay);
+    border-radius: 6px;
+    padding: 20px;
+    display: none; flex-direction: column; gap: 14px;
+    width: 100%; height: 100vh; overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15);
+    animation: panelIn 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .panel.active { display: flex; }
+  .panel::-webkit-scrollbar { width: 3px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--fg-dim); border-radius: 2px; }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Panel Title ── */
+  .panel-title {
+    font-size: 13px; font-weight: 600; color: var(--fg);
+    padding-bottom: 12px; border-bottom: 1px solid var(--bg-overlay);
+    display: flex; align-items: center; gap: 8px; letter-spacing: 0.2px;
+  }
+  .panel-title-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 15px; color: var(--accent); }
+  .panel-subtitle { font-size: 11px; font-weight: 400; color: var(--fg-muted); }
+  .flex { flex: 1; }
+
+  .sep { height: 1px; background: var(--bg-overlay); margin: 2px 0; }
+
+  /* ── Tiles ── */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tile {
+    padding: 14px 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--bg-overlay);
+    border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .tile:hover { background: var(--bg-overlay); }
+  .tile.active { background: var(--bg-overlay); border-color: var(--accent); }
+  .tile-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 18px; color: var(--fg-muted); line-height: 1; }
+  .tile.active .tile-icon { color: var(--accent); }
+  .tile-label { font-size: 10px; font-weight: 500; color: var(--fg-dim); letter-spacing: 0.3px; }
+  .tile.active .tile-label { color: var(--accent); }
+
+  /* ── Sliders ── */
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  .slider-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 15px; color: var(--fg-dim); width: 20px; text-align: center; flex-shrink: 0; line-height: 1; }
+  .slider-track { flex: 1; height: 4px; background: var(--bg-overlay); border-radius: 2px; position: relative; overflow: hidden; }
+  .slider-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent); border-radius: 2px; pointer-events: none; transition: width 0.1s; }
+  .slider-track input[type=range] {
+    position: absolute; top: -6px; left: 0; width: 100%; height: 16px;
+    -webkit-appearance: none; background: transparent; outline: none; cursor: pointer;
+  }
+  .slider-track input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: var(--fg); border-radius: 50%; cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3); transition: transform 0.1s;
+  }
+  .slider-track input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+  .slider-val { font-size: 11px; font-weight: 500; color: var(--fg-muted); width: 36px; text-align: right; flex-shrink: 0; }
+
+  /* ── Battery Row ── */
+  .bat-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 0; }
+  .bat-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 14px; color: var(--fg-dim); }
+  .bat-text { font-size: 12px; color: var(--fg-muted); font-weight: 500; }
+  .bat-status { font-size: 11px; color: var(--green); }
+
+  /* ── Menu Items ── */
+  .menu-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px; border-radius: 4px;
+    cursor: pointer; transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .menu-item:hover { background: var(--bg-surface); }
+  .menu-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 16px; width: 20px; text-align: center; color: var(--fg-muted); line-height: 1; }
+  .menu-text { flex: 1; font-size: 13px; font-weight: 450; color: var(--fg); }
+  .menu-item.danger .menu-text { color: var(--red); }
+  .menu-item.danger .menu-icon { color: var(--red); }
+  .menu-item.danger:hover { background: var(--bg-surface); }
+
+  /* ── Power Info ── */
+  .power-info { text-align: center; padding: 8px 0; }
+  .power-host { font-size: 14px; font-weight: 600; color: var(--accent); }
+  .power-detail { font-size: 11px; color: var(--fg-dim); margin-top: 2px; }
+
+  /* ── WiFi ── */
+  .wifi-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 4px;
+    cursor: pointer; transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .wifi-item:hover { background: var(--bg-surface); }
+  .wifi-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 15px; width: 18px; text-align: center; color: var(--fg-dim); line-height: 1; }
+  .wifi-ssid { flex: 1; font-size: 13px; font-weight: 450; }
+  .wifi-meta { font-size: 11px; color: var(--fg-dim); }
+  .wifi-item.connected { color: var(--green); }
+  .wifi-item.connected .wifi-icon { color: var(--green); }
+  .wifi-item.connected .wifi-ssid { font-weight: 600; }
+
+  /* ── Search ── */
+  .search-input {
+    width: 100%; padding: 10px 14px;
+    background: var(--bg-surface); border: 1px solid var(--bg-overlay);
+    border-radius: 4px; color: var(--fg);
+    font-family: inherit; font-size: 13px; font-weight: 400;
+    outline: none; transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--fg-dim); }
+
+  /* ── App List ── */
+  .app-list { overflow-y: auto; max-height: 380px; display: flex; flex-direction: column; gap: 2px; }
+  .app-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px; border-radius: 4px;
+    cursor: pointer; transition: all 0.1s; font-size: 13px;
+  }
+  .app-item:hover, .app-item.selected { background: var(--bg-surface); }
+  .app-item.selected { border-left: 3px solid var(--accent); }
+  .app-item img { width: 26px; height: 26px; flex-shrink: 0; }
+  .app-fallback {
+    width: 26px; height: 26px; flex-shrink: 0;
+    background: var(--bg-overlay); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: var(--fg-dim);
+  }
+  .app-name { font-weight: 450; color: var(--fg); }
+  .empty-state { text-align: center; padding: 24px; color: var(--fg-dim); font-size: 12px; }
+
+  /* ── Config ── */
+  .config-section { font-size: 10px; font-weight: 600; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.5px; padding-top: 4px; }
+  .config-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+  .config-label { font-size: 12px; color: var(--fg-muted); display: flex; align-items: center; gap: 8px; }
+  .config-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 14px; line-height: 1; }
+  .config-value { font-size: 12px; font-weight: 500; color: var(--fg); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .config-value.clickable { cursor: pointer; color: var(--accent); }
+  .config-value.clickable:hover { text-decoration: underline; }
+
+  /* ── Calendar ── */
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cal-nav {
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; cursor: pointer; font-family: 'JetBrainsMono Nerd Font'; font-size: 14px;
+    color: var(--fg-muted); background: none; border: none; transition: background 0.12s;
+  }
+  .cal-nav:hover { background: var(--bg-surface); color: var(--fg); }
+  .cal-month { font-size: 14px; font-weight: 600; color: var(--fg); }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center;
+  }
+  .cal-dow {
+    font-size: 10px; font-weight: 600; color: var(--fg-dim); text-transform: uppercase;
+    letter-spacing: 0.3px; padding: 6px 0;
+  }
+  .cal-day {
+    font-size: 11px; font-weight: 450; color: var(--fg);
+    padding: 5px 0; border-radius: 4px; cursor: default;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 28px;
+  }
+  .cal-day.dim { color: var(--fg-dim); }
+  .cal-day.today {
+    background: var(--accent); color: var(--text-on-color);
+    font-weight: 700; border-radius: 50%;
+  }
+  .cal-today-section {
+    text-align: center; padding: 8px 0 0;
+    font-size: 11px; color: var(--fg-muted); font-weight: 450;
+  }
+
+  /* ── Theme Grid ── */
+  .theme-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;
+  }
+  .theme-swatch {
+    width: 100%; aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.12s;
+  }
+  .theme-swatch:hover { opacity: 0.85; transform: scale(1.1); }
+  .theme-swatch.active { border-color: #ffffff; box-shadow: 0 0 0 1px rgba(255,255,255,0.3); }
+
+  /* ── Notifications ── */
+  .notif-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    background: var(--accent); color: var(--text-on-color);
+    border-radius: 9px; font-size: 10px; font-weight: 700;
+  }
+  .notif-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 4px;
+    background: var(--bg-surface); font-size: 11px; color: var(--fg-muted);
+  }
+  .notif-status-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 14px; line-height: 1; }
+  .notif-actions { display: flex; gap: 8px; }
+  .notif-btn {
+    flex: 1; padding: 10px; border-radius: 4px;
+    background: var(--bg-surface); border: 1px solid var(--bg-overlay);
+    color: var(--fg); font-family: inherit; font-size: 12px; font-weight: 500;
+    cursor: pointer; text-align: center; transition: all 0.12s;
+  }
+  .notif-btn:hover { background: var(--bg-overlay); }
+  .notif-count-text { text-align: center; font-size: 13px; color: var(--fg-muted); padding: 12px 0; }
+
+  /* ── Notification Items ── */
+  .notif-item { display: flex; gap: 12px; padding: 10px 12px; border-radius: 4px; border-bottom: 1px solid var(--bg-overlay); }
+  .notif-app-icon { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; }
+  .notif-app-fallback { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; background: var(--bg-overlay); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--fg-dim); }
+  .notif-content { flex: 1; min-width: 0; }
+  .notif-summary { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notif-body { font-size: 11px; color: var(--fg-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notif-time { font-size: 10px; color: var(--fg-dim); margin-top: 2px; }
+  .notif-close { cursor: pointer; color: var(--fg-dim); font-size: 14px; padding: 2px 4px; border: none; background: none; font-family: 'JetBrainsMono Nerd Font'; line-height: 1; flex-shrink: 0; }
+  .notif-close:hover { color: var(--red); }
+
+  /* ── Window Manager ── */
+  .win-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 4px; cursor: default; transition: background 0.12s; }
+  .win-item:hover { background: var(--bg-surface); }
+  .win-icon { width: 24px; height: 24px; flex-shrink: 0; border-radius: 4px; }
+  .win-icon-fallback { width: 24px; height: 24px; flex-shrink: 0; border-radius: 4px; background: var(--bg-overlay); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--fg-dim); }
+  .win-info { flex: 1; min-width: 0; overflow: hidden; }
+  .win-title { font-size: 13px; font-weight: 450; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+  .win-app { font-size: 10px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .win-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .win-btn { padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; background: var(--bg-surface); border: 1px solid var(--bg-overlay); color: var(--fg); font-family: inherit; transition: all 0.12s; }
+  .win-btn:hover { background: var(--bg-overlay); }
+  .win-btn.danger { color: var(--red); }
+  .win-btn.danger:hover { background: var(--bg-overlay); }
+  .win-ws-btn { padding: 2px 6px; border-radius: 3px; font-size: 9px; cursor: pointer; background: var(--bg-surface); border: 1px solid var(--bg-overlay); color: var(--fg-muted); font-family: inherit; transition: all 0.12s; min-width: 18px; text-align: center; }
+  .win-ws-btn:hover { background: var(--bg-overlay); color: var(--fg); }
+  .win-ws-btn.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── System Monitor ── */
+  .gauge { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+  .gauge-label { font-size: 12px; color: var(--fg-muted); width: 60px; }
+  .gauge-bar { flex: 1; height: 8px; background: var(--bg-overlay); border-radius: 4px; overflow: hidden; }
+  .gauge-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .gauge-val { font-size: 12px; font-weight: 500; width: 40px; text-align: right; }
+  .monitor-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+  .monitor-label { font-size: 11px; color: var(--fg-muted); display: flex; align-items: center; gap: 6px; }
+  .monitor-label-icon { font-family: 'JetBrainsMono Nerd Font'; font-size: 13px; line-height: 1; color: var(--fg-dim); }
+  .monitor-value { font-size: 11px; font-weight: 500; color: var(--fg); }
+
+  /* ── Media Player ── */
+  .media-art { width: 80px; height: 80px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+  .media-art-placeholder { width: 80px; height: 80px; border-radius: 6px; flex-shrink: 0; background: var(--bg-overlay); display: flex; align-items: center; justify-content: center; font-family: 'JetBrainsMono Nerd Font'; font-size: 28px; color: var(--fg-dim); }
+  .media-info-row { display: flex; gap: 14px; align-items: flex-start; }
+  .media-details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .media-song { font-size: 16px; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .media-artist { font-size: 13px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .media-album { font-size: 11px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .media-player-name { font-size: 10px; color: var(--fg-dim); margin-top: 2px; }
+  .transport { display: flex; justify-content: center; gap: 16px; align-items: center; padding: 4px 0; }
+  .transport-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface); border: 1px solid var(--bg-overlay); display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: 'JetBrainsMono Nerd Font'; font-size: 20px; color: var(--fg); transition: all 0.12s; line-height: 1; }
+  .transport-btn:hover { background: var(--bg-overlay); }
+  .transport-btn.main { width: 48px; height: 48px; background: var(--accent); color: var(--text-on-color); border-color: var(--accent); }
+  .transport-btn.main:hover { opacity: 0.85; }
+
+  /* ── Settings Layout (Config Panel) ── */
+  #panel-config.active { padding: 0; overflow: hidden; }
+  .settings-layout { display: flex; height: 100%; gap: 0; }
+  .settings-sidebar {
+    width: 140px; flex-shrink: 0;
+    border-right: 1px solid var(--bg-overlay);
+    display: flex; flex-direction: column; gap: 2px; padding: 4px;
+    overflow-y: auto;
+  }
+  .settings-sidebar::-webkit-scrollbar { width: 2px; }
+  .settings-sidebar::-webkit-scrollbar-thumb { background: var(--fg-dim); border-radius: 2px; }
+  .settings-content { flex: 1; padding: 16px; overflow-y: auto; }
+  .settings-content::-webkit-scrollbar { width: 3px; }
+  .settings-content::-webkit-scrollbar-thumb { background: var(--fg-dim); border-radius: 2px; }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 4px;
+    cursor: pointer; font-size: 11px; font-weight: 500;
+    color: var(--fg-muted); transition: all 0.12s;
+  }
+  .sidebar-item:hover { background: var(--bg-surface); color: var(--fg); }
+  .sidebar-item.active { background: var(--bg-overlay); color: var(--fg); }
+  .sidebar-icon {
+    font-family: 'JetBrainsMono Nerd Font'; font-size: 14px;
+    width: 18px; text-align: center; line-height: 1;
+  }
+  .settings-title { font-size: 15px; font-weight: 600; color: var(--fg); margin-bottom: 16px; }
+  .settings-page { display: none; }
+  .settings-page.active { display: block; }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--bg-overlay);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 12px; color: var(--fg-muted); display: flex; align-items: center; gap: 8px; }
+  .settings-row-label .nf { font-family: 'JetBrainsMono Nerd Font'; font-size: 14px; line-height: 1; }
+  .settings-row-value { font-size: 12px; font-weight: 500; color: var(--fg); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .settings-row-value.clickable { cursor: pointer; color: var(--accent); }
+  .settings-row-value.clickable:hover { text-decoration: underline; }
+  .settings-section-label { font-size: 10px; font-weight: 600; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 0 6px; }
+  .settings-note { font-size: 10px; color: var(--fg-dim); padding: 6px 0; font-style: italic; }
+  .settings-btn {
+    display: inline-block; padding: 8px 14px; border-radius: 4px;
+    background: var(--bg-surface); border: 1px solid var(--bg-overlay);
+    color: var(--fg); font-family: inherit; font-size: 11px; font-weight: 500;
+    cursor: pointer; transition: all 0.12s; text-align: center;
+  }
+  .settings-btn:hover { background: var(--bg-overlay); }
+  .settings-btn.accent { border-color: var(--accent); color: var(--accent); }
+  .settings-btn.accent:hover { background: var(--bg-surface); }
+  .settings-device-item {
+    padding: 6px 10px; border-radius: 4px; background: var(--bg-surface);
+    font-size: 11px; color: var(--fg); margin: 4px 0;
+  }
+  .profile-options { display: flex; gap: 8px; }
+  .profile-opt {
+    flex: 1; padding: 10px 8px; border: 1px solid var(--bg-overlay);
+    border-radius: 6px; text-align: center; cursor: pointer;
+    font-size: 11px; transition: all 0.12s;
+  }
+  .profile-opt:hover { background: var(--bg-surface); }
+  .profile-opt.active { border-color: var(--accent); color: var(--accent); background: var(--bg-surface); }
+  .profile-opt .profile-icon {
+    font-family: 'JetBrainsMono Nerd Font'; font-size: 18px;
+    display: block; margin-bottom: 4px; line-height: 1;
+  }
+  .cfg-theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .cfg-theme-swatch {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; padding: 10px 6px; border-radius: 6px;
+    cursor: pointer; transition: all 0.12s;
+  }
+  .cfg-theme-swatch:hover { background: var(--bg-surface); }
+  .cfg-theme-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid transparent; transition: border-color 0.12s;
+  }
+  .cfg-theme-swatch.active .cfg-theme-dot {
+    border-color: var(--fg);
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg);
+  }
+  .cfg-theme-name { font-size: 10px; color: var(--fg-dim); }
+  .cfg-theme-swatch.active .cfg-theme-name { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="panel-settings" class="panel"></div>
+<div id="panel-wifi" class="panel"></div>
+<div id="panel-power" class="panel"></div>
+<div id="panel-launcher" class="panel"></div>
+<div id="panel-config" class="panel"></div>
+<div id="panel-calendar" class="panel"></div>
+<div id="panel-notifications" class="panel"></div>
+<div id="panel-windows" class="panel"></div>
+<div id="panel-monitor" class="panel"></div>
+<div id="panel-media" class="panel"></div>
+<div id="panel-audio" class="panel"></div>
+<script>
+function send(o) { window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o)); }
+function sendThrottled(key, o) { if(window['_t_'+key]) return; send(o); window['_t_'+key] = setTimeout(function() { delete window['_t_'+key]; }, 80); }
+function setText(id, t) { var e = document.getElementById(id); if (e && e.textContent !== t) e.textContent = t; }
+function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+var ICONS = {
+  vol_hi:'\u{f057e}',vol_mid:'\u{f0580}',vol_lo:'\u{f057f}',vol_mute:'\u{f075f}',
+  wifi_4:'\u{f0928}',wifi_3:'\u{f0925}',wifi_2:'\u{f0922}',wifi_1:'\u{f091f}',wifi_off:'\u{f092d}',
+  bright:'\u{f00df}',power:'\u{f0425}',lock:'\u{f033e}',suspend:'\u{f0904}',
+  logout:'\u{f05fc}',reboot:'\u{f0709}',shutdown:'\u{f0426}',
+  search:'\u{f0349}',settings:'\u{f0493}',
+  night_on:'\u{f0335}',night_off:'\u{f0336}',dnd_on:'\u{f0376}',dnd_off:'\u{f0377}',
+  bt_on:'\u{f00af}',bt_off:'\u{f00b2}',
+  bat_full:'\u{f0079}',screenshot:'\u{f0c51}',
+  ip:'\u{f0a5f}',cpu:'\u{f061a}',disk:'\u{f02ca}',mem:'\u{f035b}',uptime:'\u{f0150}',kernel:'\u{f033d}',
+  chevron_left:'\u{f0141}',chevron_right:'\u{f0142}',
+  calendar:'\u{f00ed}',
+  bell:'\u{f009a}',bell_off:'\u{f009b}',check:'\u{f012c}',
+  profile_saver:'\u{f032a}',profile_balanced:'\u{f04c5}',profile_performance:'\u{f0874}',
+  palette:'\u{f03d8}',
+  window:'\u{f0674}',close:'\u{f0156}',focus:'\u{f0349}',
+  music:'\u{f0b77}',media_prev:'\u{f045f}',media_next:'\u{f0461}',media_play:'\u{f040a}',media_pause:'\u{f03e4}',
+  temp:'\u{f050f}',net_signal:'\u{f08be}',battery:'\u{f0079}',
+  display:'\u{f0379}',storage:'\u{f02ca}',about:'\u{f0150}',palette_cfg:'\u{f03d8}',
+  power_saver:'\u{f032a}',balanced:'\u{f04c5}',performance:'\u{f0874}',
+  caffeine:'\u{db81}\u{deca}',vpn:'\u{f0e8}',mic:'\u{f036c}',mic_mute:'\u{f036d}',
+  gpu:'\u{f061a}',fan:'\u{f0210}',swap:'\u{f035b}',container:'\u{f0868}',
+  net_down:'\u{f0544}',net_up:'\u{f0552}',warning:'\u{f0026}',
+  load:'\u{f04c5}',sunrise:'\u{f059c}',sunset:'\u{f059b}',weather:'\u{f0590}',
+  event:'\u{f00ed}',gamepad:'\u{f0eb5}',discord:'\u{f066f}',
+  audio_out:'\u{f057e}',audio_in:'\u{f036c}',audio_app:'\u{f04c3}'
+};
+function volIcon(v,m) { return m?ICONS.vol_mute:v>50?ICONS.vol_hi:v>0?ICONS.vol_mid:ICONS.vol_lo; }
+function wifiIcon(s) { return s>75?ICONS.wifi_4:s>50?ICONS.wifi_3:s>25?ICONS.wifi_2:s>0?ICONS.wifi_1:ICONS.wifi_off; }
+function micIcon(m) { return m ? ICONS.mic_mute : ICONS.mic; }
+function formatBytes(n) { if (n > 1e6) return (n/1e6).toFixed(1)+' MB'; if (n > 1e3) return (n/1e3).toFixed(0)+' KB'; return n+' B'; }
+
+// ── Profile helpers ──
+var PROFILES = ['power-saver','balanced','performance'];
+var PROFILE_ICONS = { 'power-saver': ICONS.profile_saver, 'balanced': ICONS.profile_balanced, 'performance': ICONS.profile_performance };
+var PROFILE_LABELS = { 'power-saver': 'Power', 'balanced': 'Balanced', 'performance': 'Performance' };
+function nextProfile(cur) {
+  var i = PROFILES.indexOf(cur);
+  return PROFILES[(i + 1) % PROFILES.length];
+}
+
+// ── Theme accent colors ──
+var THEME_ACCENTS = {
+  mocha:'#cba6f7', macchiato:'#c6a0f6', frappe:'#ca9ee6', latte:'#8839ef',
+  tokyonight:'#7aa2f7', nord:'#88c0d0', gruvbox:'#d79921', rosepine:'#c4a7e7',
+  onedark:'#c678dd', dracula:'#bd93f9', solarized:'#268bd2', flexoki:'#da702c'
+};
+var THEME_NAMES = Object.keys(THEME_ACCENTS);
+
+// ── Gauge color helper ──
+function gaugeColor(pct) {
+  if (pct > 90) return 'var(--red)';
+  if (pct > 80) return 'var(--yellow)';
+  if (pct >= 50) return 'var(--accent)';
+  return 'var(--green)';
+}
+
+// ── Relative time helper ──
+function relativeTime(ts) {
+  if (!ts) return '';
+  var now = Date.now();
+  var diff = Math.floor((now - ts) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+// ── Settings Panel ──
+function renderSettings(s) {
+  if (s.popup !== 'settings') return;
+  var el = document.getElementById('panel-settings');
+  if (!el) return;
+  if (!el.dataset.built) {
+    el.dataset.built = '1';
+    el.innerHTML =
+      '<div class="panel-title">Quick Settings</div>' +
+      '<div class="tiles">' +
+        '<div class="tile" id="tile-wifi" onclick="send({cmd:\'popup\',data:\'wifi\'})"><span class="tile-icon" id="tile-wifi-icon">' + ICONS.wifi_4 + '</span><span class="tile-label">WiFi</span></div>' +
+        '<div class="tile" id="tile-bt" onclick="send({cmd:\'toggle_bt\'})"><span class="tile-icon">' + ICONS.bt_on + '</span><span class="tile-label">Bluetooth</span></div>' +
+        '<div class="tile" id="tile-dnd" onclick="send({cmd:\'toggle_dnd\'})"><span class="tile-icon" id="tile-dnd-icon">' + ICONS.dnd_on + '</span><span class="tile-label">DND</span></div>' +
+        '<div class="tile" id="tile-night" onclick="send({cmd:\'toggle_night\'})"><span class="tile-icon">' + ICONS.night_on + '</span><span class="tile-label">Night</span></div>' +
+        '<div class="tile" id="tile-mute" onclick="send({cmd:\'vol_mute\'})"><span class="tile-icon" id="tile-mute-icon">' + ICONS.vol_hi + '</span><span class="tile-label">Mute</span></div>' +
+        '<div class="tile" onclick="send({cmd:\'exec\',data:\'grimblast copy area\'})"><span class="tile-icon">' + ICONS.screenshot + '</span><span class="tile-label">Screenshot</span></div>' +
+        '<div class="tile" id="tile-profile" onclick="cycleProfile()"><span class="tile-icon" id="tile-profile-icon">' + ICONS.profile_balanced + '</span><span class="tile-label" id="tile-profile-label">Balanced</span></div>' +
+        '<div class="tile" onclick="send({cmd:\'popup\',data:\'config\'})"><span class="tile-icon">' + ICONS.settings + '</span><span class="tile-label">Config</span></div>' +
+        '<div class="tile" id="tile-caffeine" onclick="send({cmd:\'exec\',data:\'test -f $XDG_RUNTIME_DIR/pulpkit-caffeine && rm $XDG_RUNTIME_DIR/pulpkit-caffeine || touch $XDG_RUNTIME_DIR/pulpkit-caffeine\'})"><span class="tile-icon" id="tile-caffeine-icon">' + ICONS.caffeine + '</span><span class="tile-label">Caffeine</span></div>' +
+        '<div class="tile" id="tile-vpn"><span class="tile-icon" id="tile-vpn-icon">' + ICONS.vpn + '</span><span class="tile-label" id="tile-vpn-label">VPN</span></div>' +
+        '<div class="tile" onclick="send({cmd:\'popup\',data:\'audio\'})"><span class="tile-icon">' + ICONS.audio_out + '</span><span class="tile-label">Mixer</span></div>' +
+      '</div>' +
+      '<div class="sep"></div>' +
+      '<div class="slider-row"><span class="slider-icon" id="s-vol-icon">' + ICONS.vol_hi + '</span><div class="slider-track"><div class="slider-fill" id="vol-fill"></div><input type="range" id="vol-slider" min="0" max="100" value="50" oninput="sendThrottled(\'vol\',{cmd:\'vol_set\',data:Number(this.value)})"></div><span class="slider-val" id="s-vol-val">50%</span></div>' +
+      '<div class="slider-row"><span class="slider-icon">' + ICONS.bright + '</span><div class="slider-track"><div class="slider-fill" id="bri-fill"></div><input type="range" id="bri-slider" min="1" max="100" value="50" oninput="sendThrottled(\'bri\',{cmd:\'bri_set\',data:Number(this.value)})"></div><span class="slider-val" id="s-bri-val">50%</span></div>' +
+      '<div class="slider-row"><span class="slider-icon" id="s-mic-icon">' + ICONS.mic + '</span><div class="slider-track"><div class="slider-fill" id="mic-fill"></div><input type="range" id="mic-slider" min="0" max="100" value="50" oninput="sendThrottled(\'mic\',{cmd:\'exec\',data:\'wpctl set-volume @DEFAULT_AUDIO_SOURCE@ \'+Number(this.value)/100})"></div><span class="slider-val" id="s-mic-val">50%</span></div>' +
+      '<div class="sep"></div>' +
+      '<div class="bat-row" id="bat-row"><span class="bat-icon">' + ICONS.bat_full + '</span><span class="bat-text" id="s-bat-text">100%</span><span class="bat-status" id="s-bat-status"></span><span class="bat-text" id="s-bat-power" style="margin-left:8px;font-size:10px;color:var(--fg-dim)"></span></div>';
+  }
+  document.getElementById('vol-slider').value = s.vol;
+  document.getElementById('vol-fill').style.width = s.vol + '%';
+  document.getElementById('s-vol-icon').textContent = volIcon(s.vol, s.muted);
+  document.getElementById('s-vol-val').textContent = s.vol + '%';
+  document.getElementById('bri-slider').value = s.bright;
+  document.getElementById('bri-fill').style.width = s.bright + '%';
+  document.getElementById('s-bri-val').textContent = s.bright + '%';
+  document.getElementById('tile-mute-icon').textContent = volIcon(s.vol, s.muted);
+  document.getElementById('tile-mute').classList.toggle('active', s.muted);
+  document.getElementById('tile-wifi-icon').textContent = s.wifi ? ICONS.wifi_4 : ICONS.wifi_off;
+  document.getElementById('tile-wifi').classList.toggle('active', !!s.wifi);
+  document.getElementById('tile-dnd').classList.toggle('active', s.dnd);
+  document.getElementById('tile-dnd-icon').textContent = s.dnd ? ICONS.dnd_on : ICONS.dnd_off;
+  // Power profile tile
+  var prof = s.power_profile || 'balanced';
+  document.getElementById('tile-profile-icon').textContent = PROFILE_ICONS[prof] || ICONS.profile_balanced;
+  document.getElementById('tile-profile-label').textContent = PROFILE_LABELS[prof] || 'Balanced';
+  // Caffeine tile
+  document.getElementById('tile-caffeine').classList.toggle('active', !!s.caffeine_active);
+  // VPN tile
+  var vpnActive = !!s.vpn_name;
+  document.getElementById('tile-vpn').classList.toggle('active', vpnActive);
+  document.getElementById('tile-vpn-label').textContent = vpnActive ? s.vpn_name : 'VPN';
+  // Mic slider
+  var micVol = s.mic_volume || 0;
+  document.getElementById('mic-slider').value = micVol;
+  document.getElementById('mic-fill').style.width = micVol + '%';
+  document.getElementById('s-mic-icon').textContent = micIcon(s.mic_muted);
+  document.getElementById('s-mic-val').textContent = micVol + '%';
+  // Battery row with power draw and AC status
+  var batRow = document.getElementById('bat-row');
+  if (s.has_bat) {
+    batRow.style.display = '';
+    document.getElementById('s-bat-text').textContent = s.bat + '%';
+    var statusParts = [];
+    if (s.bat_status === 'Charging') statusParts.push('Charging');
+    if (s.ac_plugged) statusParts.push('AC');
+    document.getElementById('s-bat-status').textContent = statusParts.join(' \u00b7 ');
+    var powerEl = document.getElementById('s-bat-power');
+    if (powerEl) powerEl.textContent = s.power_draw_watts ? s.power_draw_watts.toFixed(1) + 'W' : '';
+  } else { batRow.style.display = 'none'; }
+}
+
+// Global to track current profile for cycling
+var _currentProfile = 'balanced';
+function cycleProfile() {
+  var next = nextProfile(_currentProfile);
+  _currentProfile = next;
+  send({cmd:'set_profile', data:next});
+}
+
+// ── WiFi Panel ──
+function renderWifi(s) {
+  if (s.popup !== 'wifi') return;
+  var el = document.getElementById('panel-wifi');
+  if (!el) return;
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.wifi_4 + '</span><span>Networks</span><span class="flex"></span><span class="panel-subtitle">' + escapeHtml(s.wifi || 'Disconnected') + '</span></div>';
+  var nets = s.wifi_nets || [];
+  if (nets.length) {
+    nets.slice(0, 12).forEach(function(net) {
+      var connected = net.ssid === s.wifi;
+      var safe = escapeHtml(net.ssid);
+      html += '<div class="wifi-item' + (connected ? ' connected' : '') + '" onclick="send(' + (connected ? '{cmd:\'wifi_dis\'}' : '{cmd:\'wifi_con\',data:\'' + safe.replace(/'/g, "\\'") + '\'}') + ')">' +
+        '<span class="wifi-icon">' + wifiIcon(net.signal) + '</span>' +
+        '<span class="wifi-ssid">' + safe + (net.secure ? ' ' + ICONS.lock : '') + '</span>' +
+        '<span class="wifi-meta">' + (connected ? 'Connected' : net.signal + '%') + '</span></div>';
+    });
+  } else { html += '<div class="empty-state">Scanning for networks...</div>'; }
+  el.innerHTML = html;
+}
+
+// ── Power Panel ──
+function renderPower(s) {
+  if (s.popup !== 'power') return;
+  var el = document.getElementById('panel-power');
+  if (!el) return;
+  if (!el.dataset.built) {
+    el.dataset.built = '1';
+    el.innerHTML =
+      '<div class="panel-title">Session</div>' +
+      '<div class="power-info"><div class="power-host" id="pw-host"></div><div class="power-detail" id="pw-kernel"></div><div class="power-detail" id="pw-uptime"></div></div>' +
+      '<div class="sep"></div>' +
+      '<div class="menu-item" onclick="send({cmd:\'power_lock\'})"><span class="menu-icon">' + ICONS.lock + '</span><span class="menu-text">Lock Screen</span></div>' +
+      '<div class="menu-item" onclick="send({cmd:\'power_suspend\'})"><span class="menu-icon">' + ICONS.suspend + '</span><span class="menu-text">Suspend</span></div>' +
+      '<div class="sep"></div>' +
+      '<div class="menu-item" onclick="send({cmd:\'power_reboot\'})"><span class="menu-icon">' + ICONS.reboot + '</span><span class="menu-text">Restart</span></div>' +
+      '<div class="menu-item" onclick="send({cmd:\'power_shutdown\'})"><span class="menu-icon">' + ICONS.shutdown + '</span><span class="menu-text">Shut Down</span></div>' +
+      '<div class="sep"></div>' +
+      '<div class="menu-item danger" onclick="send({cmd:\'power_logout\'})"><span class="menu-icon">' + ICONS.logout + '</span><span class="menu-text">Log Out</span></div>';
+  }
+  document.getElementById('pw-host').textContent = (s.user||'') + '@' + (s.host||'');
+  document.getElementById('pw-kernel').textContent = s.kernel || '';
+  document.getElementById('pw-uptime').textContent = s.uptime ? 'up ' + s.uptime : '';
+}
+
+// ── Launcher Panel ──
+var _allApps = [], _selIdx = 0;
+function renderLauncher(s) {
+  if (s.popup !== 'launcher') return;
+  var el = document.getElementById('panel-launcher');
+  if (!el) return;
+  if (!el.dataset.built) {
+    el.dataset.built = '1';
+    el.innerHTML = '<input class="search-input" id="search" placeholder="Search applications..." oninput="filterApps()" autocomplete="off" spellcheck="false"><div class="app-list" id="app-list"></div>';
+  }
+  _allApps = s.apps || [];
+  var input = document.getElementById('search');
+  if (input && !input.value) filterApps();
+  setTimeout(function() { if (input) input.focus(); }, 50);
+}
+function filterApps() {
+  var q = document.getElementById('search').value.toLowerCase();
+  var list = document.getElementById('app-list');
+  if (!list) return;
+  list.innerHTML = '';
+  var filtered = _allApps.filter(function(a) { return a.name.toLowerCase().includes(q); }).slice(0, 20);
+  _selIdx = 0;
+  if (!filtered.length) { list.innerHTML = '<div class="empty-state">No matches</div>'; return; }
+  filtered.forEach(function(app, i) {
+    var div = document.createElement('div');
+    div.className = 'app-item' + (i === 0 ? ' selected' : '');
+    if (app.icon) {
+      var img = document.createElement('img'); img.src = app.icon; img.draggable = false;
+      img.onerror = function() { var fb = document.createElement('span'); fb.className = 'app-fallback'; fb.textContent = app.name.charAt(0); this.replaceWith(fb); };
+      div.appendChild(img);
+    } else { var fb = document.createElement('span'); fb.className = 'app-fallback'; fb.textContent = app.name.charAt(0); div.appendChild(fb); }
+    var name = document.createElement('span'); name.className = 'app-name'; name.textContent = app.name;
+    div.appendChild(name);
+    div.onclick = function() { send({ cmd: 'launch', data: app.exec }); };
+    list.appendChild(div);
+  });
+}
+function moveSelection(d) {
+  var items = document.querySelectorAll('.app-item');
+  if (!items.length) return;
+  if (items[_selIdx]) items[_selIdx].classList.remove('selected');
+  _selIdx = Math.max(0, Math.min(items.length - 1, _selIdx + d));
+  if (items[_selIdx]) { items[_selIdx].classList.add('selected'); items[_selIdx].scrollIntoView({ block: 'nearest' }); }
+}
+
+// ── Config Panel (Full Settings App) ──
+var _cfgPage = 'display';
+var CFG_PAGES = [
+  { id:'display',       icon:'\u{f0379}', label:'Display' },
+  { id:'sound',         icon:'\u{f057e}', label:'Sound' },
+  { id:'network',       icon:'\u{f0928}', label:'Network' },
+  { id:'bluetooth',     icon:'\u{f00af}', label:'Bluetooth' },
+  { id:'power',         icon:'\u{f0079}', label:'Power' },
+  { id:'appearance',    icon:'\u{f03d8}', label:'Appearance' },
+  { id:'notifications', icon:'\u{f009a}', label:'Notifications' },
+  { id:'storage',       icon:'\u{f02ca}', label:'Storage' },
+  { id:'about',         icon:'\u{f0150}', label:'About' },
+  { id:'gaming',        icon:'\u{f0eb5}', label:'Gaming' },
+  { id:'containers',    icon:'\u{f0868}', label:'Containers' }
+];
+
+function switchCfgPage(name) {
+  _cfgPage = name;
+  // Update sidebar active state
+  var items = document.querySelectorAll('.sidebar-item');
+  items.forEach(function(it) {
+    it.classList.toggle('active', it.dataset.page === name);
+  });
+  // Show/hide pages
+  var pages = document.querySelectorAll('.settings-page');
+  pages.forEach(function(p) {
+    p.classList.toggle('active', p.id === 'cfg-page-' + name);
+  });
+}
+
+function renderConfig(s) {
+  if (s.popup !== 'config') return;
+  var el = document.getElementById('panel-config');
+  if (!el) return;
+  if (!el.dataset.built) {
+    el.dataset.built = '1';
+
+    // Build sidebar
+    var sidebarHtml = '<div class="settings-sidebar">';
+    CFG_PAGES.forEach(function(pg) {
+      sidebarHtml += '<div class="sidebar-item' + (pg.id === _cfgPage ? ' active' : '') + '" data-page="' + pg.id + '" onclick="switchCfgPage(\'' + pg.id + '\')">' +
+        '<span class="sidebar-icon">' + pg.icon + '</span>' +
+        '<span>' + pg.label + '</span></div>';
+    });
+    sidebarHtml += '</div>';
+
+    // Build content area with all pages
+    var contentHtml = '<div class="settings-content">';
+
+    // ── Display Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'display' ? ' active' : '') + '" id="cfg-page-display">' +
+      '<div class="settings-title">Display</div>' +
+      '<div class="settings-section-label">Brightness</div>' +
+      '<div class="slider-row"><span class="slider-icon">' + ICONS.bright + '</span><div class="slider-track"><div class="slider-fill" id="cfg-bri-fill"></div><input type="range" id="cfg-bri" min="1" max="100" value="50" oninput="sendThrottled(\'bri\',{cmd:\'bri_set\',data:Number(this.value)})"></div><span class="slider-val" id="cfg-bri-val">50%</span></div>' +
+      '<div class="settings-section-label">Night Light</div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.night_on + '</span> Night Light</span><span class="settings-row-value clickable" onclick="send({cmd:\'toggle_night\'})">Toggle</span></div>' +
+      '</div>';
+
+    // ── Sound Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'sound' ? ' active' : '') + '" id="cfg-page-sound">' +
+      '<div class="settings-title">Sound</div>' +
+      '<div class="settings-section-label">Output Volume</div>' +
+      '<div class="slider-row"><span class="slider-icon" id="cfg-vol-icon">' + ICONS.vol_hi + '</span><div class="slider-track"><div class="slider-fill" id="cfg-vol-fill"></div><input type="range" id="cfg-vol" min="0" max="100" value="50" oninput="sendThrottled(\'vol\',{cmd:\'vol_set\',data:Number(this.value)})"></div><span class="slider-val" id="cfg-vol-val">50%</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.vol_mute + '</span> Mute</span><span class="settings-row-value clickable" id="cfg-mute-val" onclick="send({cmd:\'vol_mute\'})">Toggle</span></div>' +
+      '<div class="settings-section-label">Output Device</div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.vol_hi + '</span> Device</span><span class="settings-row-value" id="cfg-device">\u2014</span></div>' +
+      '<div class="settings-note">Right-click volume in bar to quick-mute</div>' +
+      '</div>';
+
+    // ── Network Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'network' ? ' active' : '') + '" id="cfg-page-network">' +
+      '<div class="settings-title">Network</div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.wifi_4 + '</span> WiFi</span><span class="settings-row-value" id="cfg-wifi">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.net_signal + '</span> Signal</span><span class="settings-row-value" id="cfg-wifi-signal">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.ip + '</span> IP Address</span><span class="settings-row-value" id="cfg-ip">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.vpn + '</span> VPN</span><span class="settings-row-value" id="cfg-vpn">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.net_down + '</span> Speed</span><span class="settings-row-value" id="cfg-net-speed">\u2014</span></div>' +
+      '<div style="padding-top:12px;"><button class="settings-btn accent" onclick="send({cmd:\'popup\',data:\'wifi\'})">Manage Networks</button></div>' +
+      '</div>';
+
+    // ── Bluetooth Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'bluetooth' ? ' active' : '') + '" id="cfg-page-bluetooth">' +
+      '<div class="settings-title">Bluetooth</div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.bt_on + '</span> Powered</span><span class="settings-row-value" id="cfg-bt-status">Off</span></div>' +
+      '<div style="padding:8px 0;"><button class="settings-btn" onclick="send({cmd:\'toggle_bt\'})">Toggle Bluetooth</button></div>' +
+      '<div class="settings-section-label">Connected Devices</div>' +
+      '<div id="cfg-bt-devices"><div class="settings-note">No devices</div></div>' +
+      '</div>';
+
+    // ── Power Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'power' ? ' active' : '') + '" id="cfg-page-power">' +
+      '<div class="settings-title">Power</div>' +
+      '<div class="settings-section-label">Battery</div>' +
+      '<div id="cfg-bat-gauge-wrap"></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.battery + '</span> Status</span><span class="settings-row-value" id="cfg-bat-status">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.power + '</span> Power Draw</span><span class="settings-row-value" id="cfg-power-draw">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.power + '</span> AC Power</span><span class="settings-row-value" id="cfg-ac-status">\u2014</span></div>' +
+      '<div class="settings-section-label">Power Profile</div>' +
+      '<div class="profile-options" id="cfg-profile-opts">' +
+        '<div class="profile-opt" data-profile="power-saver" onclick="send({cmd:\'set_profile\',data:\'power-saver\'})"><span class="profile-icon">' + ICONS.power_saver + '</span>Power Saver</div>' +
+        '<div class="profile-opt" data-profile="balanced" onclick="send({cmd:\'set_profile\',data:\'balanced\'})"><span class="profile-icon">' + ICONS.balanced + '</span>Balanced</div>' +
+        '<div class="profile-opt" data-profile="performance" onclick="send({cmd:\'set_profile\',data:\'performance\'})"><span class="profile-icon">' + ICONS.performance + '</span>Performance</div>' +
+      '</div>' +
+      '</div>';
+
+    // ── Appearance Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'appearance' ? ' active' : '') + '" id="cfg-page-appearance">' +
+      '<div class="settings-title">Appearance</div>' +
+      '<div class="settings-section-label">Theme</div>' +
+      '<div class="cfg-theme-grid" id="cfg-theme-grid">';
+    THEME_NAMES.forEach(function(name) {
+      contentHtml += '<div class="cfg-theme-swatch" id="cfgts-' + name + '" onclick="send({cmd:\'set_theme\',data:\'' + name + '\'})">' +
+        '<div class="cfg-theme-dot" style="background:' + THEME_ACCENTS[name] + ';"></div>' +
+        '<span class="cfg-theme-name">' + name + '</span></div>';
+    });
+    contentHtml += '</div></div>';
+
+    // ── Notifications Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'notifications' ? ' active' : '') + '" id="cfg-page-notifications">' +
+      '<div class="settings-title">Notifications</div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.dnd_on + '</span> Do Not Disturb</span><span class="settings-row-value clickable" id="cfg-dnd-val" onclick="send({cmd:\'toggle_dnd\'})">Off</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.bell + '</span> Notifications</span><span class="settings-row-value" id="cfg-notif-count">0</span></div>' +
+      '<div style="padding-top:12px;"><button class="settings-btn" onclick="send({cmd:\'notif_dismiss\'})">Dismiss All</button></div>' +
+      '</div>';
+
+    // ── Storage Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'storage' ? ' active' : '') + '" id="cfg-page-storage">' +
+      '<div class="settings-title">Storage</div>' +
+      '<div id="cfg-disk-gauge-wrap"></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.disk + '</span> Used / Total</span><span class="settings-row-value" id="cfg-disk">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.disk + '</span> Percentage</span><span class="settings-row-value" id="cfg-disk-pct">\u2014</span></div>' +
+      '</div>';
+
+    // ── About Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'about' ? ' active' : '') + '" id="cfg-page-about">' +
+      '<div class="settings-title">About</div>' +
+      '<div class="settings-row"><span class="settings-row-label">User</span><span class="settings-row-value" id="cfg-user">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Host</span><span class="settings-row-value" id="cfg-host">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">OS</span><span class="settings-row-value">CachyOS Linux</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Kernel</span><span class="settings-row-value" id="cfg-kernel">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Desktop</span><span class="settings-row-value">niri (Wayland)</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Uptime</span><span class="settings-row-value" id="cfg-uptime">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">CPU Usage</span><span class="settings-row-value" id="cfg-cpu">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Memory Usage</span><span class="settings-row-value" id="cfg-mem">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Compositor</span><span class="settings-row-value" id="cfg-compositor">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Timezone</span><span class="settings-row-value" id="cfg-timezone">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Keyboard Layout</span><span class="settings-row-value" id="cfg-kb-layout">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label">Load Average</span><span class="settings-row-value" id="cfg-load-avg">\u2014</span></div>' +
+      '</div>';
+
+    // ── Gaming Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'gaming' ? ' active' : '') + '" id="cfg-page-gaming">' +
+      '<div class="settings-title">Gaming</div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.gamepad + '</span> GameMode</span><span class="settings-row-value" id="cfg-gamemode">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.gpu + '</span> GPU Usage</span><span class="settings-row-value" id="cfg-gpu-usage">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.temp + '</span> GPU Temp</span><span class="settings-row-value" id="cfg-gpu-temp">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.gpu + '</span> VRAM</span><span class="settings-row-value" id="cfg-gpu-vram">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.display + '</span> Gamescope</span><span class="settings-row-value" id="cfg-gamescope">\u2014</span></div>' +
+      '<div class="settings-row"><span class="settings-row-label"><span class="nf">' + ICONS.discord + '</span> Discord</span><span class="settings-row-value" id="cfg-discord">\u2014</span></div>' +
+      '</div>';
+
+    // ── Containers Page ──
+    contentHtml += '<div class="settings-page' + (_cfgPage === 'containers' ? ' active' : '') + '" id="cfg-page-containers">' +
+      '<div class="settings-title">Containers</div>' +
+      '<div id="cfg-container-list"><div class="settings-note">No containers running</div></div>' +
+      '</div>';
+
+    contentHtml += '</div>'; // end settings-content
+
+    el.innerHTML = '<div class="settings-layout">' + sidebarHtml + contentHtml + '</div>';
+  }
+
+  // ── Update dynamic values ──
+
+  // Display
+  var brSlider = document.getElementById('cfg-bri');
+  if (brSlider) { brSlider.value = s.bright; }
+  var brFill = document.getElementById('cfg-bri-fill');
+  if (brFill) brFill.style.width = s.bright + '%';
+  var brVal = document.getElementById('cfg-bri-val');
+  if (brVal) brVal.textContent = s.bright + '%';
+
+  // Sound
+  var volSlider = document.getElementById('cfg-vol');
+  if (volSlider) volSlider.value = s.vol;
+  var volFill = document.getElementById('cfg-vol-fill');
+  if (volFill) volFill.style.width = s.vol + '%';
+  var volVal = document.getElementById('cfg-vol-val');
+  if (volVal) volVal.textContent = s.vol + '%';
+  var volIcon2 = document.getElementById('cfg-vol-icon');
+  if (volIcon2) volIcon2.textContent = volIcon(s.vol, s.muted);
+  var muteVal = document.getElementById('cfg-mute-val');
+  if (muteVal) muteVal.textContent = s.muted ? 'Unmute' : 'Mute';
+  var devEl = document.getElementById('cfg-device');
+  if (devEl) devEl.textContent = s.audio_device || '\u2014';
+
+  // Network
+  var wifiEl = document.getElementById('cfg-wifi');
+  if (wifiEl) wifiEl.textContent = s.wifi || 'Disconnected';
+  var sigEl = document.getElementById('cfg-wifi-signal');
+  if (sigEl) sigEl.textContent = s.wifi_signal ? s.wifi_signal + '%' : '\u2014';
+  var ipEl = document.getElementById('cfg-ip');
+  if (ipEl) ipEl.textContent = s.net_ip || '\u2014';
+
+  // Bluetooth
+  var btEl = document.getElementById('cfg-bt-status');
+  if (btEl) btEl.textContent = s.bt_powered ? 'On' : 'Off';
+  var btDevices = document.getElementById('cfg-bt-devices');
+  if (btDevices) {
+    var btConn = s.bt_connected || [];
+    if (btConn.length > 0) {
+      var btHtml = '';
+      btConn.forEach(function(d) {
+        btHtml += '<div class="settings-device-item">' + escapeHtml(typeof d === 'string' ? d : (d.name || String(d))) + '</div>';
+      });
+      btDevices.innerHTML = btHtml;
+    } else {
+      btDevices.innerHTML = '<div class="settings-note">No devices</div>';
+    }
+  }
+
+  // Power
+  var batPct = s.bat || 0;
+  var batGauge = document.getElementById('cfg-bat-gauge-wrap');
+  if (batGauge) {
+    if (s.has_bat) {
+      batGauge.innerHTML = '<div class="gauge" style="padding:2px 0;"><span class="gauge-label">Battery</span><div class="gauge-bar"><div class="gauge-fill" style="width:' + batPct + '%;background:' + gaugeColor(100 - batPct) + ';"></div></div><span class="gauge-val">' + batPct + '%</span></div>';
+    } else {
+      batGauge.innerHTML = '<div class="settings-note">No battery detected</div>';
+    }
+  }
+  var batStatus = document.getElementById('cfg-bat-status');
+  if (batStatus) batStatus.textContent = s.has_bat ? (s.bat_status || 'Unknown') : 'No battery';
+  // Power profile radio buttons
+  var prof = s.power_profile || 'balanced';
+  var profOpts = document.querySelectorAll('#cfg-profile-opts .profile-opt');
+  profOpts.forEach(function(opt) {
+    opt.classList.toggle('active', opt.dataset.profile === prof);
+  });
+
+  // Appearance - theme swatches
+  var curTheme = s.theme || 'mocha';
+  THEME_NAMES.forEach(function(name) {
+    var sw = document.getElementById('cfgts-' + name);
+    if (sw) sw.classList.toggle('active', name === curTheme);
+  });
+
+  // Notifications
+  var dndVal = document.getElementById('cfg-dnd-val');
+  if (dndVal) dndVal.textContent = s.dnd ? 'On (click to disable)' : 'Off (click to enable)';
+  var notifCount = document.getElementById('cfg-notif-count');
+  if (notifCount) notifCount.textContent = (s.notif_count || 0) + '';
+
+  // Storage
+  var diskPct = s.disk_pct || 0;
+  var dgWrap = document.getElementById('cfg-disk-gauge-wrap');
+  if (dgWrap) {
+    dgWrap.innerHTML = '<div class="gauge" style="padding:2px 0;"><span class="gauge-label">Disk</span><div class="gauge-bar"><div class="gauge-fill" style="width:' + diskPct + '%;background:' + gaugeColor(diskPct) + ';"></div></div><span class="gauge-val">' + diskPct + '%</span></div>';
+  }
+  var diskEl = document.getElementById('cfg-disk');
+  if (diskEl) diskEl.textContent = (s.disk_used || '\u2014') + ' / ' + (s.disk_total || '\u2014');
+  var diskPctEl = document.getElementById('cfg-disk-pct');
+  if (diskPctEl) diskPctEl.textContent = diskPct + '%';
+
+  // About
+  var userEl = document.getElementById('cfg-user');
+  if (userEl) userEl.textContent = s.user || '\u2014';
+  var hostEl = document.getElementById('cfg-host');
+  if (hostEl) hostEl.textContent = s.host || '\u2014';
+  var kernelEl = document.getElementById('cfg-kernel');
+  if (kernelEl) kernelEl.textContent = s.kernel || '\u2014';
+  var uptimeEl = document.getElementById('cfg-uptime');
+  if (uptimeEl) uptimeEl.textContent = s.uptime || '\u2014';
+  var cpuEl = document.getElementById('cfg-cpu');
+  if (cpuEl) cpuEl.textContent = (s.cpu || 0) + '%';
+  var memEl = document.getElementById('cfg-mem');
+  if (memEl) memEl.textContent = (s.mem || 0) + '%';
+  var compositorEl = document.getElementById('cfg-compositor');
+  if (compositorEl) compositorEl.textContent = s.compositor || 'Unknown';
+  var tzEl = document.getElementById('cfg-timezone');
+  if (tzEl) tzEl.textContent = s.timezone || '\u2014';
+  var kbEl = document.getElementById('cfg-kb-layout');
+  if (kbEl) kbEl.textContent = s.kb_layout || '\u2014';
+  var loadEl = document.getElementById('cfg-load-avg');
+  if (loadEl) loadEl.textContent = s.load_avg || '\u2014';
+
+  // Network extras
+  var vpnEl = document.getElementById('cfg-vpn');
+  if (vpnEl) vpnEl.textContent = s.vpn_name || 'Disconnected';
+  var netSpeedEl = document.getElementById('cfg-net-speed');
+  if (netSpeedEl) {
+    if (s.net_rx_bytes_sec != null || s.net_tx_bytes_sec != null) {
+      netSpeedEl.textContent = '\u2193 ' + formatBytes(s.net_rx_bytes_sec || 0) + '/s  \u2191 ' + formatBytes(s.net_tx_bytes_sec || 0) + '/s';
+    } else { netSpeedEl.textContent = '\u2014'; }
+  }
+
+  // Power extras
+  var pdEl = document.getElementById('cfg-power-draw');
+  if (pdEl) pdEl.textContent = s.power_draw_watts ? s.power_draw_watts.toFixed(1) + ' W' : '\u2014';
+  var acEl = document.getElementById('cfg-ac-status');
+  if (acEl) acEl.textContent = s.ac_plugged ? 'Connected' : 'Disconnected';
+
+  // Gaming
+  var gmEl = document.getElementById('cfg-gamemode');
+  if (gmEl) gmEl.textContent = s.gamemode_active ? 'Active' : 'Inactive';
+  var guEl = document.getElementById('cfg-gpu-usage');
+  if (guEl) guEl.textContent = s.gpu_usage ? s.gpu_usage + '%' : '\u2014';
+  var gtEl = document.getElementById('cfg-gpu-temp');
+  if (gtEl) gtEl.textContent = s.gpu_temp ? s.gpu_temp + '\u00b0C' : '\u2014';
+  var gvEl = document.getElementById('cfg-gpu-vram');
+  if (gvEl) gvEl.textContent = (s.gpu_vram_used && s.gpu_vram_total) ? s.gpu_vram_used + ' / ' + s.gpu_vram_total : '\u2014';
+  var gsEl = document.getElementById('cfg-gamescope');
+  if (gsEl) gsEl.textContent = s.gamescope_active ? 'Running' : 'Not running';
+  var dcEl = document.getElementById('cfg-discord');
+  if (dcEl) dcEl.textContent = s.discord_activity || 'Not detected';
+
+  // Containers
+  var cList = document.getElementById('cfg-container-list');
+  if (cList) {
+    var containers = s.containers || [];
+    if (containers.length > 0) {
+      var cHtml = '';
+      containers.forEach(function(c) {
+        cHtml += '<div class="settings-device-item" style="display:flex;justify-content:space-between;align-items:center;">';
+        cHtml += '<div><div style="font-weight:500;">' + escapeHtml(c.name || '') + '</div><div style="font-size:10px;color:var(--fg-dim);">' + escapeHtml(c.image || '') + '</div></div>';
+        cHtml += '<span style="font-size:10px;color:var(--green);">' + escapeHtml(c.status || '') + '</span>';
+        cHtml += '</div>';
+      });
+      cList.innerHTML = cHtml;
+    } else {
+      cList.innerHTML = '<div class="settings-note">No containers running</div>';
+    }
+  }
+}
+
+// ── Calendar Panel ──
+var _calYear = 0, _calMonth = 0;
+function renderCalendar(s) {
+  if (s.popup !== 'calendar') return;
+  var el = document.getElementById('panel-calendar');
+  if (!el) return;
+  var now = new Date();
+  if (!_calYear) { _calYear = now.getFullYear(); _calMonth = now.getMonth(); }
+  var year = _calYear;
+  var month = _calMonth;
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  // First day of month (0=Sunday...6=Saturday) -> convert to Mon=0
+  var firstDay = new Date(year, month, 1).getDay();
+  var startOffset = (firstDay + 6) % 7; // Monday-based offset
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var daysInPrev = new Date(year, month, 0).getDate();
+
+  var todayDay = now.getDate();
+  var todayMonth = now.getMonth();
+  var todayYear = now.getFullYear();
+
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.calendar + '</span><span>Calendar</span></div>';
+
+  // Weather row
+  if (s.weather_temp != null || s.weather_condition) {
+    html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-surface);border-radius:6px;margin-bottom:4px;">';
+    if (s.weather_icon) { html += '<span style="font-family:\'JetBrainsMono Nerd Font\';font-size:22px;line-height:1;color:var(--accent);">' + s.weather_icon + '</span>'; }
+    else { html += '<span style="font-family:\'JetBrainsMono Nerd Font\';font-size:22px;line-height:1;color:var(--accent);">' + ICONS.weather + '</span>'; }
+    html += '<div style="flex:1;">';
+    if (s.weather_temp != null) { html += '<div style="font-size:16px;font-weight:600;color:var(--fg);">' + s.weather_temp + '\u00b0</div>'; }
+    if (s.weather_condition) { html += '<div style="font-size:11px;color:var(--fg-muted);">' + escapeHtml(s.weather_condition) + '</div>'; }
+    html += '</div>';
+    if (s.sunrise || s.sunset) {
+      html += '<div style="text-align:right;font-size:10px;color:var(--fg-dim);">';
+      if (s.sunrise) { html += '<div>' + ICONS.sunrise + ' ' + s.sunrise + '</div>'; }
+      if (s.sunset) { html += '<div>' + ICONS.sunset + ' ' + s.sunset + '</div>'; }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="cal-header">';
+  html += '<button class="cal-nav" onclick="calNav(-1)">' + ICONS.chevron_left + '</button>';
+  html += '<span class="cal-month">' + monthNames[month] + ' ' + year + '</span>';
+  html += '<button class="cal-nav" onclick="calNav(1)">' + ICONS.chevron_right + '</button>';
+  html += '</div>';
+
+  html += '<div class="cal-grid">';
+  // Day-of-week headers
+  dayNames.forEach(function(d) {
+    html += '<div class="cal-dow">' + d + '</div>';
+  });
+
+  // Previous month trailing days
+  for (var i = startOffset - 1; i >= 0; i--) {
+    html += '<div class="cal-day dim">' + (daysInPrev - i) + '</div>';
+  }
+  // Current month days
+  for (var d = 1; d <= daysInMonth; d++) {
+    var isToday = (d === todayDay && month === todayMonth && year === todayYear);
+    html += '<div class="cal-day' + (isToday ? ' today' : '') + '">' + d + '</div>';
+  }
+  // Next month leading days
+  var totalCells = startOffset + daysInMonth;
+  var remaining = (7 - (totalCells % 7)) % 7;
+  for (var n = 1; n <= remaining; n++) {
+    html += '<div class="cal-day dim">' + n + '</div>';
+  }
+  html += '</div>';
+
+  // Today section
+  var fullDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  html += '<div class="sep"></div>';
+  html += '<div class="cal-today-section">Today: ' + fullDays[now.getDay()] + ', ' + monthNames[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear() + '</div>';
+
+  // Upcoming events
+  var events = s.calendar_events || [];
+  if (events.length > 0) {
+    html += '<div class="sep"></div>';
+    html += '<div style="font-size:10px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0;">Upcoming</div>';
+    events.forEach(function(ev) {
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;background:var(--bg-surface);margin:3px 0;">';
+      html += '<span style="font-family:\'JetBrainsMono Nerd Font\';font-size:12px;color:var(--accent);line-height:1;">' + ICONS.event + '</span>';
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:12px;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(ev.title || '') + '</div>';
+      if (ev.time) { html += '<div style="font-size:10px;color:var(--fg-dim);">' + escapeHtml(ev.time) + '</div>'; }
+      html += '</div></div>';
+    });
+  }
+
+  el.innerHTML = html;
+}
+function calNav(dir) {
+  _calMonth += dir;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  // Re-render with dummy state preservation
+  var el = document.getElementById('panel-calendar');
+  if (el && el.classList.contains('active')) {
+    renderCalendar({ popup: 'calendar' });
+  }
+}
+
+// ── Notifications Panel ──
+function renderNotifications(s) {
+  if (s.popup !== 'notifications') return;
+  var el = document.getElementById('panel-notifications');
+  if (!el) return;
+  var count = s.notif_count || 0;
+  var dnd = s.dnd || false;
+  var notifications = s.notifications || [];
+
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.bell + '</span><span>Notifications</span><span class="flex"></span>';
+  html += '<span class="notif-btn" style="padding:4px 10px;font-size:10px;cursor:pointer;' + (dnd ? 'color:var(--accent);' : '') + '" onclick="send({cmd:\'toggle_dnd\'})">' + (dnd ? ICONS.dnd_on + ' DND On' : ICONS.dnd_off + ' DND') + '</span>';
+  if (count > 0 || notifications.length > 0) {
+    html += '<span class="notif-btn" style="padding:4px 10px;font-size:10px;cursor:pointer;color:var(--red);" onclick="send({cmd:\'notif_clear_all\'})">Clear All</span>';
+  }
+  if (count > 0) {
+    html += '<span class="notif-badge">' + count + '</span>';
+  }
+  html += '</div>';
+
+  // Notification items
+  if (notifications.length > 0) {
+    notifications.forEach(function(n, idx) {
+      html += '<div class="notif-item">';
+      if (n.icon) {
+        html += '<img class="notif-app-icon" src="' + n.icon + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="notif-app-fallback" style="display:none">' + (n.app_name || 'A').charAt(0) + '</div>';
+      } else {
+        html += '<div class="notif-app-fallback">' + (n.app_name || 'A').charAt(0) + '</div>';
+      }
+      html += '<div class="notif-content">';
+      html += '<div class="notif-summary">' + (n.summary || '') + '</div>';
+      if (n.body) { html += '<div class="notif-body">' + n.body + '</div>'; }
+      html += '<div class="notif-time">' + (n.app_name ? n.app_name + ' \u00b7 ' : '') + relativeTime(n.timestamp) + '</div>';
+      html += '</div>';
+      html += '<button class="notif-close" onclick="send({cmd:\'notif_dismiss_one\',data:' + (n.id || idx) + '})">' + ICONS.close + '</button>';
+      html += '</div>';
+    });
+  } else if (count > 0) {
+    html += '<div class="notif-count-text">' + count + ' pending notification' + (count !== 1 ? 's' : '') + '</div>';
+  } else {
+    html += '<div class="empty-state">' + ICONS.check + ' All clear</div>';
+  }
+
+  html += '<div class="notif-actions">';
+  html += '<button class="notif-btn" onclick="send({cmd:\'toggle_dnd\'})">' + (dnd ? 'Disable' : 'Enable') + ' DND</button>';
+  if (count > 0 || notifications.length > 0) {
+    html += '<button class="notif-btn" onclick="send({cmd:\'notif_dismiss\'})">Dismiss All</button>';
+  }
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// ── Windows Panel ──
+function renderWindows(s) {
+  if (s.popup !== 'windows') return;
+  var el = document.getElementById('panel-windows');
+  if (!el) return;
+  var wins = s.windows || [];
+
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.window + '</span><span>Windows</span><span class="flex"></span><span class="panel-subtitle">' + wins.length + ' open</span></div>';
+
+  if (wins.length === 0) {
+    html += '<div class="empty-state">No windows open</div>';
+  } else {
+    wins.forEach(function(w) {
+      var title = w.title || '';
+      if (title.length > 35) title = title.substring(0, 35) + '\u2026';
+      var appId = w.app_id || '';
+      var ws = w.workspace || 0;
+
+      html += '<div class="win-item">';
+      // Icon
+      if (w.icon) {
+        html += '<img class="win-icon" src="' + w.icon + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="win-icon-fallback" style="display:none">' + (appId || 'W').charAt(0).toUpperCase() + '</div>';
+      } else {
+        html += '<div class="win-icon-fallback">' + (appId || 'W').charAt(0).toUpperCase() + '</div>';
+      }
+      // Info
+      html += '<div class="win-info"><div class="win-title">' + title + '</div><div class="win-app">' + appId + '</div></div>';
+      // Actions
+      html += '<div class="win-actions">';
+      // Workspace move buttons
+      for (var wi = 1; wi <= 3; wi++) {
+        html += '<button class="win-ws-btn' + (wi === ws ? ' active' : '') + '" onclick="send({cmd:\'move_window\',data:{id:' + (w.id || 0) + ',workspace:' + wi + '}})">' + wi + '</button>';
+      }
+      html += '<button class="win-btn" onclick="send({cmd:\'focus_window\',data:' + (w.id || 0) + '})">Focus</button>';
+      html += '<button class="win-btn danger" onclick="send({cmd:\'close_window\',data:' + (w.id || 0) + '})">Close</button>';
+      html += '</div></div>';
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+// ── System Monitor Panel ──
+function renderMonitor(s) {
+  if (s.popup !== 'monitor') return;
+  var el = document.getElementById('panel-monitor');
+  if (!el) return;
+
+  var cpuPct = s.cpu || 0;
+  var memPct = s.mem || 0;
+  var diskPct = s.disk_pct || 0;
+
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.cpu + '</span><span>System Monitor</span></div>';
+
+  // CPU gauge
+  html += '<div class="gauge"><span class="gauge-label">CPU</span><div class="gauge-bar"><div class="gauge-fill" style="width:' + cpuPct + '%;background:' + gaugeColor(cpuPct) + ';"></div></div><span class="gauge-val">' + cpuPct + '%</span></div>';
+  // Memory gauge
+  html += '<div class="gauge"><span class="gauge-label">Memory</span><div class="gauge-bar"><div class="gauge-fill" style="width:' + memPct + '%;background:' + gaugeColor(memPct) + ';"></div></div><span class="gauge-val">' + memPct + '%</span></div>';
+  // Disk gauge
+  html += '<div class="gauge"><span class="gauge-label">Disk</span><div class="gauge-bar"><div class="gauge-fill" style="width:' + diskPct + '%;background:' + gaugeColor(diskPct) + ';"></div></div><span class="gauge-val">' + diskPct + '%</span></div>';
+
+  html += '<div class="sep"></div>';
+
+  // CPU temperature
+  if (s.cpu_temp && s.cpu_temp > 0) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.temp + '</span> Temperature</span><span class="monitor-value">' + s.cpu_temp + '\u00b0C</span></div>';
+  }
+
+  // Disk details
+  if (s.disk_used && s.disk_total) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.disk + '</span> Disk Usage</span><span class="monitor-value">' + s.disk_used + ' / ' + s.disk_total + ' used</span></div>';
+  }
+
+  // Battery
+  if (s.has_bat) {
+    var batInfo = s.bat + '%';
+    if (s.bat_status) batInfo += ' \u00b7 ' + s.bat_status;
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.battery + '</span> Battery</span><span class="monitor-value">' + batInfo + '</span></div>';
+  }
+
+  // Uptime
+  if (s.uptime) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.uptime + '</span> Uptime</span><span class="monitor-value">' + s.uptime + '</span></div>';
+  }
+
+  // Network
+  if (s.net_ip) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.ip + '</span> IP Address</span><span class="monitor-value">' + s.net_ip + '</span></div>';
+  }
+  if (s.wifi) {
+    var sigStr = '';
+    if (s.wifi_signal) sigStr = ' (' + s.wifi_signal + '%)';
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.net_signal + '</span> WiFi</span><span class="monitor-value">' + escapeHtml(s.wifi) + sigStr + '</span></div>';
+  }
+
+  // Network speed
+  if (s.net_rx_bytes_sec != null || s.net_tx_bytes_sec != null) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.net_down + '</span> Network</span><span class="monitor-value">\u2193 ' + formatBytes(s.net_rx_bytes_sec || 0) + '/s  \u2191 ' + formatBytes(s.net_tx_bytes_sec || 0) + '/s</span></div>';
+  }
+
+  // GPU section
+  if (s.gpu_usage > 0) {
+    html += '<div class="sep"></div>';
+    html += '<div class="gauge"><span class="gauge-label">GPU</span><div class="gauge-bar"><div class="gauge-fill" style="width:' + s.gpu_usage + '%;background:' + gaugeColor(s.gpu_usage) + ';"></div></div><span class="gauge-val">' + s.gpu_usage + '%</span></div>';
+    if (s.gpu_temp > 0) {
+      html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.temp + '</span> GPU Temp</span><span class="monitor-value">' + s.gpu_temp + '\u00b0C</span></div>';
+    }
+    if (s.gpu_vram_used != null && s.gpu_vram_total != null) {
+      html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.gpu + '</span> VRAM</span><span class="monitor-value">' + s.gpu_vram_used + ' / ' + s.gpu_vram_total + '</span></div>';
+    }
+  }
+
+  // Fan RPM
+  if (s.fan_rpm > 0) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.fan + '</span> Fan</span><span class="monitor-value">' + s.fan_rpm + ' RPM</span></div>';
+  }
+
+  // Load average
+  if (s.load_avg) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.load + '</span> Load Average</span><span class="monitor-value">' + s.load_avg + '</span></div>';
+  }
+
+  // Swap
+  if (s.swap_used != null && s.swap_total != null) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.swap + '</span> Swap</span><span class="monitor-value">' + s.swap_used + ' / ' + s.swap_total + '</span></div>';
+  }
+
+  // Containers
+  if (s.containers && s.containers.length > 0) {
+    html += '<div class="monitor-row"><span class="monitor-label"><span class="monitor-label-icon">' + ICONS.container + '</span> Containers</span><span class="monitor-value">' + s.containers.length + ' running</span></div>';
+  }
+
+  // Failed systemd units
+  if (s.failed_unit_count > 0) {
+    html += '<div class="sep"></div>';
+    html += '<div style="padding:8px 10px;border-radius:4px;background:var(--bg-surface);border-left:3px solid var(--red);">';
+    html += '<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:4px;">' + ICONS.warning + ' ' + s.failed_unit_count + ' Failed Unit' + (s.failed_unit_count !== 1 ? 's' : '') + '</div>';
+    var failedUnits = s.failed_units || [];
+    failedUnits.forEach(function(u) {
+      html += '<div style="font-size:11px;color:var(--fg-muted);padding:1px 0;">\u2022 ' + escapeHtml(u) + '</div>';
+    });
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// ── Media Panel ──
+function renderMedia(s) {
+  if (s.popup !== 'media') return;
+  var el = document.getElementById('panel-media');
+  if (!el) return;
+
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.music + '</span><span>Now Playing</span></div>';
+
+  if (s.media_title) {
+    html += '<div class="media-info-row">';
+    if (s.media_art_url) {
+      html += '<img class="media-art" src="' + s.media_art_url + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="media-art-placeholder" style="display:none">' + ICONS.music + '</div>';
+    } else {
+      html += '<div class="media-art-placeholder">' + ICONS.music + '</div>';
+    }
+    html += '<div class="media-details">';
+    html += '<div class="media-song">' + s.media_title + '</div>';
+    if (s.media_artist) { html += '<div class="media-artist">' + s.media_artist + '</div>'; }
+    if (s.media_album) { html += '<div class="media-album">' + s.media_album + '</div>'; }
+    if (s.media_player) { html += '<div class="media-player-name">' + s.media_player + '</div>'; }
+    html += '</div></div>';
+
+    // Transport controls
+    html += '<div class="transport">';
+    html += '<button class="transport-btn" onclick="send({cmd:\'exec\',data:\'playerctl previous\'})">' + ICONS.media_prev + '</button>';
+    var playPauseIcon = (s.media_status === 'Playing') ? ICONS.media_pause : ICONS.media_play;
+    html += '<button class="transport-btn main" onclick="send({cmd:\'exec\',data:\'playerctl play-pause\'})">' + playPauseIcon + '</button>';
+    html += '<button class="transport-btn" onclick="send({cmd:\'exec\',data:\'playerctl next\'})">' + ICONS.media_next + '</button>';
+    html += '</div>';
+  } else {
+    html += '<div class="empty-state">' + ICONS.music + ' Nothing playing</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// ── Audio Mixer Panel ──
+function renderAudio(s) {
+  if (s.popup !== 'audio') return;
+  var el = document.getElementById('panel-audio');
+  if (!el) return;
+
+  var html = '<div class="panel-title"><span class="panel-title-icon">' + ICONS.audio_out + '</span><span>Audio Mixer</span></div>';
+
+  // Output devices
+  var sinks = s.audio_sinks || [];
+  html += '<div style="font-size:10px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0;">Output Devices</div>';
+  if (sinks.length > 0) {
+    sinks.forEach(function(sink) {
+      var isDefault = sink.is_default;
+      html += '<div class="wifi-item' + (isDefault ? ' connected' : '') + '" onclick="send({cmd:\'set_default_sink\',data:\'' + escapeHtml(sink.name || '').replace(/'/g, "\\'") + '\'})">';
+      html += '<span class="wifi-icon">' + ICONS.audio_out + '</span>';
+      html += '<span class="wifi-ssid">' + escapeHtml(sink.description || sink.name || 'Unknown') + '</span>';
+      html += '<span class="wifi-meta">' + (isDefault ? 'Default' : '') + '</span>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="empty-state">No output devices</div>';
+  }
+
+  html += '<div class="sep"></div>';
+
+  // Input devices
+  var sources = s.audio_sources || [];
+  html += '<div style="font-size:10px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0;">Input Devices</div>';
+  if (sources.length > 0) {
+    sources.forEach(function(src) {
+      var isDefault = src.is_default;
+      html += '<div class="wifi-item' + (isDefault ? ' connected' : '') + '" onclick="send({cmd:\'set_default_source\',data:\'' + escapeHtml(src.name || '').replace(/'/g, "\\'") + '\'})">';
+      html += '<span class="wifi-icon">' + ICONS.audio_in + '</span>';
+      html += '<span class="wifi-ssid">' + escapeHtml(src.description || src.name || 'Unknown') + '</span>';
+      html += '<span class="wifi-meta">' + (isDefault ? 'Default' : '') + '</span>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="empty-state">No input devices</div>';
+  }
+
+  // Per-app volume streams
+  var streams = s.audio_streams || [];
+  if (streams.length > 0) {
+    html += '<div class="sep"></div>';
+    html += '<div style="font-size:10px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:0.5px;padding:4px 0;">Application Streams</div>';
+    streams.forEach(function(stream) {
+      var vol = Math.round((stream.volume || 0) * 100);
+      html += '<div style="padding:6px 0;">';
+      html += '<div style="font-size:11px;font-weight:500;color:var(--fg);margin-bottom:4px;display:flex;align-items:center;gap:6px;"><span style="font-family:\'JetBrainsMono Nerd Font\';font-size:13px;color:var(--fg-dim);line-height:1;">' + ICONS.audio_app + '</span>' + escapeHtml(stream.name || 'Unknown') + '</div>';
+      html += '<div class="slider-row"><span class="slider-icon">' + ICONS.vol_hi + '</span><div class="slider-track"><div class="slider-fill" style="width:' + vol + '%;"></div><input type="range" min="0" max="100" value="' + vol + '" oninput="sendThrottled(\'stream_' + (stream.id || 0) + '\',{cmd:\'set_stream_volume\',data:{id:' + (stream.id || 0) + ',volume:Number(this.value)/100}})"></div><span class="slider-val">' + vol + '%</span></div>';
+      html += '</div>';
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+// ── Main ──
+function updateState(s) {
+  if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+  // Track profile for cycling
+  if (s.power_profile) _currentProfile = s.power_profile;
+  // Reset calendar view when opening calendar
+  if (s.popup === 'calendar') {
+    var now = new Date();
+    _calYear = now.getFullYear();
+    _calMonth = now.getMonth();
+  }
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  var panel = document.getElementById('panel-' + s.popup);
+  if (panel) panel.classList.add('active');
+  renderSettings(s);
+  renderWifi(s);
+  renderPower(s);
+  renderLauncher(s);
+  renderConfig(s);
+  renderCalendar(s);
+  renderNotifications(s);
+  renderWindows(s);
+  renderMonitor(s);
+  renderMedia(s);
+  renderAudio(s);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { send({cmd:'dismiss'}); return; }
+  var p = document.querySelector('.panel.active');
+  if (p && p.id === 'panel-launcher') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveSelection(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelection(-1); }
+    else if (e.key === 'Tab') { e.preventDefault(); moveSelection(e.shiftKey ? -1 : 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); var sel = document.querySelector('.app-item.selected'); if (sel) sel.click(); }
+  }
+});
+</script>
+</body>
+</html>

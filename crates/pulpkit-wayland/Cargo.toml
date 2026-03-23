@@ -9,5 +9,8 @@ smithay-client-toolkit.workspace = true
 wayland-client.workspace = true
 wayland-cursor.workspace = true
 calloop.workspace = true
+wayland-protocols = { version = "0.32", features = ["client", "unstable", "staging"] }
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+wayland-protocols-misc = { version = "0.3", features = ["client"] }
 log.workspace = true
 anyhow.workspace = true

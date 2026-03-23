@@ -32,6 +32,7 @@ use wayland_client::{
     Connection, Proxy, QueueHandle,
 };
 use wayland_cursor::CursorTheme;
+use wayland_protocols::wp::idle_inhibit::zv1::client::zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1;
 
 use crate::input::InputEvent;
 use crate::output::OutputInfo;
@@ -92,6 +93,15 @@ pub struct AppState {
 
     /// Surface IDs that received a frame callback (compositor ready for next frame).
     pub frame_callbacks: Vec<ObjectId>,
+
+    /// Idle inhibit manager (if compositor supports it).
+    pub idle_inhibit_manager: Option<ZwpIdleInhibitManagerV1>,
+
+    /// Whether the user is currently idle (from ext-idle-notify).
+    pub idle: bool,
+
+    /// Whether the session is currently locked (from ext-session-lock).
+    pub session_locked: bool,
 }
 
 impl AppState {
@@ -164,6 +174,9 @@ impl WaylandClient {
         let cursor_theme = CursorTheme::load(&conn, shm.wl_shm().clone(), 24).ok();
         let cursor_surface = compositor_state.create_surface(&qh);
 
+        // Bind idle inhibit manager (optional — not all compositors support it).
+        let idle_inhibit_manager = crate::idle::bind_idle_inhibit_manager(&globals, &qh);
+
         let state = AppState {
             registry_state: RegistryState::new(&globals),
             seat_state: SeatState::new(&globals, &qh),
@@ -190,6 +203,9 @@ impl WaylandClient {
             last_serial: 0,
             exit_requested: false,
             frame_callbacks: Vec::new(),
+            idle_inhibit_manager,
+            idle: false,
+            session_locked: false,
         };
 
         let event_loop: calloop::EventLoop<'static, AppState> =

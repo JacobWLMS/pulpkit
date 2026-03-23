@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* ── Theme Variables ── */
+  :root, [data-theme="flexoki"] {
+    --bg: #181825; --bg-surface: #1e1e2e; --bg-overlay: #313244;
+    --fg: #cdd6f4; --fg-muted: #a6adc8; --fg-dim: #585b70;
+    --accent: #cba6f7; --blue: #89b4fa; --green: #a6e3a1;
+    --red: #f38ba8; --yellow: #f9e2af; --peach: #fab387;
+    --teal: #94e2d5; --pink: #f2cdcd; --mauve: #cba6f7;
+    --text-on-color: #181825;
+  }
+  [data-theme="macchiato"] {
+    --bg: #1e2030; --bg-surface: #24273a; --bg-overlay: #363a4f;
+    --fg: #cad3f5; --fg-muted: #a5adcb; --fg-dim: #5b6078;
+    --accent: #c6a0f6; --blue: #8aadf4; --green: #a6da95;
+    --red: #ed8796; --yellow: #eed49f; --peach: #f5a97f;
+    --teal: #8bd5ca; --pink: #f0c6c6; --mauve: #c6a0f6;
+    --text-on-color: #1e2030;
+  }
+  [data-theme="frappe"] {
+    --bg: #292c3c; --bg-surface: #303446; --bg-overlay: #414559;
+    --fg: #c6d0f5; --fg-muted: #a5adce; --fg-dim: #626880;
+    --accent: #ca9ee6; --blue: #8caaee; --green: #a6d189;
+    --red: #e78284; --yellow: #e5c890; --peach: #ef9f76;
+    --teal: #81c8be; --pink: #eebebe; --mauve: #ca9ee6;
+    --text-on-color: #292c3c;
+  }
+  [data-theme="latte"] {
+    --bg: #e6e9ef; --bg-surface: #eff1f5; --bg-overlay: #ccd0da;
+    --fg: #4c4f69; --fg-muted: #6c6f85; --fg-dim: #9ca0b0;
+    --accent: #8839ef; --blue: #1e66f5; --green: #40a02b;
+    --red: #d20f39; --yellow: #df8e1d; --peach: #fe640b;
+    --teal: #179299; --pink: #ea76cb; --mauve: #8839ef;
+    --text-on-color: #eff1f5;
+  }
+  [data-theme="tokyonight"] {
+    --bg: #1a1b26; --bg-surface: #16161e; --bg-overlay: #24283b;
+    --fg: #c0caf5; --fg-muted: #565f89; --fg-dim: #414868;
+    --accent: #7aa2f7; --blue: #7aa2f7; --green: #9ece6a;
+    --red: #f7768e; --yellow: #e0af68; --peach: #ff9e64;
+    --teal: #73daca; --pink: #bb9af7; --mauve: #bb9af7;
+    --text-on-color: #1a1b26;
+  }
+  [data-theme="nord"] {
+    --bg: #2e3440; --bg-surface: #3b4252; --bg-overlay: #434c5e;
+    --fg: #eceff4; --fg-muted: #d8dee9; --fg-dim: #4c566a;
+    --accent: #88c0d0; --blue: #81a1c1; --green: #a3be8c;
+    --red: #bf616a; --yellow: #ebcb8b; --peach: #d08770;
+    --teal: #8fbcbb; --pink: #b48ead; --mauve: #b48ead;
+    --text-on-color: #2e3440;
+  }
+  [data-theme="gruvbox"] {
+    --bg: #1d2021; --bg-surface: #282828; --bg-overlay: #3c3836;
+    --fg: #ebdbb2; --fg-muted: #a89984; --fg-dim: #665c54;
+    --accent: #d79921; --blue: #458588; --green: #98971a;
+    --red: #cc241d; --yellow: #d79921; --peach: #d65d0e;
+    --teal: #689d6a; --pink: #b16286; --mauve: #b16286;
+    --text-on-color: #1d2021;
+  }
+  [data-theme="rosepine"] {
+    --bg: #191724; --bg-surface: #1f1d2e; --bg-overlay: #26233a;
+    --fg: #e0def4; --fg-muted: #908caa; --fg-dim: #6e6a86;
+    --accent: #c4a7e7; --blue: #9ccfd8; --green: #31748f;
+    --red: #eb6f92; --yellow: #f6c177; --peach: #f6c177;
+    --teal: #9ccfd8; --pink: #ebbcba; --mauve: #c4a7e7;
+    --text-on-color: #191724;
+  }
+  [data-theme="onedark"] {
+    --bg: #1e2127; --bg-surface: #282c34; --bg-overlay: #353b45;
+    --fg: #abb2bf; --fg-muted: #7f848e; --fg-dim: #545862;
+    --accent: #c678dd; --blue: #61afef; --green: #98c379;
+    --red: #e06c75; --yellow: #e5c07b; --peach: #d19a66;
+    --teal: #56b6c2; --pink: #c678dd; --mauve: #c678dd;
+    --text-on-color: #1e2127;
+  }
+  [data-theme="dracula"] {
+    --bg: #21222c; --bg-surface: #282a36; --bg-overlay: #44475a;
+    --fg: #f8f8f2; --fg-muted: #bfbfbf; --fg-dim: #6272a4;
+    --accent: #bd93f9; --blue: #8be9fd; --green: #50fa7b;
+    --red: #ff5555; --yellow: #f1fa8c; --peach: #ffb86c;
+    --teal: #8be9fd; --pink: #ff79c6; --mauve: #bd93f9;
+    --text-on-color: #282a36;
+  }
+  [data-theme="solarized"] {
+    --bg: #002b36; --bg-surface: #073642; --bg-overlay: #0a4050;
+    --fg: #839496; --fg-muted: #657b83; --fg-dim: #586e75;
+    --accent: #268bd2; --blue: #268bd2; --green: #859900;
+    --red: #dc322f; --yellow: #b58900; --peach: #cb4b16;
+    --teal: #2aa198; --pink: #d33682; --mauve: #6c71c4;
+    --text-on-color: #002b36;
+  }
+  [data-theme="flexoki"] {
+    --bg: #100f0f; --bg-surface: #1c1b1a; --bg-overlay: #282726;
+    --fg: #cecdc3; --fg-muted: #878580; --fg-dim: #575653;
+    --accent: #da702c; --blue: #4385be; --green: #879a39;
+    --red: #d14d41; --yellow: #d0a215; --peach: #da702c;
+    --teal: #3aa99f; --pink: #ce5d97; --mauve: #8b7ec8;
+    --text-on-color: #100f0f;
+  }
+
+  /* ── Base ── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;
+    color: var(--fg);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 6px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .bar {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bg-overlay) 60%, transparent);
+    border-radius: 4px;
+    padding: 0 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .left { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+  .center { display: flex; align-items: center; justify-content: center; }
+  .right { display: flex; align-items: center; gap: 2px; flex: 1; justify-content: flex-end; }
+
+  .divider {
+    width: 1px;
+    height: 16px;
+    background: var(--bg-overlay);
+    margin: 0 8px;
+    flex-shrink: 0;
+  }
+
+  /* ── Launcher Button ── */
+  .launcher-btn {
+    font-family: 'JetBrainsMono Nerd Font';
+    font-size: 16px;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .launcher-btn:hover { background: var(--bg-surface); transform: scale(1.1); }
+
+  /* ── Workspaces ── */
+  #workspaces { display: flex; gap: 2px; }
+  .ws {
+    width: 24px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    color: var(--fg-dim);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .ws:hover { color: var(--fg-muted); background: var(--bg-surface); }
+  .ws.active { color: var(--text-on-color); background: var(--accent); }
+
+  /* ── Taskbar ── */
+  #taskbar { display: flex; gap: 2px; margin-left: 4px; }
+  .task {
+    width: 28px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border-radius: 3px;
+    position: relative; opacity: 0.55;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .task:hover { opacity: 0.85; background: var(--bg-surface); }
+  .task.focused { opacity: 1; }
+  .task.focused::after {
+    content: '';
+    position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 2px; border-radius: 1px;
+    background: var(--accent);
+  }
+  .task img { width: 18px; height: 18px; }
+  .task .fallback { font-size: 9px; font-weight: 600; color: var(--fg-dim); }
+
+  /* ── Active Window Title ── */
+  #active-title {
+    font-size: 11px;
+    color: var(--fg-dim);
+    margin-left: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  /* ── Clock ── */
+  #clock {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
+    color: var(--fg); cursor: pointer;
+    padding: 4px 12px; border-radius: 3px;
+    transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #clock:hover { background: var(--bg-surface); }
+
+  /* ── CPU/MEM Mini Indicators ── */
+  .mini-stat {
+    font-size: 10px;
+    color: var(--fg-dim);
+    font-weight: 500;
+    padding: 2px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .mini-stat.warn { color: var(--yellow); }
+  .mini-stat.crit { color: var(--red); }
+
+  /* ── Notification Indicator ── */
+  #notif-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 3px;
+    color: var(--fg-muted);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #notif-btn:hover { color: var(--fg); background: var(--bg-surface); }
+  #notif-btn .nf { font-family: 'JetBrainsMono Nerd Font'; font-size: 14px; line-height: 1; }
+  #notif-badge {
+    display: none;
+    position: absolute;
+    top: 2px; right: 3px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+  }
+  #notif-badge.has-notif { display: block; }
+
+  /* ── Tray ── */
+  #tray { display: flex; gap: 4px; align-items: center; }
+  .tray-item { cursor: pointer; display: flex; align-items: center; }
+  .tray-item img { width: 14px; height: 14px; opacity: 0.5; transition: opacity 0.15s; }
+  .tray-item:hover img { opacity: 0.8; }
+
+  /* ── Status ── */
+  .stat {
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 3px;
+    cursor: pointer; color: var(--fg-muted);
+    font-size: 11px; font-weight: 500;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+  }
+  .stat:hover { color: var(--fg); background: var(--bg-surface); }
+  .stat .nf { font-family: 'JetBrainsMono Nerd Font'; font-size: 14px; line-height: 1; }
+  .stat.warn { color: var(--yellow); }
+  .stat.crit { color: var(--red); }
+
+  /* ── Context Menu ── */
+  #ctx-menu {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-surface);
+    border: 1px solid var(--bg-overlay);
+    border-radius: 6px;
+    padding: 4px 0;
+    min-width: 140px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+  #ctx-menu.visible { display: block; }
+  .ctx-item {
+    display: block;
+    width: 100%;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    text-align: left;
+    font-family: inherit;
+    transition: all 0.1s;
+  }
+  .ctx-item:hover { color: var(--fg); background: var(--bg-overlay); }
+  .ctx-sep {
+    height: 1px;
+    background: var(--bg-overlay);
+    margin: 3px 0;
+  }
+
+  /* ── Media Controls ── */
+  .media {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .media-btn {
+    font-family: 'JetBrainsMono Nerd Font';
+    font-size: 12px;
+    color: var(--fg-dim);
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+    transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .media-btn:hover { color: var(--fg-muted); }
+  .media-info {
+    font-size: 10px;
+    color: var(--fg-muted);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  /* ── Charging Bolt ── */
+  .bolt-icon {
+    font-family: 'JetBrainsMono Nerd Font';
+    font-size: 12px;
+    color: var(--green);
+    line-height: 1;
+    margin-right: 2px;
+  }
+
+  /* ── Window Count ── */
+  #win-count {
+    font-size: 9px;
+    color: var(--fg-dim);
+    white-space: nowrap;
+    margin-left: 4px;
+  }
+
+  /* ── Contextual Indicators ── */
+  #indicators {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+  }
+  #indicators .ind {
+    font-family: 'JetBrainsMono Nerd Font';
+    line-height: 1;
+    color: var(--fg-muted);
+    transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #indicators .ind.accent { color: var(--accent); }
+  #indicators .ind.warn { color: var(--yellow); }
+  #indicators .ind.dim { color: var(--fg-dim); }
+  #indicators .ind-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-family: 'JetBrainsMono Nerd Font';
+    font-size: 10px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  #indicators .ind-group .gpu-temp {
+    font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--fg-muted);
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="left">
+    <span class="launcher-btn" id="launcher-btn" onclick="send({cmd:'popup',data:'launcher'})"></span>
+    <div class="divider"></div>
+    <div id="workspaces"></div>
+    <div class="divider"></div>
+    <div id="taskbar"></div>
+    <span id="active-title"></span>
+    <div class="divider" id="media-divider" style="display:none"></div>
+    <div class="media" id="media" style="display:none" onclick="send({cmd:'popup',data:'media'})">
+      <span class="media-btn" id="media-prev" onclick="event.stopPropagation();send({cmd:'exec',data:'playerctl previous'})"></span>
+      <span class="media-btn" id="media-play" onclick="event.stopPropagation();send({cmd:'exec',data:'playerctl play-pause'})"></span>
+      <span class="media-btn" id="media-next" onclick="event.stopPropagation();send({cmd:'exec',data:'playerctl next'})"></span>
+      <span class="media-info" id="media-info"></span>
+    </div>
+  </div>
+  <div class="center">
+    <span id="clock" onclick="send({cmd:'popup',data:'calendar'})"></span>
+  </div>
+  <div class="right">
+    <span class="mini-stat" id="cpu-stat"></span>
+    <span class="mini-stat" id="mem-stat"></span>
+    <div class="divider"></div>
+    <span id="notif-btn" onclick="send({cmd:'popup',data:'notifications'})">
+      <span class="nf" id="notif-icon"></span>
+      <span id="notif-badge"></span>
+    </span>
+    <div class="divider"></div>
+    <div id="tray"></div>
+    <div class="divider" id="tray-divider" style="display:none"></div>
+    <div id="indicators"></div>
+    <span class="stat" id="net-stat" onclick="send({cmd:'popup',data:'wifi'})">
+      <span class="nf" id="net-icon"></span>
+    </span>
+    <span class="stat" id="vol-stat" onclick="send({cmd:'popup',data:'settings'})" oncontextmenu="event.preventDefault();send({cmd:'vol_mute'})">
+      <span class="nf" id="vol-icon"></span>
+      <span id="vol-val"></span>
+    </span>
+    <span class="stat" id="settings-stat" onclick="send({cmd:'popup',data:'settings'})">
+      <span class="nf" id="settings-icon" style="font-size:13px"></span>
+    </span>
+    <span class="stat" id="bat-stat" onclick="send({cmd:'popup',data:'config'})">
+      <span id="bat-val"></span>
+    </span>
+    <span class="stat" id="power-stat" onclick="send({cmd:'popup',data:'power'})">
+      <span class="nf" id="power-icon" style="font-size:12px"></span>
+    </span>
+  </div>
+</div>
+<div id="ctx-menu"></div>
+<script>
+function send(o) { window.webkit.messageHandlers.pulpkit.postMessage(JSON.stringify(o)); }
+let _st = {};
+function sendThrottled(key, o) { if(window['_t_'+key]) return; send(o); window['_t_'+key] = setTimeout(() => { delete window['_t_'+key]; }, 80); }
+function setText(id, text) { const el = document.getElementById(id); if (el && el.textContent !== text) el.textContent = text; }
+
+const ICONS = {
+  vol_hi:'\u{f057e}', vol_mid:'\u{f0580}', vol_lo:'\u{f057f}', vol_mute:'\u{f075f}',
+  bat_full:'\u{f0079}', bat_good:'\u{f0080}', bat_half:'\u{f007e}', bat_low:'\u{f007b}',
+  bat_chrg:'\u{f0084}', bat_empty:'\u{f008e}',
+  wifi_4:'\u{f0928}', wifi_3:'\u{f0925}', wifi_2:'\u{f0922}', wifi_1:'\u{f091f}', wifi_off:'\u{f092d}',
+  bright:'\u{f00df}', power:'\u{f0425}', lock:'\u{f033e}', suspend:'\u{f0904}',
+  logout:'\u{f05fc}', reboot:'\u{f0709}', shutdown:'\u{f0426}',
+  search:'\u{f0349}', settings:'\u{f0493}',
+  night_on:'\u{f0335}', night_off:'\u{f0336}',
+  dnd_on:'\u{f0376}', dnd_off:'\u{f0377}',
+  bt_on:'\u{f00af}', bt_off:'\u{f00b2}',
+  screenshot:'\u{f0c51}',
+  bell:'\u{f009a}',
+  media_prev:'\u{f064e}', media_next:'\u{f064d}', media_play:'\u{f040a}', media_pause:'\u{f03e4}',
+  bolt:'\u{f0084}',
+  arch:'\u{f08c7}',
+};
+function volIcon(v, m) { return m ? ICONS.vol_mute : v > 50 ? ICONS.vol_hi : v > 0 ? ICONS.vol_mid : ICONS.vol_lo; }
+function wifiIcon(sig) { return sig > 75 ? ICONS.wifi_4 : sig > 50 ? ICONS.wifi_3 : sig > 25 ? ICONS.wifi_2 : sig > 0 ? ICONS.wifi_1 : ICONS.wifi_off; }
+
+// ── Workspaces ──
+let _wsKey = '';
+function renderWorkspaces(s) {
+  const el = document.getElementById('workspaces');
+  if (!el) return;
+  const key = s.ws.map(w => w.idx + (w.active ? 'a' : '')).join(',');
+  if (_wsKey === key) return;
+  _wsKey = key;
+  el.innerHTML = '';
+  s.ws.forEach(w => {
+    const span = document.createElement('span');
+    span.className = 'ws' + (w.active ? ' active' : '');
+    span.textContent = w.idx;
+    span.onclick = () => send({ cmd: 'ws_go', data: w.idx });
+    el.appendChild(span);
+  });
+}
+
+// ── Taskbar ──
+let _tbKey = '';
+function renderTaskbar(s) {
+  const el = document.getElementById('taskbar');
+  if (!el) return;
+  const key = (s.windows || []).map(w => w.id + (w.focused ? 'f' : '')).join(',');
+  if (_tbKey === key) return;
+  _tbKey = key;
+  el.innerHTML = '';
+  (s.windows || []).forEach(w => {
+    const span = document.createElement('span');
+    span.className = 'task' + (w.focused ? ' focused' : '');
+    span.title = w.title;
+    if (w.icon) {
+      const img = document.createElement('img');
+      img.src = w.icon;
+      img.draggable = false;
+      span.appendChild(img);
+    } else {
+      const fb = document.createElement('span');
+      fb.className = 'fallback';
+      fb.textContent = (w.app_id.split('.').pop() || '?')[0].toUpperCase();
+      span.appendChild(fb);
+    }
+    span.onclick = () => send({ cmd: 'focus_window', data: w.id });
+    span.oncontextmenu = (ev) => { ev.preventDefault(); showCtxMenu(ev, w, s); };
+    el.appendChild(span);
+  });
+}
+
+// ── Active Window Title ──
+let _lastTitle = '';
+function renderActiveTitle(s) {
+  const el = document.getElementById('active-title');
+  if (!el) return;
+  const title = s.active_title || '';
+  if (_lastTitle === title) return;
+  _lastTitle = title;
+  if (title) {
+    el.textContent = title.length > 30 ? title.substring(0, 30) + '\u2026' : title;
+    el.style.display = '';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
+
+// ── Context Menu ──
+let _ctxWinId = null;
+function showCtxMenu(ev, win, s) {
+  const menu = document.getElementById('ctx-menu');
+  if (!menu) return;
+  _ctxWinId = win.id;
+  menu.innerHTML = '';
+
+  // Close item
+  const closeItem = document.createElement('div');
+  closeItem.className = 'ctx-item';
+  closeItem.textContent = 'Close';
+  closeItem.onclick = () => { send({ cmd: 'close_window', data: win.id }); hideCtxMenu(); };
+  menu.appendChild(closeItem);
+
+  // Separator
+  const sep = document.createElement('div');
+  sep.className = 'ctx-sep';
+  menu.appendChild(sep);
+
+  // Move to workspace items
+  (s.ws || []).forEach(w => {
+    const item = document.createElement('div');
+    item.className = 'ctx-item';
+    item.textContent = 'Move to ' + w.idx;
+    item.onclick = () => { send({ cmd: 'move_to_workspace', data: { id: win.id, ws: w.idx } }); hideCtxMenu(); };
+    menu.appendChild(item);
+  });
+
+  // Position near the click
+  const bh = document.body.offsetHeight;
+  const bw = document.body.offsetWidth;
+  menu.classList.add('visible');
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  let x = ev.clientX;
+  let y = ev.clientY;
+  // Ensure menu stays within viewport
+  if (x + mw > bw) x = bw - mw - 4;
+  if (x < 4) x = 4;
+  // Prefer showing above the bar if near bottom
+  if (y + mh > bh) y = y - mh;
+  if (y < 4) y = 4;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+
+function hideCtxMenu() {
+  const menu = document.getElementById('ctx-menu');
+  if (menu) { menu.classList.remove('visible'); _ctxWinId = null; }
+}
+
+// Dismiss context menu on click-outside
+document.addEventListener('mousedown', (ev) => {
+  const menu = document.getElementById('ctx-menu');
+  if (menu && menu.classList.contains('visible') && !menu.contains(ev.target)) {
+    hideCtxMenu();
+  }
+});
+
+// ── Clock ──
+const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let _lastClock = '';
+function renderClock() {
+  const el = document.getElementById('clock');
+  if (!el) return;
+  const d = new Date();
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const text = _days[d.getDay()] + ' ' + h + ':' + m;
+  if (_lastClock !== text) { el.textContent = text; _lastClock = text; }
+}
+renderClock();
+setInterval(renderClock, 1000);
+
+// ── Static Icons (set once) ──
+(function() {
+  const launcherBtn = document.getElementById('launcher-btn');
+  if (launcherBtn) launcherBtn.textContent = ICONS.arch;
+  const powerIcon = document.getElementById('power-icon');
+  if (powerIcon) powerIcon.textContent = ICONS.power;
+  const settingsIcon = document.getElementById('settings-icon');
+  if (settingsIcon) settingsIcon.textContent = ICONS.settings;
+  const notifIcon = document.getElementById('notif-icon');
+  if (notifIcon) notifIcon.textContent = ICONS.bell;
+})();
+
+// ── CPU/MEM Mini Indicators ──
+let _lastCpu = -1, _lastMem = -1;
+function renderMiniStats(s) {
+  const cpuEl = document.getElementById('cpu-stat');
+  const memEl = document.getElementById('mem-stat');
+  const cpu = s.cpu != null ? s.cpu : 0;
+  const mem = s.mem != null ? s.mem : 0;
+  if (cpuEl && cpu !== _lastCpu) {
+    _lastCpu = cpu;
+    cpuEl.textContent = 'cpu ' + cpu;
+    cpuEl.className = 'mini-stat' + (cpu > 90 ? ' crit' : cpu > 80 ? ' warn' : '');
+  }
+  if (memEl && mem !== _lastMem) {
+    _lastMem = mem;
+    memEl.textContent = 'mem ' + mem;
+    memEl.className = 'mini-stat' + (mem > 90 ? ' crit' : mem > 80 ? ' warn' : '');
+  }
+}
+
+// ── Notification Indicator ──
+let _lastNotif = -1;
+function renderNotif(s) {
+  const iconEl = document.getElementById('notif-icon');
+  const badgeEl = document.getElementById('notif-badge');
+  if (iconEl) iconEl.textContent = ICONS.bell;
+  const count = s.notif_count || 0;
+  if (count !== _lastNotif) {
+    _lastNotif = count;
+    if (badgeEl) badgeEl.className = count > 0 ? 'has-notif' : '';
+    /* Update id to keep the element identifiable */
+    if (badgeEl) badgeEl.id = 'notif-badge';
+  }
+}
+
+// ── Status ──
+function renderStatus(s) {
+  const netIcon = document.getElementById('net-icon');
+  if (netIcon) netIcon.textContent = s.wifi ? wifiIcon(s.net_signal) : ICONS.wifi_off;
+  const netStat = document.getElementById('net-stat');
+  if (netStat) netStat.className = 'stat' + (s.wifi ? '' : ' warn');
+
+  const volI = document.getElementById('vol-icon');
+  if (volI) volI.textContent = volIcon(s.vol, s.muted);
+  setText('vol-val', s.muted ? '' : String(s.vol));
+  const volStat = document.getElementById('vol-stat');
+  if (volStat) volStat.className = 'stat' + (s.muted ? ' warn' : '');
+
+  const batStat = document.getElementById('bat-stat');
+  if (s.has_bat) {
+    var batValEl = document.getElementById('bat-val');
+    if (batValEl) {
+      if (s.bat_status === 'Charging') {
+        batValEl.innerHTML = '<span class="bolt-icon">' + ICONS.bolt + '</span>' + s.bat + '%';
+      } else {
+        batValEl.textContent = s.bat + '%';
+      }
+    }
+    if (batStat) {
+      batStat.style.display = '';
+      batStat.className = 'stat' + (s.bat <= 15 ? ' crit' : s.bat <= 30 ? ' warn' : '');
+    }
+  } else {
+    if (batStat) batStat.style.display = 'none';
+  }
+}
+
+// ── Tray ──
+let _trayKey = '';
+function renderTray(s) {
+  const el = document.getElementById('tray');
+  const div = document.getElementById('tray-divider');
+  if (!el) return;
+  const items = s.tray_items || [];
+  const key = items.map(t => t.id).join(',');
+  if (_trayKey === key) return;
+  _trayKey = key;
+  if (div) div.style.display = items.length ? '' : 'none';
+  el.innerHTML = '';
+  items.forEach(t => {
+    const wrap = document.createElement('span');
+    wrap.className = 'tray-item';
+    wrap.title = t.title || t.id;
+    wrap.onclick = () => send({ cmd: 'tray_activate', data: { address: t.address, click: 'left' } });
+    wrap.oncontextmenu = (e) => { e.preventDefault(); send({ cmd: 'tray_activate', data: { address: t.address, click: 'right' } }); };
+    if (t.icon) {
+      const img = document.createElement('img');
+      img.src = t.icon;
+      img.draggable = false;
+      wrap.appendChild(img);
+    }
+    el.appendChild(wrap);
+  });
+}
+
+// ── Media Controls ──
+let _lastMediaKey = '';
+function renderMedia(s) {
+  var mediaEl = document.getElementById('media');
+  var dividerEl = document.getElementById('media-divider');
+  if (!mediaEl) return;
+  var title = s.media_title || '';
+  var artist = s.media_artist || '';
+  var playing = s.media_playing || false;
+  var key = title + '|' + artist + '|' + playing;
+  if (_lastMediaKey === key) return;
+  _lastMediaKey = key;
+  if (!title) {
+    mediaEl.style.display = 'none';
+    if (dividerEl) dividerEl.style.display = 'none';
+    return;
+  }
+  mediaEl.style.display = 'flex';
+  if (dividerEl) dividerEl.style.display = '';
+  var prevBtn = document.getElementById('media-prev');
+  var playBtn = document.getElementById('media-play');
+  var nextBtn = document.getElementById('media-next');
+  var infoEl = document.getElementById('media-info');
+  if (prevBtn) prevBtn.textContent = ICONS.media_prev;
+  if (playBtn) playBtn.textContent = playing ? ICONS.media_pause : ICONS.media_play;
+  if (nextBtn) nextBtn.textContent = ICONS.media_next;
+  if (infoEl) {
+    var info = artist ? title + ' - ' + artist : title;
+    infoEl.textContent = info.length > 25 ? info.substring(0, 25) + '\u2026' : info;
+  }
+}
+
+// ── Window Count ──
+let _lastWinCount = -1;
+function renderWinCount(s) {
+  var el = document.getElementById('win-count');
+  if (!el) return;
+  var count = (s.windows || []).length;
+  if (count === _lastWinCount) return;
+  _lastWinCount = count;
+  el.textContent = count > 2 ? count + ' windows' : '';
+}
+
+// ── Contextual Indicators ──
+let _indKey = '';
+function renderIndicators(s) {
+  var el = document.getElementById('indicators');
+  if (!el) return;
+  var parts = [];
+  if (s.vpn_active) parts.push({ icon: '\uf0e8', cls: 'accent', title: s.vpn_name || 'VPN' });
+  if (s.dnd) parts.push({ icon: '\udb81\udd76', cls: 'accent', title: 'Do Not Disturb' });
+  if (s.caffeine_active) parts.push({ icon: '\udb81\udeca', cls: 'accent', title: 'Caffeine' });
+  if (s.mic_muted) parts.push({ icon: '\udb80\udf6d', cls: 'dim', title: 'Mic Muted' });
+  if (s.screen_sharing) parts.push({ icon: '\udb81\udd79', cls: 'warn', title: 'Screen Sharing' });
+  // Gaming gets special treatment: icon + GPU temp
+  var gaming = s.gamemode_active || false;
+  var key = parts.map(function(p) { return p.icon + p.cls; }).join('|') + (gaming ? '|gm' + (s.gpu_temp || '') : '');
+  if (_indKey === key) return;
+  _indKey = key;
+  el.innerHTML = '';
+  parts.forEach(function(p) {
+    var span = document.createElement('span');
+    span.className = 'ind ' + p.cls;
+    span.textContent = p.icon;
+    span.title = p.title;
+    el.appendChild(span);
+  });
+  if (gaming) {
+    var grp = document.createElement('span');
+    grp.className = 'ind-group';
+    grp.title = 'Game Mode';
+    var ico = document.createElement('span');
+    ico.textContent = '\udb80\udd97';
+    grp.appendChild(ico);
+    if (s.gpu_temp != null) {
+      var temp = document.createElement('span');
+      temp.className = 'gpu-temp';
+      temp.textContent = s.gpu_temp + '\u00b0';
+      grp.appendChild(temp);
+    }
+    el.appendChild(grp);
+  }
+}
+
+function updateState(s) {
+  _st = s;
+  if (s.theme) document.documentElement.setAttribute('data-theme', s.theme);
+  renderWorkspaces(s);
+  renderTaskbar(s);
+  renderActiveTitle(s);
+  renderClock(s);
+  renderMiniStats(s);
+  renderNotif(s);
+  renderStatus(s);
+  renderTray(s);
+  renderMedia(s);
+  renderIndicators(s);
+}
+
+// ── Workspace Scroll ──
+document.getElementById('workspaces').addEventListener('wheel', function(e) {
+  e.preventDefault();
+  var current = _st.ws ? _st.ws.find(function(w){return w.active;}) : null;
+  if (!current) return;
+  var next = current.idx + (e.deltaY > 0 ? 1 : -1);
+  if (next >= 1) send({cmd:'ws_go', data: next});
+});
+
+// ── Volume Scroll ──
+document.getElementById('vol-stat').addEventListener('wheel', function(e) {
+  e.preventDefault();
+  var newVol = Math.max(0, Math.min(100, _st.vol + (e.deltaY < 0 ? 5 : -5)));
+  send({cmd:'vol_set', data: newVol});
+});
+</script>
+</body>
+</html>

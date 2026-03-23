@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;overflow:hidden;">
+<script>
+// Mock webkit message handler
+window.webkit = { messageHandlers: { pulpkit: { postMessage: function(msg) {
+  console.log('[pulpkit cmd]', msg);
+} } } };
+</script>
+<script>
+// Load the real bar HTML via fetch, inject into this document
+fetch('bar.html').then(r => r.text()).then(html => {
+  // Extract and execute
+  document.open();
+  document.write(html);
+  document.close();
+
+  // Inject mock state after a moment
+  setTimeout(() => {
+    if (typeof updateState === 'function') {
+      updateState({"active_app_id":"firefox","active_title":"Firefox","apps":[{"exec":"firefox","icon":"","name":"Firefox"},{"exec":"kitty","icon":"","name":"Kitty"},{"exec":"nautilus","icon":"","name":"Files"},{"exec":"steam","icon":"","name":"Steam"},{"exec":"spotify","icon":"","name":"Spotify"},{"exec":"discord","icon":"","name":"Discord"}],"audio_device":"HD Audio Speaker","bat":78,"bat_status":"Discharging","bright":65,"cpu":23,"custom":{},"disk_pct":69,"disk_total":"248G","disk_used":"171G","dnd":false,"has_bat":true,"host":"archlinux","kernel":"6.19.7-1-cachyos","mem":45,"muted":false,"net_ip":"192.168.1.42","net_signal":82,"notif_count":2,"popup":"settings","power_profile":"balanced","theme":"gruvbox","tray_items":[{"address":":1.100","icon":"","id":"steam","title":"Steam"},{"address":":1.101","icon":"","id":"discord","title":"Discord"}],"uptime":"3 hours, 12 min","user":"user","vol":72,"wifi":"HomeNetwork","wifi_nets":[{"active":true,"secure":true,"signal":82,"ssid":"HomeNetwork"},{"active":false,"secure":true,"signal":54,"ssid":"Neighbor_5G"},{"active":false,"secure":false,"signal":31,"ssid":"CoffeeShop"}],"windows":[{"app_id":"firefox","focused":true,"icon":"","id":1,"title":"Firefox"},{"app_id":"kitty","focused":false,"icon":"","id":2,"title":"Terminal"},{"app_id":"code","focused":false,"icon":"","id":3,"title":"Code"}],"ws":[{"active":true,"idx":1},{"active":false,"idx":2},{"active":false,"idx":3}]});
+    }
+  }, 200);
+  setInterval(() => {
+    if (typeof updateState === 'function') {
+      updateState({"active_app_id":"firefox","active_title":"Firefox","apps":[{"exec":"firefox","icon":"","name":"Firefox"},{"exec":"kitty","icon":"","name":"Kitty"},{"exec":"nautilus","icon":"","name":"Files"},{"exec":"steam","icon":"","name":"Steam"},{"exec":"spotify","icon":"","name":"Spotify"},{"exec":"discord","icon":"","name":"Discord"}],"audio_device":"HD Audio Speaker","bat":78,"bat_status":"Discharging","bright":65,"cpu":23,"custom":{},"disk_pct":69,"disk_total":"248G","disk_used":"171G","dnd":false,"has_bat":true,"host":"archlinux","kernel":"6.19.7-1-cachyos","mem":45,"muted":false,"net_ip":"192.168.1.42","net_signal":82,"notif_count":2,"popup":"settings","power_profile":"balanced","theme":"gruvbox","tray_items":[{"address":":1.100","icon":"","id":"steam","title":"Steam"},{"address":":1.101","icon":"","id":"discord","title":"Discord"}],"uptime":"3 hours, 12 min","user":"user","vol":72,"wifi":"HomeNetwork","wifi_nets":[{"active":true,"secure":true,"signal":82,"ssid":"HomeNetwork"},{"active":false,"secure":true,"signal":54,"ssid":"Neighbor_5G"},{"active":false,"secure":false,"signal":31,"ssid":"CoffeeShop"}],"windows":[{"app_id":"firefox","focused":true,"icon":"","id":1,"title":"Firefox"},{"app_id":"kitty","focused":false,"icon":"","id":2,"title":"Terminal"},{"app_id":"code","focused":false,"icon":"","id":3,"title":"Code"}],"ws":[{"active":true,"idx":1},{"active":false,"idx":2},{"active":false,"idx":3}]});
+    }
+  }, 2000);
+});
+</script>
+</body>
+</html>
