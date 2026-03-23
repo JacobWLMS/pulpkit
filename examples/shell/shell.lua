@@ -265,37 +265,9 @@ function view(state)
         text({style="text-sm text-muted"}, I.cpu.." "..state.cpu.."%"),
         text({style="text-sm text-muted"}, I.ram.." "..state.ram_u.."/"..state.ram_t.."G"),
         ibtn(state.wifi~="" and I.wifi_4 or I.wifi_off, msg("toggle","wifi")),
-        ibtn(I.bright, msg("toggle","bright")),
         has_bat and ibtn(bat_i(state.bat,state.bat_st), msg("toggle","bat")) or spacer(),
-        ibtn(vol_i(state.vol,state.muted), msg("toggle","audio")),
         ibtn(I.settings, msg("toggle","settings")),
         ibtn(I.power, msg("toggle","power")))))
-
-  -- ── Audio popup ────────────────────────────────
-  if state.popup=="audio" then
-    S[#S+1] = popup("audio", {anchor="top right",width=300,height=180,dismiss_on_outside=true},
-      col({style="bg-surface w-full h-full rounded-lg p-4 gap-3"},
-        row({style="items-center gap-3"},
-          text({style="text-xl text-fg"}, vol_i(state.vol,state.muted)),
-          col({style="gap-1"},
-            text({style="text-base text-fg font-bold"}, "Volume"),
-            caption(state.muted and "Muted" or (state.vol.."%")))),
-        slider({value=state.vol, min=0, max=100, on_change=msg("set_vol")}),
-        button({on_click=msg("toggle_mute"), style="px-3 py-1 rounded hover:bg-overlay items-center gap-2"},
-          text({style="text-sm text-fg"}, state.muted and "Unmute" or "Mute"))))
-  end
-
-  -- ── Brightness popup ───────────────────────────
-  if state.popup=="bright" then
-    S[#S+1] = popup("bright", {anchor="top right",width=300,height=140,dismiss_on_outside=true},
-      col({style="bg-surface w-full h-full rounded-lg p-4 gap-3"},
-        row({style="items-center gap-3"},
-          text({style="text-xl text-fg"}, I.bright),
-          col({style="gap-1"},
-            text({style="text-base text-fg font-bold"}, "Brightness"),
-            caption(state.bright.."%"))),
-        slider({value=state.bright, min=0, max=100, on_change=msg("set_bri")})))
-  end
 
   -- ── Battery popup ──────────────────────────────
   if state.popup=="bat" then
