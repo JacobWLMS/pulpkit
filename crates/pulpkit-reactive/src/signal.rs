@@ -50,7 +50,26 @@ impl<T: Clone + 'static> Signal<T> {
     }
 
     /// Set a new value and notify all subscribers.
-    pub fn set(&self, value: T) {
+    /// If the new value equals the old value, this is a no-op (no notifications).
+    pub fn set(&self, value: T)
+    where
+        T: PartialEq,
+    {
+        let mut inner = self.inner.borrow_mut();
+        if inner.value == value {
+            return; // no change — skip notification entirely
+        }
+        inner.value = value;
+        let subscribers: Vec<SubscriberId> = inner.subscribers.clone();
+        drop(inner);
+        if !subscribers.is_empty() {
+            ReactiveRuntime::notify_subscribers(&subscribers);
+        }
+    }
+
+    /// Set unconditionally — always notifies even if value is the same.
+    /// Use when T doesn't implement PartialEq or you need forced updates.
+    pub fn set_force(&self, value: T) {
         let mut inner = self.inner.borrow_mut();
         inner.value = value;
         let subscribers: Vec<SubscriberId> = inner.subscribers.clone();
