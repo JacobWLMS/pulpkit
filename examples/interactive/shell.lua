@@ -4,8 +4,7 @@ function init()
     user = "...",
     host = "...",
     vol = 50,
-    dark = true,
-    clicks = 0,
+    popup_open = false,
   }
 end
 
@@ -18,16 +17,16 @@ function update(state, msg)
     state.host = msg.data or "?"
   elseif msg.type == "set_vol" then
     state.vol = msg.data or state.vol
-  elseif msg.type == "toggle_dark" then
-    state.dark = not state.dark
-  elseif msg.type == "clicked" then
-    state.clicks = state.clicks + 1
+  elseif msg.type == "toggle_popup" then
+    state.popup_open = not state.popup_open
+  elseif msg.type == "dismiss" then
+    state.popup_open = false
   end
   return state
 end
 
 function view(state)
-  return {
+  local surfaces = {
     window("bar", { anchor = "top", height = 32, exclusive = true, monitor = "all" },
       row({ style = "bg-base w-full h-full items-center px-3 gap-3" },
         -- Left: branding
@@ -36,8 +35,10 @@ function view(state)
 
         spacer(),
 
-        -- Volume text
-        text({ style = "text-xs text-muted" }, "vol:" .. math.floor(state.vol)),
+        -- Volume button (toggles popup)
+        button({ on_click = msg("toggle_popup"), style = "p-1 hover:bg-surface rounded" },
+          text({ style = "text-xs text-fg" }, "\u{f028} " .. math.floor(state.vol))
+        ),
 
         -- System info
         text({ style = "text-xs text-muted" }, state.user .. "@" .. state.host),
@@ -45,6 +46,25 @@ function view(state)
       )
     )
   }
+
+  -- Popup: volume control
+  if state.popup_open then
+    table.insert(surfaces, popup("vol", {
+      anchor = "top right", width = 240, height = 100,
+      dismiss_on_outside = true,
+    },
+      col({ style = "bg-surface w-full h-full rounded-lg p-4 gap-3" },
+        row({ style = "items-center gap-2" },
+          text({ style = "text-xs text-muted" }, "\u{f028}"),
+          text({ style = "text-xs text-fg" }, "Volume")
+        ),
+        slider({ value = state.vol, min = 0, max = 100, on_change = msg("set_vol") }),
+        text({ style = "text-xs text-muted" }, math.floor(state.vol) .. "%")
+      )
+    ))
+  end
+
+  return surfaces
 end
 
 function subscribe(state)
