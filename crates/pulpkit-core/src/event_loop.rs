@@ -190,20 +190,46 @@ pub fn run(
                 }
             }
 
-            // Call view() and update surfaces
+            // Call view() and diff surfaces
             match bridge.view(lua) {
                 Ok(new_defs) => {
+                    // Update existing surfaces
                     for surface in surfaces.iter_mut() {
-                        for def in &new_defs {
-                            if def.name == surface.def.name {
-                                if surface.def.root != def.root {
-                                    surface.def = def.clone();
-                                    surface.mark_dirty();
-                                }
-                                break;
+                        if let Some(def) = new_defs.iter().find(|d| d.name == surface.def.name) {
+                            if surface.def.root != def.root {
+                                surface.def = def.clone();
+                                surface.mark_dirty();
                             }
                         }
                     }
+
+                    // Create new popup surfaces
+                    for def in &new_defs {
+                        if def.kind == pulpkit_layout::SurfaceKind::Popup {
+                            if !surfaces.iter().any(|s| s.name() == def.name) {
+                                match crate::runtime::create_popup_surface(def, client) {
+                                    Ok(managed) => {
+                                        log::info!("Created popup: {}", def.name);
+                                        surfaces.push(managed);
+                                    }
+                                    Err(e) => log::error!("Failed to create popup {}: {e}", def.name),
+                                }
+                            }
+                        }
+                    }
+
+                    // Remove popup surfaces no longer in view
+                    surfaces.retain(|s| {
+                        if s.def.kind == pulpkit_layout::SurfaceKind::Popup {
+                            let keep = new_defs.iter().any(|d| d.name == s.def.name);
+                            if !keep {
+                                log::info!("Destroyed popup: {}", s.def.name);
+                            }
+                            keep
+                        } else {
+                            true // keep all windows
+                        }
+                    });
                 }
                 Err(e) => {
                     log::error!("Lua view() error: {e}");

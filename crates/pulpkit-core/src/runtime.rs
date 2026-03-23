@@ -210,6 +210,44 @@ fn create_surfaces(
     Ok(surfaces)
 }
 
+/// Create a popup layer-shell surface from a SurfaceDef.
+pub fn create_popup_surface(
+    def: &SurfaceDef,
+    client: &mut WaylandClient,
+) -> anyhow::Result<ManagedSurface> {
+    use pulpkit_wayland::{PopupAnchor, SurfaceMargins};
+
+    let width = def.width.unwrap_or(300);
+    let height = def.height.unwrap_or(200);
+
+    let popup_anchor = match def.anchor.as_str() {
+        "top left" => PopupAnchor::TopLeft,
+        "top right" => PopupAnchor::TopRight,
+        "bottom left" => PopupAnchor::BottomLeft,
+        "bottom right" => PopupAnchor::BottomRight,
+        "center" => PopupAnchor::Center,
+        _ => PopupAnchor::TopLeft,
+    };
+
+    let surface = LayerSurface::new_popup(
+        &mut client.state,
+        popup_anchor,
+        width,
+        height,
+        SurfaceMargins::default(),
+        format!("pulpkit-popup-{}", def.name),
+        None,
+    )?;
+
+    Ok(ManagedSurface {
+        def: def.clone(),
+        surface,
+        layout: None,
+        dirty: true,
+        frame_ready: true,
+    })
+}
+
 fn start_subscription(
     manager: &mut SubscriptionManager,
     sub_def: &pulpkit_lua::SubscriptionDef,

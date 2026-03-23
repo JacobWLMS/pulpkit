@@ -18,6 +18,11 @@ pub struct ManagedSurface {
 }
 
 impl ManagedSurface {
+    /// Get the surface name.
+    pub fn name(&self) -> &str {
+        &self.def.name
+    }
+
     /// Render the surface: layout + paint + commit.
     pub fn render(&mut self, text_renderer: &TextRenderer, theme: &Theme, hovered_node: Option<usize>) {
         let w = self.surface.width();
