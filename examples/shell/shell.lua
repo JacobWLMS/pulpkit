@@ -61,20 +61,22 @@ function update(state, msg)
   if t == "tick" then
     state.time = os.date("%H:%M")
     -- Poll CPU/RAM on each tick via Lua io
-    local cpu_f = io.popen("top -bn1 | grep 'Cpu(s)' | awk '{print $8}'")
+    -- CPU: read /proc/stat for instant measurement (no top overhead)
+    local cpu_f = io.popen("awk '/^cpu /{u=$2+$4; t=$2+$4+$5; print int(u*100/t)}' /proc/stat")
     if cpu_f then
-      local idle = cpu_f:read("*l")
-      if idle then state.cpu = math.floor(100 - tonumber(idle)) end
+      local val = cpu_f:read("*l")
+      if val then state.cpu = tonumber(val) or 0 end
       cpu_f:close()
     end
-    local ram_f = io.popen("free -m | awk '/Mem:/{print $2\" \"$3}'")
+    -- RAM: show in GB with one decimal
+    local ram_f = io.popen("free -m | awk '/Mem:/{printf \"%.1f %.1f\", $3/1024, $2/1024}'")
     if ram_f then
       local line = ram_f:read("*l")
       if line then
-        local total, used = line:match("(%d+)%s+(%d+)")
-        if total then
-          state.ram_total = math.floor(tonumber(total) / 1024)
-          state.ram_used = math.floor(tonumber(used) / 1024)
+        local used, total = line:match("(%S+)%s+(%S+)")
+        if used then
+          state.ram_used = used
+          state.ram_total = total
         end
       end
       ram_f:close()
@@ -82,11 +84,11 @@ function update(state, msg)
   elseif t == "user" then state.user = msg.data or "?"
   elseif t == "host" then state.host = msg.data or "?"
 
-  -- Audio
+  -- Audio (wpctl returns "Volume: 0.42" or "Volume: 0.42 [MUTED]")
   elseif t == "audio_info" then
     if msg.data then
-      local vol = msg.data:match("(%d+)%%")
-      if vol then state.vol = tonumber(vol) end
+      local vol = msg.data:match("Volume:%s*(%d+%.?%d*)")
+      if vol then state.vol = math.floor(tonumber(vol) * 100) end
       state.muted = msg.data:find("%[MUTED%]") ~= nil
     end
   elseif t == "set_vol" then
@@ -250,7 +252,7 @@ function view(state)
 
       -- Resource monitor
       text({ style = "text-xs text-muted" }, "CPU " .. state.cpu .. "%"),
-      text({ style = "text-xs text-muted" }, "RAM " .. state.ram_used .. "/" .. state.ram_total .. "M"),
+      text({ style = "text-xs text-muted" }, "RAM " .. state.ram_used .. "/" .. state.ram_total .. "G"),
 
       -- Right: status icons
       icon_btn(I.wifi, msg("toggle", "wifi")),
