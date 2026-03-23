@@ -12,8 +12,42 @@ pub fn paint_tree(
     layout: &LayoutResult,
     font_family: &str,
 ) {
-    for layout_node in layout.nodes.iter() {
+    // Track scroll container clip/restore points.
+    // Stack of (end_index) — when we reach end_index, restore canvas state.
+    let mut scroll_restore_stack: Vec<usize> = Vec::new();
+
+    for (i, layout_node) in layout.nodes.iter().enumerate() {
+        // Check if we need to restore from a scroll container.
+        while scroll_restore_stack.last().is_some_and(|&end| i >= end) {
+            canvas.restore();
+            scroll_restore_stack.pop();
+        }
+
         match &layout_node.source_node {
+            Node::ScrollContainer { style, scroll_offset, children, .. } => {
+                let resolved = style.resolve();
+                if let Some(bg) = resolved.bg_color {
+                    canvas.draw_rounded_rect(
+                        layout_node.x, layout_node.y,
+                        layout_node.width, layout_node.height,
+                        resolved.border_radius, bg,
+                    );
+                }
+                // Clip to container bounds and translate by scroll offset.
+                let offset = scroll_offset.get().as_f64() as f32;
+                canvas.save();
+                canvas.clip_rect(
+                    layout_node.x, layout_node.y,
+                    layout_node.width, layout_node.height,
+                );
+                canvas.translate(0.0, -offset);
+
+                // Calculate end index: self + all descendants.
+                let child_count: usize = children.iter()
+                    .map(|c| 1 + crate::flex::count_descendants_pub(c))
+                    .sum();
+                scroll_restore_stack.push(i + 1 + child_count);
+            }
             Node::Container { style, .. } => {
                 let resolved = style.resolve();
                 if let Some(bg) = resolved.bg_color {
@@ -56,6 +90,36 @@ pub fn paint_tree(
                                 bg,
                             );
                         }
+                    }
+                    InteractiveKind::Input { text, placeholder, .. } => {
+                        let resolved = style.resolve();
+                        if let Some(bg) = resolved.bg_color {
+                            canvas.draw_rounded_rect(
+                                layout_node.x, layout_node.y,
+                                layout_node.width, layout_node.height,
+                                resolved.border_radius, bg,
+                            );
+                        }
+                        let val = text.get();
+                        let display = match &val {
+                            pulpkit_reactive::DynValue::Str(s) if !s.is_empty() => s.as_str(),
+                            _ => placeholder.as_str(),
+                        };
+                        let color = match &val {
+                            pulpkit_reactive::DynValue::Str(s) if !s.is_empty() => {
+                                resolved.text_color.unwrap_or_default()
+                            }
+                            _ => Color::from_hex("#8a929a").unwrap_or_default(), // muted for placeholder
+                        };
+                        let font_size = resolved.font_size.unwrap_or(14.0);
+                        canvas.draw_text(
+                            display,
+                            layout_node.x + resolved.padding_left,
+                            layout_node.y + resolved.padding_top,
+                            font_size,
+                            font_family,
+                            color,
+                        );
                     }
                     InteractiveKind::Slider {
                         value,
@@ -182,5 +246,10 @@ pub fn paint_tree(
             }
             Node::Spacer => {} // nothing to paint
         }
+    }
+
+    // Restore any remaining scroll clips.
+    while scroll_restore_stack.pop().is_some() {
+        canvas.restore();
     }
 }

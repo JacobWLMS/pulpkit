@@ -290,4 +290,73 @@ function lib.popup_toggle()
     function() show:set(false) end
 end
 
+-- ============================================================================
+-- Compound widgets
+-- ============================================================================
+
+--- Radio group: mutually exclusive options.
+--- Usage: lib.radio_group({"Power Saver", "Balanced", "Performance"}, selected_signal)
+function lib.radio_group(options, selected_signal, opts)
+  opts = opts or {}
+  local children = {}
+  for i, option in ipairs(options) do
+    local label = type(option) == "table" and option.label or option
+    local value = type(option) == "table" and option.value or i
+    local icon = type(option) == "table" and option.icon or nil
+    local h = signal(false)
+
+    local btn_children = {}
+    if icon then
+      btn_children[#btn_children+1] = text(lib.text_styles.icon .. " text-fg", icon)
+    end
+    btn_children[#btn_children+1] = text(function()
+      return selected_signal:get() == value
+        and (lib.text_styles.body .. " text-primary font-bold")
+        or (lib.text_styles.body .. " text-fg")
+    end, label)
+
+    children[#children+1] = button(function()
+      local sel = selected_signal:get() == value
+      local hov = h:get()
+      if sel then return lib.spacing.btn_pad .. " items-center " .. lib.spacing.item_gap .. " bg-overlay" end
+      if hov then return lib.spacing.btn_pad .. " items-center " .. lib.spacing.item_gap .. " bg-overlay" end
+      return lib.spacing.btn_pad .. " items-center " .. lib.spacing.item_gap
+    end, {
+      on_click = function()
+        selected_signal:set(value)
+        if opts.on_change then opts.on_change(value) end
+      end,
+      on_hover = function() h:set(true) end,
+      on_hover_lost = function() h:set(false) end,
+    }, btn_children)
+  end
+
+  local direction = opts.direction or "col"
+  if direction == "row" then
+    return row("items-center " .. (opts.gap or lib.spacing.item_gap), children)
+  else
+    return col(opts.gap or lib.spacing.item_gap, children)
+  end
+end
+
+--- Scrollable list wrapper.
+--- Usage: lib.scroll_list(style, children)
+function lib.scroll_list(style, children)
+  return scroll(style, children)
+end
+
+--- Separator line.
+function lib.separator()
+  return row("w-full h-1 bg-outline", {})
+end
+
+--- Info row: label on left, value on right.
+function lib.info_row(label, value)
+  return row("items-center " .. lib.spacing.item_gap, {
+    text(lib.text_styles.small .. " text-muted", label),
+    spacer(),
+    text(lib.text_styles.small .. " text-fg", value),
+  })
+end
+
 return lib

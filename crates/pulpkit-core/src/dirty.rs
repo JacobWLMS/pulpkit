@@ -51,6 +51,15 @@ fn wire_node(node: &Node, dirty: &Rc<Cell<bool>>, wake: &Sender<RuntimeEvent>) {
                 wire_node(child, dirty, wake);
             }
         }
+        Node::ScrollContainer {
+            children, style, scroll_offset, ..
+        } => {
+            wire_style_prop(style, dirty, wake);
+            wire_signal(scroll_offset, dirty, wake);
+            for child in children {
+                wire_node(child, dirty, wake);
+            }
+        }
         Node::Interactive {
             style,
             kind,
@@ -64,6 +73,9 @@ fn wire_node(node: &Node, dirty: &Rc<Cell<bool>>, wake: &Sender<RuntimeEvent>) {
                 }
                 InteractiveKind::Toggle { checked, .. } => {
                     wire_signal(checked, dirty, wake);
+                }
+                InteractiveKind::Input { text, .. } => {
+                    wire_signal(text, dirty, wake);
                 }
                 InteractiveKind::Button { .. } => {}
             }

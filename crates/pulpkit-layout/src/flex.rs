@@ -91,6 +91,22 @@ fn build_taffy_node(
             order.insert(insert_idx, (id, node.clone()));
             id
         }
+        Node::ScrollContainer { style, children, .. } => {
+            // Layout like a column container. Scroll offset is handled in paint.
+            let resolved = style.resolve();
+            let taffy_style = to_taffy_style(&resolved, Direction::Column, false);
+            let child_ids: Vec<taffy::NodeId> = children
+                .iter()
+                .map(|c| build_taffy_node(tree, c, order, text_renderer, font_family))
+                .collect();
+            let id = tree
+                .new_with_children(taffy_style, &child_ids)
+                .expect("failed to create taffy scroll container");
+            let insert_idx = order.len() - children.len()
+                - children.iter().map(|c| count_descendants(c)).sum::<usize>();
+            order.insert(insert_idx, (id, node.clone()));
+            id
+        }
         Node::Image { style, width: img_w, height: img_h, .. } => {
             let resolved = style.resolve();
             let mut taffy_style = to_taffy_style(&resolved, Direction::Row, false);
@@ -155,6 +171,22 @@ fn build_taffy_node(
                     order.push((id, node.clone()));
                     id
                 }
+                InteractiveKind::Input { text, .. } => {
+                    let val = text.get();
+                    let display_text = match &val {
+                        pulpkit_reactive::DynValue::Str(s) if !s.is_empty() => s.clone(),
+                        _ => String::from("WWWWWWWWWW"),
+                    };
+                    let font_size = resolved.font_size.unwrap_or(14.0);
+                    let (_tw, th) = text_renderer.measure(&display_text, font_size, font_family);
+                    let mut taffy_style = to_taffy_style(&resolved, Direction::Row, false);
+                    taffy_style.size.height = Dimension::from_length(th.max(20.0));
+                    let id = tree
+                        .new_leaf(taffy_style)
+                        .expect("failed to create taffy input leaf");
+                    order.push((id, node.clone()));
+                    id
+                }
                 InteractiveKind::Button { .. } => {
                     // Button is laid out exactly like a Container (row direction by default).
                     let taffy_style = to_taffy_style(&resolved, Direction::Row, false);
@@ -210,10 +242,14 @@ fn build_taffy_node(
     }
 }
 
-/// Count all descendant nodes (not including self).
+/// Count all descendant nodes (not including self). Public for paint.rs.
+pub fn count_descendants_pub(node: &Node) -> usize {
+    count_descendants(node)
+}
+
 fn count_descendants(node: &Node) -> usize {
     match node {
-        Node::Container { children, .. } => {
+        Node::Container { children, .. } | Node::ScrollContainer { children, .. } => {
             children.iter().map(|c| 1 + count_descendants(c)).sum()
         }
         Node::Interactive { children, kind, .. } => {

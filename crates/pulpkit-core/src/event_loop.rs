@@ -160,7 +160,7 @@ pub fn run(
                     } => {
                         let scroll_up = *delta < 0.0;
                         if events::dispatch_scroll(
-                            surfaces, popups, *x, *y, surface_id, scroll_up,
+                            surfaces, popups, *x, *y, surface_id, scroll_up, *delta,
                         ) {
                             any_handler_fired = true;
                         }

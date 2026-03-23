@@ -59,6 +59,14 @@ pub enum Node {
         /// Display height in pixels.
         height: f32,
     },
+    /// Scrollable container — clips children and offsets by scroll amount.
+    /// Height is fixed (from style or parent), content can overflow vertically.
+    ScrollContainer {
+        style: Prop<StyleProps>,
+        children: Vec<Node>,
+        /// Current vertical scroll offset in pixels (positive = scrolled down).
+        scroll_offset: Signal<DynValue>,
+    },
     /// Spacer (flex-grow: 1, takes remaining space).
     Spacer,
     /// Dynamic list — resolves children from a reactive data source with
@@ -98,6 +106,13 @@ pub enum InteractiveKind {
         checked: Signal<DynValue>,
         on_change: Option<Rc<dyn Fn(bool)>>,
         accent_color: Option<Color>,
+    },
+    /// Text input field.
+    Input {
+        text: Signal<DynValue>,
+        on_change: Option<Rc<dyn Fn(String)>>,
+        on_submit: Option<Rc<dyn Fn(String)>>,
+        placeholder: String,
     },
 }
 

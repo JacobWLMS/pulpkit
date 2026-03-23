@@ -157,6 +157,51 @@ pub fn register_widgets(lua: &Lua, theme: Arc<Theme>) -> LuaResult<()> {
         lua.globals().set("image", image_fn)?;
     }
 
+    // input(style, opts) -> LuaNode
+    // Text input field. opts: { text = signal, placeholder = string, on_change = fn, on_submit = fn }
+    {
+        let t = theme.clone();
+        let input_fn = lua.create_function(move |lua, (style_val, opts): (LuaValue, LuaTable)| {
+            let style = value_to_style_prop(lua, style_val, &t)?;
+
+            let text_ud: LuaAnyUserData = opts.get("text")?;
+            let text_signal = text_ud.borrow::<crate::signals::LuaSignal>()?.0.clone();
+
+            let placeholder: String = opts.get::<Option<String>>("placeholder")?.unwrap_or_default();
+            let on_change = wrap_lua_callback_string(lua, opts.get::<Option<LuaFunction>>("on_change")?)?;
+            let on_submit = wrap_lua_callback_string(lua, opts.get::<Option<LuaFunction>>("on_submit")?)?;
+
+            Ok(LuaNode(Node::Interactive {
+                style,
+                kind: InteractiveKind::Input {
+                    text: text_signal,
+                    on_change,
+                    on_submit,
+                    placeholder,
+                },
+                children: Vec::new(),
+            }))
+        })?;
+        lua.globals().set("input", input_fn)?;
+    }
+
+    // scroll(style, children) -> LuaNode
+    // Scrollable vertical container. Scroll wheel adjusts offset.
+    {
+        let t = theme.clone();
+        let scroll_fn = lua.create_function(move |lua, (style_val, children): (LuaValue, LuaTable)| {
+            let style = value_to_style_prop(lua, style_val, &t)?;
+            let nodes = table_to_nodes(&children)?;
+            let scroll_offset = pulpkit_reactive::Signal::new(pulpkit_reactive::DynValue::Float(0.0));
+            Ok(LuaNode(Node::ScrollContainer {
+                style,
+                children: nodes,
+                scroll_offset,
+            }))
+        })?;
+        lua.globals().set("scroll", scroll_fn)?;
+    }
+
     // button(style, opts, children?) -> LuaNode
     //
     // style: string or function (reactive)
@@ -478,6 +523,23 @@ fn wrap_lua_callback_f64(lua: &Lua, func: Option<LuaFunction>) -> LuaResult<Opti
 
 /// Store a Lua function in the registry and return an `Rc<dyn Fn(bool)>` that
 /// calls it with a `bool` argument. Returns `None` if the input is `None`.
+fn wrap_lua_callback_string(lua: &Lua, func: Option<LuaFunction>) -> LuaResult<Option<Rc<dyn Fn(String)>>> {
+    match func {
+        None => Ok(None),
+        Some(f) => {
+            let key = lua.create_registry_value(f)?;
+            let lua_clone = lua.clone();
+            Ok(Some(Rc::new(move |v: String| {
+                if let Ok(func) = lua_clone.registry_value::<LuaFunction>(&key) {
+                    if let Err(e) = func.call::<()>(v) {
+                        log::error!("Input callback error: {e}");
+                    }
+                }
+            })))
+        }
+    }
+}
+
 fn wrap_lua_callback_bool(lua: &Lua, func: Option<LuaFunction>) -> LuaResult<Option<Rc<dyn Fn(bool)>>> {
     match func {
         None => Ok(None),

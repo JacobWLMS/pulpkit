@@ -93,6 +93,10 @@ fn dispatch_click_on_layout(layout: &LayoutResult, x: f32, y: f32) -> ClickResul
                     }
                     return ClickResult::Handled;
                 }
+                InteractiveKind::Input { .. } => {
+                    // Clicking an input focuses it (handled by popup keyboard system).
+                    return ClickResult::Handled;
+                }
             },
             _ => {}
         }
@@ -111,6 +115,7 @@ pub fn dispatch_scroll(
     y: f64,
     surface_id: &ObjectId,
     scroll_up: bool,
+    delta: f64,
 ) -> bool {
     let fx = x as f32;
     let fy = y as f32;
@@ -119,6 +124,9 @@ pub fn dispatch_scroll(
     for popup in popups {
         if popup.surface_id().as_ref() == Some(surface_id) {
             if let Some(layout) = popup.layout() {
+                if dispatch_scroll_container(layout, fx, fy, delta) {
+                    return true;
+                }
                 if let Some(handled) = dispatch_scroll_on_layout(layout, fx, fy, scroll_up) {
                     return handled;
                 }
@@ -130,6 +138,9 @@ pub fn dispatch_scroll(
     for surface in surfaces {
         if surface.surface.surface_id() == *surface_id {
             if let Some(ref layout) = surface.layout {
+                if dispatch_scroll_container(layout, fx, fy, delta) {
+                    return true;
+                }
                 if let Some(handled) = dispatch_scroll_on_layout(layout, fx, fy, scroll_up) {
                     return handled;
                 }
@@ -137,6 +148,22 @@ pub fn dispatch_scroll(
         }
     }
 
+    false
+}
+
+/// Check if scroll should be handled by a ScrollContainer node.
+fn dispatch_scroll_container(layout: &LayoutResult, x: f32, y: f32, delta: f64) -> bool {
+    for node in layout.nodes.iter().rev() {
+        if x < node.x || x > node.x + node.width || y < node.y || y > node.y + node.height {
+            continue;
+        }
+        if let Node::ScrollContainer { scroll_offset, .. } = &node.source_node {
+            let current = scroll_offset.get().as_f64();
+            let new_val = (current + delta * 3.0).max(0.0); // multiply for sensitivity
+            scroll_offset.set(DynValue::Float(new_val));
+            return true;
+        }
+    }
     false
 }
 

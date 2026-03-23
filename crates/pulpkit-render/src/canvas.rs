@@ -120,6 +120,27 @@ impl<'a> Canvas<'a> {
         );
     }
 
+    /// Save the current canvas state (clip, transform).
+    pub fn save(&mut self) {
+        self.surface.canvas().save();
+    }
+
+    /// Restore the previously saved canvas state.
+    pub fn restore(&mut self) {
+        self.surface.canvas().restore();
+    }
+
+    /// Clip all subsequent drawing to the given rectangle.
+    pub fn clip_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        let rect = Rect::from_xywh(x, y, w, h);
+        self.surface.canvas().clip_rect(rect, None, Some(true));
+    }
+
+    /// Translate all subsequent drawing by (dx, dy).
+    pub fn translate(&mut self, dx: f32, dy: f32) {
+        self.surface.canvas().translate((dx, dy));
+    }
+
     /// Flush all pending drawing operations to the backing pixel buffer.
     ///
     /// For raster (CPU) surfaces, drawing is immediate so this is a no-op.
