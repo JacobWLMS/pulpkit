@@ -6,4 +6,5 @@ license.workspace = true
 
 [dependencies]
 skia-safe.workspace = true
+resvg.workspace = true
 anyhow.workspace = true

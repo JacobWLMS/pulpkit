@@ -31,5 +31,6 @@ calloop = "0.14"
 skia-safe = "0.93"
 taffy = "0.9"
 mlua = { version = "0.11", features = ["luajit", "vendored"] }
+resvg = "0.44"
 anyhow = "1"
 log = "0.4"
