@@ -251,9 +251,9 @@ pub fn create_popup_surface(
         _ => PopupAnchor::TopLeft,
     };
 
-    // For top-centered popups, use margins to position below the bar
-    let margins = if def.anchor == "top" || def.anchor == "top center" {
-        SurfaceMargins { top: 44, ..Default::default() } // below bar
+    // Push all top-anchored popups below the bar
+    let margins = if def.anchor.starts_with("top") {
+        SurfaceMargins { top: 52, right: 8, ..Default::default() }
     } else {
         SurfaceMargins::default()
     };
